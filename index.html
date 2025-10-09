@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Compras Otimizada</title>
+
+    <meta property="og:title" content="Minha Lista de Compras Otimizada" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Sua lista de compras inteligente com comparador de preços e otimização." />
+
+    <link rel="icon" href="https://raw.githubusercontent.com/google/material-design-icons/master/png/action/shopping_cart/materialicons/48dp/1x/baseline_shopping_cart_black_48dp.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <style>
+        /* ESTILOS COPIADOS E ADAPTADOS DO SEU ARQUIVO INDEX.HTML */
+        :root {
+            --bg-color: #212121;
+            --card-color: #2c2c2c;
+            --text-color: #f0f0f0;
+            --secondary-text-color: #a0a0a0;
+            --primary-color: #ffc107;
+            --green-highlight: #4CAF50;
+            --border-radius: 12px;
+            --input-bg-color: #383838;
+            --menu-width: 250px;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* --- HEADER --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--input-bg-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: var(--bg-color);
+        }
+
+        .header .menu-icon {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--primary-color);
+            padding: 5px;
+        }
+
+        .header .title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .header .title i {
+            margin-right: 8px;
+            color: var(--primary-color);
+        }
+
+        /* --- SIDE MENU --- */
+        .side-menu {
+            height: 100%; width: 0; position: fixed; z-index: 1001; top: 0; left: 0;
+            background-color: var(--card-color); overflow-x: hidden; transition: 0.3s;
+            padding-top: 60px; box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+        }
+        .side-menu.open { width: var(--menu-width); }
+        .side-menu .close-btn { position: absolute; top: 15px; right: 25px; font-size: 2rem; color: var(--primary-color); cursor: pointer; line-height: 1; }
+        .side-menu a { padding: 15px 20px; text-decoration: none; font-size: 1.1rem; color: var(--text-color); display: block; transition: 0.3s; border-bottom: 1px solid var(--input-bg-color); }
+        .side-menu a:hover { background-color: #575757; color: var(--primary-color); }
+        .side-menu a i { color: var(--primary-color); width: 20px; text-align: center; margin-right: 10px; }
+
+        /* --- PAGE OVERLAY --- */
+        #page-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; display: none; transition: opacity 0.3s; }
+        #page-overlay.show { display: block; }
+
+        /* --- CONTEÚDO PRINCIPAL --- */
+        .container { padding: 16px; max-width: 1200px; margin: 0 auto; flex-grow: 1; }
+        .section { background-color: var(--card-color); padding: 20px; border-radius: var(--border-radius); margin-bottom: 24px; }
+        .section h2 { margin: 0 0 16px; font-size: 1.5rem; color: var(--primary-color); border-bottom: 1px solid var(--input-bg-color); padding-bottom: 10px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+        /* --- BOTÕES --- */
+        .custom-btn {
+            background-color: var(--primary-color); color: var(--bg-color); border: none; border-radius: 8px;
+            cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 10px 15px; transition: background-color 0.3s;
+        }
+        .custom-btn:hover { background-color: #ffd54f; }
+        .custom-btn.secondary { background-color: var(--input-bg-color); color: var(--text-color); }
+        .custom-btn.secondary:hover { background-color: #555; }
+        .button-group { display: flex; gap: 10px; }
+
+        /* --- FORMULÁRIO DE ADIÇÃO --- */
+        .add-item-form { display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-bottom: 20px; }
+        .add-item-form input { width: 100%; padding: 12px; background-color: var(--input-bg-color); border: 1px solid transparent; border-radius: 8px; color: var(--text-color); font-size: 1rem; transition: border-color 0.3s; }
+        .add-item-form input:focus { outline: none; border-color: var(--primary-color); }
+
+        /* --- TABELA DA LISTA DE COMPRAS --- */
+        .shopping-list-table { width: 100%; border-collapse: collapse; }
+        .shopping-list-table th, .shopping-list-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--input-bg-color); }
+        .shopping-list-table th { font-size: 0.8rem; color: var(--secondary-text-color); text-transform: uppercase; }
+        .shopping-list-table td input[type="text"] { background: none; border: none; color: var(--text-color); font-size: 1rem; width: 100%; padding: 4px; border-radius: 4px; transition: all 0.2s ease-in-out; }
+        .shopping-list-table td input[type="text"]:focus { outline: none; background-color: var(--input-bg-color); }
+        .shopping-list-table .remove-btn { background: none; border: none; color: #f44336; cursor: pointer; font-size: 1.2rem; transition: color 0.3s; }
+        .shopping-list-table .remove-btn:hover { color: #ff7961; }
+        .cheapest-price { color: var(--green-highlight) !important; font-weight: bold; } /* NOVO: Estilo para o preço mais barato */
+        .cheapest-price::before { content: "✔ "; } /* NOVO: Adiciona um checkmark */
+
+        /* --- SEÇÃO DO EMBED --- */
+        .iframe-wrapper { position: relative; border-radius: var(--border-radius); overflow: hidden; }
+        .iframe-wrapper iframe { display: block; width: 100%; height: 600px; border: none; }
+        #iframe-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 5; color: var(--text-color); text-align: center; }
+        .loader { border: 4px solid var(--input-bg-color); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <div id="side-menu" class="side-menu">
+        <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
+        <a href="#"><i class="fas fa-list-check"></i> Minha Lista</a>
+        <a href="#"><i class="fas fa-history"></i> Histórico</a>
+        <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
+        <a href="#"><i class="fas fa-cog"></i> Configurações</a>
+    </div>
+    <div id="page-overlay" onclick="closeNav()"></div>
+
+    <div id="main-content-wrapper">
+        <div class="header">
+            <span class="menu-icon" onclick="openNav()">&#9776;</span>
+            <span class="title">
+                <i class="fas fa-shopping-cart"></i>
+                Lista de Compras
+            </span>
+        </div>
+
+        <div class="container">
+            <div class="section">
+                <div class="section-header">
+                    <h2>Meus Itens</h2>
+                    <button class="custom-btn" onclick="sortAndGroup()">
+                        <i class="fas fa-sort-amount-down"></i> Ordenar por Mercado
+                    </button>
+                </div>
+                <div class="add-item-form">
+                    <input type="text" id="itemName" placeholder="Adicionar novo item..." required>
+                    <button class="custom-btn" onclick="addItem()"><i class="fas fa-plus"></i></button>
+                </div>
+                <table class="shopping-list-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Shibata</th>
+                            <th>Nagumo</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="shopping-list-body">
+                        </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2>Comparador de Preços</h2>
+                <div class="iframe-wrapper">
+                    <div id="iframe-overlay">
+                        <div class="loader"></div>
+                        <span>Acordando o comparador...</span>
+                    </div>
+                    <iframe id="streamlit-app" src="https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/?embed=true"></iframe>
+                </div>
+                <div class="button-group" style="margin-top: 16px;">
+                     <button class="custom-btn" onclick="wakeUpApp()" style="flex-grow: 1;">
+                        <i class="fas fa-sync-alt"></i> Ativar / Atualizar
+                    </button>
+                    <a href="https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/" target="_blank" rel="noopener noreferrer" class="custom-btn secondary" style="flex-grow: 1; text-align: center; text-decoration: none; line-height: 1.8;">
+                        <i class="fas fa-external-link-alt"></i> Abrir em Nova Guia
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            Feito para facilitar suas compras. 🛒💡
+        </footer>
+    </div> 
+
+    <script>
+        // --- Funções do Menu Lateral ---
+        function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
+        function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
+        document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
+
+        // --- Funções da Lista de Compras ---
+        function addItem() {
+            const itemNameInput = document.getElementById('itemName');
+            const itemName = itemNameInput.value.trim();
+            if (itemName === '') { alert('Por favor, insira o nome do item.'); return; }
+
+            const tableBody = document.getElementById('shopping-list-body');
+            const newRow = tableBody.insertRow();
+
+            newRow.innerHTML = `
+                <td>${itemName}</td>
+                <td><input type="text" placeholder="R$ 0,00" oninput="comparePrices(this)" onblur="formatCurrency(this)"></td>
+                <td><input type="text" placeholder="R$ 0,00" oninput="comparePrices(this)" onblur="formatCurrency(this)"></td>
+                <td><button class="remove-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
+            `;
+
+            itemNameInput.value = '';
+            itemNameInput.focus();
+        }
+
+        document.getElementById('itemName').addEventListener('keypress', (event) => { if (event.key === 'Enter') { event.preventDefault(); addItem(); } });
+        function removeItem(button) { button.closest('tr').remove(); }
+
+        // --- NOVAS FUNÇÕES ---
+
+        // Formata o valor do input para o padrão R$ 0,00 ao sair do campo
+        function formatCurrency(input) {
+            let value = input.value;
+            if (!value) return; // Se estiver vazio, não faz nada
+            
+            // Remove tudo que não for dígito ou vírgula/ponto
+            value = value.replace(/[^0-9,.]/g, '').replace(',', '.');
+            let number = parseFloat(value);
+
+            if (isNaN(number)) {
+                input.value = ''; // Limpa se não for um número válido
+            } else {
+                input.value = `R$ ${number.toFixed(2).replace('.', ',')}`;
+            }
+        }
+
+        // Converte o valor formatado (ex: "R$ 5,50") para um número (ex: 5.50)
+        function parseValueToFloat(value) {
+            if (!value) return NaN;
+            return parseFloat(value.replace('R$ ', '').replace('.', '').replace(',', '.'));
+        }
+
+        // Compara os preços na mesma linha e destaca o mais barato
+        function comparePrices(input) {
+            const row = input.closest('tr');
+            const shibataInput = row.cells[1].querySelector('input');
+            const nagumoInput = row.cells[2].querySelector('input');
+
+            // Remove o destaque de ambos antes de comparar
+            shibataInput.classList.remove('cheapest-price');
+            nagumoInput.classList.remove('cheapest-price');
+
+            const shibataPrice = parseValueToFloat(shibataInput.value);
+            const nagumoPrice = parseValueToFloat(nagumoInput.value);
+
+            if (isNaN(shibataPrice) || isNaN(nagumoPrice)) return;
+
+            if (shibataPrice < nagumoPrice) {
+                shibataInput.classList.add('cheapest-price');
+            } else if (nagumoPrice < shibataPrice) {
+                nagumoInput.classList.add('cheapest-price');
+            }
+        }
+
+        // Ordena a tabela, agrupando por mercado mais barato
+        function sortAndGroup() {
+            const tableBody = document.getElementById('shopping-list-body');
+            const rows = Array.from(tableBody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                const priceA = {
+                    shibata: parseValueToFloat(a.cells[1].querySelector('input').value),
+                    nagumo: parseValueToFloat(a.cells[2].querySelector('input').value)
+                };
+                const priceB = {
+                    shibata: parseValueToFloat(b.cells[1].querySelector('input').value),
+                    nagumo: parseValueToFloat(b.cells[2].querySelector('input').value)
+                };
+
+                // Define uma pontuação para cada linha: 1=Shibata, 2=Nagumo, 3=Outros
+                const getScore = (price) => {
+                    if (isNaN(price.shibata) || isNaN(price.nagumo)) return 3;
+                    if (price.shibata < price.nagumo) return 1; // Shibata mais barato
+                    if (price.nagumo < price.shibata) return 2; // Nagumo mais barato
+                    return 3; // Empate ou sem preço
+                };
+
+                return getScore(priceA) - getScore(priceB);
+            });
+
+            // Limpa e reaplicar as linhas ordenadas na tabela
+            rows.forEach(row => tableBody.appendChild(row));
+        }
+
+
+        // --- SOLUÇÃO PARA "ACORDAR" O STREAMLIT (CORRIGIDA) ---
+        const streamlitIframe = document.getElementById('streamlit-app');
+        const iframeOverlay = document.getElementById('iframe-overlay');
+
+        function wakeUpApp() {
+            iframeOverlay.style.display = 'flex';
+            
+            // CORREÇÃO: Adiciona um parâmetro de tempo ao URL.
+            // Isso força o navegador a buscar uma nova versão da página, ignorando o cache.
+            const baseUrl = "https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/?embed=true";
+            streamlitIframe.src = `${baseUrl}&t=${new Date().getTime()}`;
+        }
+
+        streamlitIframe.addEventListener('load', () => {
+            iframeOverlay.style.display = 'none';
+        });
+
+        // Adiciona um exemplo inicial para visualização
+        document.addEventListener('DOMContentLoaded', () => {
+             const items = ["Arroz (5kg)", "Feijão (1kg)", "Óleo de Soja", "Café (500g)"];
+             items.forEach(item => {
+                 document.getElementById('itemName').value = item;
+                 addItem();
+             });
+        });
+    </script>
+</body>
+</html>
