@@ -13,7 +13,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
     <style>
-        /* ESTILOS COPIADOS E ADAPTADOS DO SEU ARQUIVO INDEX.HTML */
         :root {
             --bg-color: #212121;
             --card-color: #2c2c2c;
@@ -110,21 +109,25 @@
         .custom-btn.secondary:hover { background-color: #555; }
         .button-group { display: flex; gap: 10px; }
 
-        /* --- FORMULÁRIO DE ADIÇÃO --- */
-        .add-item-form { display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-bottom: 20px; }
-        .add-item-form input { width: 100%; padding: 12px; background-color: var(--input-bg-color); border: 1px solid transparent; border-radius: 8px; color: var(--text-color); font-size: 1rem; transition: border-color 0.3s; }
-        .add-item-form input:focus { outline: none; border-color: var(--primary-color); }
-
         /* --- TABELA DA LISTA DE COMPRAS --- */
         .shopping-list-table { width: 100%; border-collapse: collapse; }
-        .shopping-list-table th, .shopping-list-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--input-bg-color); }
+        .shopping-list-table th, .shopping-list-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--input-bg-color); vertical-align: middle; }
         .shopping-list-table th { font-size: 0.8rem; color: var(--secondary-text-color); text-transform: uppercase; }
         .shopping-list-table td input[type="text"] { background: none; border: none; color: var(--text-color); font-size: 1rem; width: 100%; padding: 4px; border-radius: 4px; transition: all 0.2s ease-in-out; }
         .shopping-list-table td input[type="text"]:focus { outline: none; background-color: var(--input-bg-color); }
-        .shopping-list-table .remove-btn { background: none; border: none; color: #f44336; cursor: pointer; font-size: 1.2rem; transition: color 0.3s; }
-        .shopping-list-table .remove-btn:hover { color: #ff7961; }
-        .cheapest-price { color: var(--green-highlight) !important; font-weight: bold; } /* NOVO: Estilo para o preço mais barato */
-        .cheapest-price::before { content: "✔ "; } /* NOVO: Adiciona um checkmark */
+        .shopping-list-table .action-btn { background: none; border: none; color: #f44336; cursor: pointer; font-size: 1.2rem; transition: color 0.3s; }
+        .shopping-list-table .action-btn:hover { color: #ff7961; }
+        .shopping-list-table .action-btn.add { color: var(--green-highlight); }
+        .shopping-list-table .action-btn.add:hover { color: #81c784; }
+        .cheapest-price { color: var(--green-highlight) !important; font-weight: bold; }
+        .cheapest-price::before { content: "✔ "; }
+        .shopping-list-table td input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+
+        /* Estilo para item comprado */
+        .purchased input[type="text"] {
+            text-decoration: line-through;
+            color: var(--secondary-text-color);
+        }
 
         /* --- SEÇÃO DO EMBED --- */
         .iframe-wrapper { position: relative; border-radius: var(--border-radius); overflow: hidden; }
@@ -132,7 +135,7 @@
         #iframe-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 5; color: var(--text-color); text-align: center; }
         .loader { border: 4px solid var(--input-bg-color); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
+
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
     </style>
 </head>
@@ -160,21 +163,15 @@
             <div class="section">
                 <div class="section-header">
                     <h2>Meus Itens</h2>
-                    <button class="custom-btn" onclick="sortAndGroup()">
-                        <i class="fas fa-sort-amount-down"></i> Ordenar por Mercado
-                    </button>
-                </div>
-                <div class="add-item-form">
-                    <input type="text" id="itemName" placeholder="Adicionar novo item..." required>
-                    <button class="custom-btn" onclick="addItem()"><i class="fas fa-plus"></i></button>
                 </div>
                 <table class="shopping-list-table">
                     <thead>
                         <tr>
+                            <th style="width: 40px;"><i class="fas fa-check"></i></th>
                             <th>Item</th>
                             <th>Shibata</th>
                             <th>Nagumo</th>
-                            <th></th>
+                            <th style="width: 40px;"></th>
                         </tr>
                     </thead>
                     <tbody id="shopping-list-body">
@@ -213,115 +210,147 @@
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
         document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
 
-        // --- Funções da Lista de Compras ---
-        function addItem() {
-            const itemNameInput = document.getElementById('itemName');
-            const itemName = itemNameInput.value.trim();
-            if (itemName === '') { alert('Por favor, insira o nome do item.'); return; }
+        // --- LÓGICA DA LISTA DE COMPRAS (ATUALIZADA) ---
 
-            const tableBody = document.getElementById('shopping-list-body');
-            const newRow = tableBody.insertRow();
+        const tableBody = document.getElementById('shopping-list-body');
+
+        // Cria a linha inicial para adicionar um novo item
+        function createAddItemRow() {
+            const newRow = tableBody.insertRow(0); // Insere no topo
+            newRow.classList.add('add-item-row');
 
             newRow.innerHTML = `
-                <td>${itemName}</td>
+                <td></td>
+                <td><input type="text" id="newItemName" placeholder="Adicionar novo item..."></td>
                 <td><input type="text" placeholder="R$ 0,00" oninput="comparePrices(this)" onblur="formatCurrency(this)"></td>
                 <td><input type="text" placeholder="R$ 0,00" oninput="comparePrices(this)" onblur="formatCurrency(this)"></td>
-                <td><button class="remove-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
+                <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>
             `;
 
-            itemNameInput.value = '';
-            itemNameInput.focus();
+            const newItemInput = document.getElementById('newItemName');
+            newItemInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitItem();
+                }
+            });
+            newItemInput.focus();
         }
 
-        document.getElementById('itemName').addEventListener('keypress', (event) => { if (event.key === 'Enter') { event.preventDefault(); addItem(); } });
-        function removeItem(button) { button.closest('tr').remove(); }
+        // Converte a linha de "adicionar" em um item da lista
+        function commitItem() {
+            const addItemRow = document.querySelector('.add-item-row');
+            const itemNameInput = document.getElementById('newItemName');
+            const itemName = itemNameInput.value.trim();
 
-        // --- NOVAS FUNÇÕES ---
+            if (itemName === '') {
+                alert('Por favor, insira o nome do item.');
+                return;
+            }
 
-        // Formata o valor do input para o padrão R$ 0,00 ao sair do campo
+            // Transforma a linha atual
+            addItemRow.classList.remove('add-item-row');
+            const cells = addItemRow.cells;
+            cells[0].innerHTML = '<input type="checkbox">';
+            cells[1].innerHTML = `<input type="text" value="${itemName}">`;
+            cells[4].innerHTML = '<button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button>';
+
+            // Cria uma nova linha de adição no topo
+            createAddItemRow();
+        }
+
+        function removeItem(button) {
+            button.closest('tr').remove();
+        }
+
+        // Adiciona um listener para as checkboxes
+        tableBody.addEventListener('change', function(event) {
+            if (event.target.type === 'checkbox') {
+                event.target.closest('tr').classList.toggle('purchased', event.target.checked);
+            }
+        });
+
+
+        // --- FUNÇÕES DE FORMATAÇÃO E COMPARAÇÃO ---
+
         function formatCurrency(input) {
             let value = input.value;
-            if (!value) return; // Se estiver vazio, não faz nada
-            
-            // Remove tudo que não for dígito ou vírgula/ponto
+            if (!value) return;
+
             value = value.replace(/[^0-9,.]/g, '').replace(',', '.');
             let number = parseFloat(value);
 
             if (isNaN(number)) {
-                input.value = ''; // Limpa se não for um número válido
+                input.value = '';
             } else {
                 input.value = `R$ ${number.toFixed(2).replace('.', ',')}`;
             }
         }
 
-        // Converte o valor formatado (ex: "R$ 5,50") para um número (ex: 5.50)
         function parseValueToFloat(value) {
             if (!value) return NaN;
             return parseFloat(value.replace('R$ ', '').replace('.', '').replace(',', '.'));
         }
 
-        // Compara os preços na mesma linha e destaca o mais barato
         function comparePrices(input) {
             const row = input.closest('tr');
-            const shibataInput = row.cells[1].querySelector('input');
-            const nagumoInput = row.cells[2].querySelector('input');
+            // Ignora a linha de adicionar item
+            if (row.classList.contains('add-item-row')) return;
 
-            // Remove o destaque de ambos antes de comparar
+            const shibataInput = row.cells[2].querySelector('input');
+            const nagumoInput = row.cells[3].querySelector('input');
+
             shibataInput.classList.remove('cheapest-price');
             nagumoInput.classList.remove('cheapest-price');
 
             const shibataPrice = parseValueToFloat(shibataInput.value);
             const nagumoPrice = parseValueToFloat(nagumoInput.value);
 
-            if (isNaN(shibataPrice) || isNaN(nagumoPrice)) return;
-
-            if (shibataPrice < nagumoPrice) {
-                shibataInput.classList.add('cheapest-price');
-            } else if (nagumoPrice < shibataPrice) {
-                nagumoInput.classList.add('cheapest-price');
+            if (!isNaN(shibataPrice) && !isNaN(nagumoPrice)) {
+                if (shibataPrice < nagumoPrice) {
+                    shibataInput.classList.add('cheapest-price');
+                } else if (nagumoPrice < shibataPrice) {
+                    nagumoInput.classList.add('cheapest-price');
+                }
             }
+            // Ordena a lista após cada atualização de preço
+            sortAndGroup();
         }
 
         // Ordena a tabela, agrupando por mercado mais barato
         function sortAndGroup() {
-            const tableBody = document.getElementById('shopping-list-body');
-            const rows = Array.from(tableBody.querySelectorAll('tr'));
+            const rows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
 
             rows.sort((a, b) => {
-                const priceA = {
-                    shibata: parseValueToFloat(a.cells[1].querySelector('input').value),
-                    nagumo: parseValueToFloat(a.cells[2].querySelector('input').value)
-                };
-                const priceB = {
-                    shibata: parseValueToFloat(b.cells[1].querySelector('input').value),
-                    nagumo: parseValueToFloat(b.cells[2].querySelector('input').value)
-                };
+                const getScore = (row) => {
+                    // Itens comprados vão para o final
+                    if (row.classList.contains('purchased')) return 4;
 
-                // Define uma pontuação para cada linha: 1=Shibata, 2=Nagumo, 3=Outros
-                const getScore = (price) => {
+                    const price = {
+                        shibata: parseValueToFloat(row.cells[2].querySelector('input').value),
+                        nagumo: parseValueToFloat(row.cells[3].querySelector('input').value)
+                    };
+
                     if (isNaN(price.shibata) || isNaN(price.nagumo)) return 3;
                     if (price.shibata < price.nagumo) return 1; // Shibata mais barato
                     if (price.nagumo < price.shibata) return 2; // Nagumo mais barato
                     return 3; // Empate ou sem preço
                 };
 
-                return getScore(priceA) - getScore(priceB);
+                return getScore(a) - getScore(b);
             });
 
-            // Limpa e reaplicar as linhas ordenadas na tabela
+            // Re-adiciona as linhas ordenadas na tabela
             rows.forEach(row => tableBody.appendChild(row));
         }
 
 
-        // --- SOLUÇÃO PARA "ACORDAR" O STREAMLIT (CORRIGIDA) ---
+        // --- SOLUÇÃO PARA "ACORDAR" O STREAMLIT ---
         const streamlitIframe = document.getElementById('streamlit-app');
         const iframeOverlay = document.getElementById('iframe-overlay');
 
         function wakeUpApp() {
             iframeOverlay.style.display = 'flex';
-            
-            // CORREÇÃO: Adiciona um parâmetro de tempo ao URL.
-            // Isso força o navegador a buscar uma nova versão da página, ignorando o cache.
             const baseUrl = "https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/?embed=true";
             streamlitIframe.src = `${baseUrl}&t=${new Date().getTime()}`;
         }
@@ -330,14 +359,8 @@
             iframeOverlay.style.display = 'none';
         });
 
-        // Adiciona um exemplo inicial para visualização
-        document.addEventListener('DOMContentLoaded', () => {
-             const items = ["Arroz (5kg)", "Feijão (1kg)", "Óleo de Soja", "Café (500g)"];
-             items.forEach(item => {
-                 document.getElementById('itemName').value = item;
-                 addItem();
-             });
-        });
+        // Inicia a aplicação criando a primeira linha para adição
+        document.addEventListener('DOMContentLoaded', createAddItemRow);
     </script>
 </body>
 </html>
