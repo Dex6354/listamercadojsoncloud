@@ -344,14 +344,11 @@
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
-                // Se for o valor padrão, seleciona tudo para facilitar a substituição.
                 if (target.classList.contains('default-price') || target.value.trim() === 'R$ 0,00') {
                     target.select();
                     target.classList.remove('default-price');
                 } else {
-                    // Para valores existentes, move o cursor para o final.
                     const valLength = target.value.length;
-                    // Usar um pequeno timeout garante que a ação ocorra após o foco padrão do navegador.
                     setTimeout(() => {
                         target.setSelectionRange(valLength, valLength);
                     }, 0);
@@ -363,22 +360,14 @@
         // Handler para o evento BLUR (formata, compara, reordena e aplica R$ 0,00 se vazio)
         tableBody.addEventListener('blur', (event) => {
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
-
-                // 1. Formata a moeda (ex: 10 -> R$ 10,00)
                 formatCurrency(event.target);
-
-                // 2. Verifica se o campo está vazio ou zero após a formatação
                 if (event.target.value.trim() === '' || parseValueToFloat(event.target.value) === 0) {
                      event.target.value = 'R$ 0,00';
-                     event.target.classList.add('default-price'); // Aplica estilo cinza
+                     event.target.classList.add('default-price');
                 } else {
                      event.target.classList.remove('default-price');
                 }
-
-                // 3. Compara e Reordena (depois que o valor final foi definido)
                 comparePrices(event.target);
-
-                // 4. Salva
                 saveList();
             }
         }, true);
@@ -390,7 +379,6 @@
             const newRow = tableBody.insertRow(0);
             newRow.classList.add('add-item-row');
 
-            // oninput/onblur removidos, gerenciados pelos listeners globais
             newRow.innerHTML = `
                 <td></td>
                 <td><textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1"></textarea></td>
@@ -426,14 +414,12 @@
             const shibataInputCommit = addItemRow.cells[2].querySelector('input');
             const nagumoInputCommit = addItemRow.cells[3].querySelector('input');
 
-            // Chama o blur para garantir a formatação e o R$ 0,00 antes de commitar
             shibataInputCommit.dispatchEvent(new Event('blur', { bubbles: true }));
             nagumoInputCommit.dispatchEvent(new Event('blur', { bubbles: true }));
 
             let shibataValue = shibataInputCommit.value || 'R$ 0,00';
             let nagumoValue = nagumoInputCommit.value || 'R$ 0,00';
 
-            // Reconstroi a linha
             addItemRow.innerHTML = `
                 <td><input type="checkbox" onchange="togglePurchased(this)"></td>
                 <td><textarea class="item-name-input" rows="1">${itemName}</textarea></td>
@@ -447,11 +433,10 @@
             const shibataInput = addItemRow.cells[2].querySelector('input');
             const nagumoInput = addItemRow.cells[3].querySelector('input');
 
-            // Aplica a classe default se for zero
             if (parseValueToFloat(shibataInput.value) === 0) shibataInput.classList.add('default-price');
             if (parseValueToFloat(nagumoInput.value) === 0) nagumoInput.classList.add('default-price');
 
-            comparePrices(shibataInput); // Reordena
+            comparePrices(shibataInput);
 
             saveList();
             createAddItemRow();
@@ -481,11 +466,9 @@
             const shibataInput = newRow.cells[2].querySelector('input');
             const nagumoInput = newRow.cells[3].querySelector('input');
 
-            // Garante a formatação ao carregar
             formatCurrency(shibataInput);
             formatCurrency(nagumoInput);
 
-            // Aplica a classe default se for zero
             if (parseValueToFloat(shibataInput.value) === 0) shibataInput.classList.add('default-price');
             if (parseValueToFloat(nagumoInput.value) === 0) nagumoInput.classList.add('default-price');
 
@@ -512,13 +495,15 @@
         }
 
         function removeItem(button) {
-            button.closest('tr').remove();
-            saveList();
+            // Adiciona um pop-up de confirmação antes de remover o item
+            if (confirm('Tem certeza de que deseja remover este item?')) {
+                button.closest('tr').remove();
+                saveList();
+            }
         }
 
         function togglePurchased(checkbox) {
             checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
-            // NÃO chama sortAndGroup aqui para NÃO ALTERAR A ORDEM (mantendo a regra do usuário)
             saveList();
         }
 
@@ -536,7 +521,6 @@
             let value = input.value;
             if (!value) return;
 
-            // Remove R$, espaços e substitui vírgula por ponto
             value = value.replace('R$', '').trim().replace(/[^0-9,.]/g, '').replace(',', '.');
             let number = parseFloat(value);
 
@@ -588,27 +572,18 @@
 
             rows.sort((a, b) => {
                 const getScore = (row) => {
-                    // Não considera o status 'purchased' na ordenação de preço (mantendo a regra do usuário)
-
                     const price = {
                         shibata: parseValueToFloat(row.cells[2].querySelector('input').value),
                         nagumo: parseValueToFloat(row.cells[3].querySelector('input').value)
                     };
 
-                    // Tratamos 0 ou NaN como infinito (não válido) para a comparação de menor preço.
                     const pS = (!isNaN(price.shibata) && price.shibata > 0) ? price.shibata : Infinity;
                     const pN = (!isNaN(price.nagumo) && price.nagumo > 0) ? price.nagumo : Infinity;
 
-                    // 1: Sem preço válido, ou preços iguais (Maior Prioridade - Fica em primeiro)
                     if ((pS === Infinity && pN === Infinity) || pS === pN) return 1;
-
-                    // 2: Shibata é estritamente mais barato
                     if (pS < pN) return 2;
-
-                    // 3: Nagumo é estritamente mais barato
                     if (pN < pS) return 3;
-
-                    return 1; // Fallback para a primeira prioridade (iguais/zero)
+                    return 1;
                 };
 
                 return getScore(a) - getScore(b);
@@ -643,27 +618,21 @@
 
         // --- LÓGICA PARA REMOVER FOCO AO FECHAR TECLADO VIRTUAL (ANDROID/IOS) ---
         function setupVirtualKeyboardListener() {
-            if (!window.visualViewport) return; // Se a API não existe, não faz nada.
+            if (!window.visualViewport) return;
 
             const isLikelyKeyboardOpen = () => {
-                // O teclado é considerado aberto se a altura do viewport visual for
-                // significantemente menor que a altura da janela (ex: > 150px).
                 return window.innerHeight - window.visualViewport.height > 150;
             }
 
-            // Armazena o último estado conhecido do teclado
             let keyboardWasOpen = isLikelyKeyboardOpen();
 
             window.visualViewport.addEventListener('resize', () => {
                 const keyboardIsOpen = isLikelyKeyboardOpen();
-                // Se o teclado estava aberto e agora não está...
                 if (keyboardWasOpen && !keyboardIsOpen) {
-                    // ...remove o foco do elemento ativo, se for um campo de texto.
                     if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
                          document.activeElement.blur();
                     }
                 }
-                // Atualiza o estado para a próxima verificação
                 keyboardWasOpen = keyboardIsOpen;
             });
         }
