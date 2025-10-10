@@ -21,6 +21,7 @@
             --primary-color: #ffc107;
             --green-highlight: #4CAF50;
             --danger-color: #f44336;
+            --yellow-sync-color: #ffc107;
             --border-radius: 12px;
             --input-bg-color: #383838;
             --menu-width: 250px;
@@ -59,11 +60,6 @@
         .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
         .header .title i { margin-right: 8px; color: var(--primary-color); }
         
-        /* NOVO: Estilo para o status de salvamento */
-        #save-status { font-size: 0.8rem; color: var(--secondary-text-color); transition: opacity 0.5s; opacity: 0; position: absolute; right: 16px; }
-        #save-status.show { opacity: 1; }
-
-
         /* --- SIDE MENU & OVERLAY --- */
         .side-menu { height: 100%; width: 0; position: fixed; z-index: 1001; top: 0; left: 0; background-color: var(--card-color); overflow-x: hidden; transition: 0.3s; padding-top: 60px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
         .side-menu.open { width: var(--menu-width); }
@@ -74,7 +70,7 @@
         #page-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; display: none; transition: opacity 0.3s; }
         #page-overlay.show { display: block; }
 
-        /* --- CONTEÚDO PRINCIPAL (LARGURA TOTAL) --- */
+        /* --- CONTEÚDO PRINCIPAL --- */
         .container {
             padding: 0;
             max-width: 100%;
@@ -117,97 +113,30 @@
         .custom-btn:hover { background-color: #ffd54f; }
         .custom-btn.secondary { background-color: var(--input-bg-color); color: var(--text-color); }
         .custom-btn.secondary:hover { background-color: #555; }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-        }
-        .button-group .custom-btn, .button-group a {
-             border-radius: 8px;
-        }
+        .button-group { display: flex; gap: 10px; }
+        .button-group .custom-btn, .button-group a { border-radius: 8px; }
 
         /* --- TABELA E PREÇOS --- */
-        .table-scroll-wrapper {
-            overflow-x: auto;
-            width: 100%;
-        }
-
-        .shopping-list-table {
-            width: auto;
-            min-width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
-        .shopping-list-table th, .shopping-list-table td {
-            padding: 12px 8px;
-            text-align: left;
-            border-bottom: 1px solid var(--input-bg-color);
-            vertical-align: middle;
-        }
-        .shopping-list-table th {
-            font-size: 0.8rem;
-            color: var(--secondary-text-color);
-            text-transform: uppercase;
-        }
-
+        .table-scroll-wrapper { overflow-x: auto; width: 100%; }
+        .shopping-list-table { width: auto; min-width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .shopping-list-table th, .shopping-list-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--input-bg-color); vertical-align: middle; }
+        .shopping-list-table th { font-size: 0.8rem; color: var(--secondary-text-color); text-transform: uppercase; }
         .shopping-list-table th:first-child, .shopping-list-table td:first-child { padding-left: 16px; }
         .shopping-list-table th:last-child, .shopping-list-table td:last-child { padding-right: 16px; }
-
-        .price-cell {
-            padding: 0 !important;
-            width: 80px;
-            text-align: right;
-        }
-
-        .price-cell input {
-            width: 100%;
-            padding: 12px 8px;
-            text-align: right;
-            background-color: var(--card-color);
-            color: var(--text-color);
-            border: none;
-            border-radius: 0 !important;
-        }
-
-        /* Estilo cinza para o valor R$ 0,00 */
-        .price-cell input.default-price {
-            color: var(--secondary-text-color) !important;
-        }
-
-        .price-cell:first-of-type {
-            border-right: 1px solid var(--input-bg-color);
-        }
-
-        /* Estilos para o campo de nome (textarea) */
-        .item-name-input {
-            width: 100%;
-            background: none;
-            border: none;
-            color: var(--text-color);
-            font-size: 1rem;
-            font-family: inherit;
-            padding: 4px 0;
-            border-radius: 4px;
-            resize: none;
-            overflow-y: hidden;
-            line-height: 1.4;
-            transition: all 0.2s ease-in-out;
-        }
+        .price-cell { padding: 0 !important; width: 80px; text-align: right; }
+        .price-cell input { width: 100%; padding: 12px 8px; text-align: right; background-color: var(--card-color); color: var(--text-color); border: none; border-radius: 0 !important; }
+        .price-cell input.default-price { color: var(--secondary-text-color) !important; }
+        .price-cell:first-of-type { border-right: 1px solid var(--input-bg-color); }
+        .item-name-input { width: 100%; background: none; border: none; color: var(--text-color); font-size: 1rem; font-family: inherit; padding: 4px 0; border-radius: 4px; resize: none; overflow-y: hidden; line-height: 1.4; transition: all 0.2s ease-in-out; }
         .item-name-input:focus { outline: none; background-color: var(--input-bg-color); }
-
         .shopping-list-table .action-btn { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 1.2rem; transition: color 0.3s; padding: 0; }
         .shopping-list-table .action-btn:hover { color: #ff7961; }
         .shopping-list-table .action-btn.add { color: var(--green-highlight); }
         .shopping-list-table .action-btn.add:hover { color: #81c784; }
-
         .cheapest-price { color: var(--green-highlight) !important; font-weight: bold; }
         .cheapest-price::before { content: "✔ "; }
-
         .shopping-list-table td input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
-        .purchased .item-name-input, .purchased input[type="text"] {
-            text-decoration: line-through;
-            color: var(--secondary-text-color);
-        }
+        .purchased .item-name-input, .purchased input[type="text"] { text-decoration: line-through; color: var(--secondary-text-color); }
 
         /* --- SEÇÃO DO EMBED --- */
         .iframe-container { position: relative; border-radius: var(--border-radius); overflow: hidden; padding-top: 125%; }
@@ -218,16 +147,30 @@
 
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
 
-        /* Media Query para telas maiores para aumentar a largura do item */
-        @media (min-width: 768px) {
-            .shopping-list-table colgroup col:nth-child(2) { width: 450px; }
+        /* NOVO: Estilo para o indicador de status de sincronização */
+        #sync-status-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: var(--green-highlight);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 1002;
+            transition: background-color 0.5s ease;
         }
-        @media (min-width: 1024px) {
-            .shopping-list-table colgroup col:nth-child(2) { width: 550px; }
-        }
+        #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
+        #sync-status-indicator.status-error { background-color: var(--danger-color); }
+        #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
+
+
+        @media (min-width: 768px) { .shopping-list-table colgroup col:nth-child(2) { width: 450px; } }
+        @media (min-width: 1024px) { .shopping-list-table colgroup col:nth-child(2) { width: 550px; } }
     </style>
 </head>
 <body>
+    <div id="sync-status-indicator"></div>
 
     <div id="side-menu" class="side-menu">
         <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
@@ -245,7 +188,6 @@
                 <i class="fas fa-shopping-cart"></i>
                 Lista de Compras
             </span>
-            <span id="save-status"></span>
         </div>
 
         <div class="container">
@@ -307,21 +249,27 @@
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
         document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
 
-        // --- LÓGICA DA LISTA DE COMPRAS (INTEGRADA COM API) ---
+        // --- LÓGICA DA LISTA DE COMPRAS (INTEGRADA COM API E TEMPO REAL) ---
 
         const tableBody = document.getElementById('shopping-list-body');
-        const saveStatus = document.getElementById('save-status'); // NOVO
-        let saveTimeout; // NOVO
+        const statusIndicator = document.getElementById('sync-status-indicator');
+        let saveTimeout;
+        let syncState = 'saved'; // Estados: 'saved', 'syncing', 'error'
 
-        // NOVO: Função para mostrar status de salvamento
-        function showStatus(message, isError = false) {
-            saveStatus.textContent = message;
-            saveStatus.style.color = isError ? 'var(--danger-color)' : 'var(--secondary-text-color)';
-            saveStatus.classList.add('show');
-            setTimeout(() => saveStatus.classList.remove('show'), 3000);
+        // ATUALIZADO: Controla o indicador de status visual
+        function setSyncStatus(newState) {
+            syncState = newState;
+            statusIndicator.className = `status-${newState}`;
+            if (newState === 'error') {
+                setTimeout(() => {
+                    if (syncState === 'error') {
+                       setSyncStatus('saved'); // Volta para verde se nenhum outro erro ocorreu
+                    }
+                }, 3000);
+            }
         }
 
-        // NOVO: Função Debounce para evitar chamadas excessivas à API
+        // Função Debounce para evitar chamadas excessivas à API
         function debounce(func, delay) {
             return function(...args) {
                 clearTimeout(saveTimeout);
@@ -329,9 +277,8 @@
             };
         }
         
-        // ATUALIZADO: Salva os dados na nuvem via API
-        async function saveListOnline() {
-            showStatus('Salvando...');
+        // Função para obter os itens atuais da tabela
+        function getCurrentLocalItems() {
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
                 items.push({
@@ -341,6 +288,13 @@
                     purchased: row.classList.contains('purchased')
                 });
             });
+            return items;
+        }
+        
+        // Salva os dados na nuvem via API
+        async function saveListOnline() {
+            setSyncStatus('syncing');
+            const items = getCurrentLocalItems();
 
             try {
                 const response = await fetch('/api/list', {
@@ -349,13 +303,12 @@
                     body: JSON.stringify(items)
                 });
                 if (!response.ok) throw new Error('Falha ao salvar.');
-                showStatus('Salvo na nuvem!');
+                setSyncStatus('saved');
             } catch (error) {
-                showStatus('Erro ao salvar!', true);
+                setSyncStatus('error');
             }
         }
         
-        // NOVO: Constante para a função de salvar com debounce
         const debouncedSave = debounce(saveListOnline, 1000);
 
         // Função para auto-ajustar a altura do textarea
@@ -364,17 +317,16 @@
             textarea.style.height = textarea.scrollHeight + 'px';
         }
 
-        // ATUALIZADO: Listener global para chamar debouncedSave
         tableBody.addEventListener('input', (event) => {
             if (event.target.tagName.toLowerCase() === 'textarea') {
                 autoResizeTextarea(event.target);
             }
             if (['textarea', 'input'].includes(event.target.tagName.toLowerCase())) {
+                setSyncStatus('syncing');
                 debouncedSave();
             }
         });
 
-        // Handler para o evento FOCUS (seleciona R$ 0,00 ou posiciona o cursor no final)
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
@@ -390,8 +342,6 @@
             }
         }, true);
 
-
-        // ATUALIZADO: Handler para o evento BLUR para chamar debouncedSave
         tableBody.addEventListener('blur', (event) => {
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
                 formatCurrency(event.target);
@@ -402,14 +352,13 @@
                      event.target.classList.remove('default-price');
                 }
                 comparePrices(event.target);
+                setSyncStatus('syncing');
                 debouncedSave();
             }
         }, true);
 
-        // Cria a linha inicial para adicionar um novo item
         function createAddItemRow() {
             document.querySelector('.add-item-row')?.remove();
-
             const newRow = tableBody.insertRow(0);
             newRow.classList.add('add-item-row');
 
@@ -431,7 +380,6 @@
             newItemInput.focus();
         }
 
-        // Converte a linha de "adicionar" em um item da lista
         function commitItem() {
             const addItemRow = document.querySelector('.add-item-row');
             if (!addItemRow) return;
@@ -443,42 +391,17 @@
                 return;
             }
 
-            addItemRow.classList.remove('add-item-row');
-
-            const shibataInputCommit = addItemRow.cells[2].querySelector('input');
-            const nagumoInputCommit = addItemRow.cells[3].querySelector('input');
-
-            shibataInputCommit.dispatchEvent(new Event('blur', { bubbles: true }));
-            nagumoInputCommit.dispatchEvent(new Event('blur', { bubbles: true }));
-
-            let shibataValue = shibataInputCommit.value || 'R$ 0,00';
-            let nagumoValue = nagumoInputCommit.value || 'R$ 0,00';
-
-            addItemRow.innerHTML = `
-                <td><input type="checkbox" onchange="togglePurchased(this)"></td>
-                <td><textarea class="item-name-input" rows="1">${itemName}</textarea></td>
-                <td class="price-cell"><input type="text" value="${shibataValue}"></td>
-                <td class="price-cell"><input type="text" value="${nagumoValue}"></td>
-                <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
-            `;
-
-            autoResizeTextarea(addItemRow.cells[1].querySelector('textarea'));
-
-            const shibataInput = addItemRow.cells[2].querySelector('input');
-            const nagumoInput = addItemRow.cells[3].querySelector('input');
-
-            if (parseValueToFloat(shibataInput.value) === 0) shibataInput.classList.add('default-price');
-            if (parseValueToFloat(nagumoInput.value) === 0) nagumoInput.classList.add('default-price');
-
-            comparePrices(shibataInput);
-
-            debouncedSave(); // ATUALIZADO
+            addItemRow.remove(); // Remove temporariamente para adicionar o item real
+            buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true);
+            
+            sortAndGroup();
+            setSyncStatus('syncing');
+            debouncedSave();
             createAddItemRow();
         }
 
-        // Constrói uma linha da lista a partir de um objeto de dados
-        function buildItemRow(itemData) {
-            const newRow = tableBody.insertRow(tableBody.rows.length);
+        function buildItemRow(itemData, isNew = false) {
+            const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
             if (itemData.purchased) {
                 newRow.classList.add('purchased');
             }
@@ -507,59 +430,81 @@
             if (parseValueToFloat(nagumoInput.value) === 0) nagumoInput.classList.add('default-price');
 
             comparePrices(shibataInput);
-
             return newRow;
         }
+        
+        // NOVO: Função para redesenhar a tabela preservando o estado da linha de adição
+        function redrawTable(items) {
+            const addItemRow = document.querySelector('.add-item-row');
+            let newItemName = '', newItemShibata = '', newItemNagumo = '';
+            if (addItemRow) {
+                newItemName = addItemRow.querySelector('textarea').value;
+                const priceInputs = addItemRow.querySelectorAll('input[type="text"]');
+                newItemShibata = priceInputs[0].value;
+                newItemNagumo = priceInputs[1].value;
+            }
 
-        // ATUALIZADO: Carrega a lista da nuvem
+            tableBody.innerHTML = ''; // Limpa a tabela
+            if (items && items.length > 0) {
+                items.forEach(item => buildItemRow(item));
+                sortAndGroup();
+            }
+            createAddItemRow();
+
+            // Restaura os valores
+            const newAddItemRow = document.querySelector('.add-item-row');
+            if (newAddItemRow) {
+                newAddItemRow.querySelector('textarea').value = newItemName;
+                const newPriceInputs = newAddItemRow.querySelectorAll('input[type="text"]');
+                newPriceInputs[0].value = newItemShibata;
+                newPriceInputs[1].value = newItemNagumo;
+            }
+        }
+
         async function loadListOnline() {
-            showStatus('Carregando...');
+            setSyncStatus('syncing');
             try {
                 const response = await fetch('/api/list');
                 if (!response.ok) throw new Error('Falha ao buscar dados.');
                 const items = await response.json();
-                tableBody.innerHTML = '';
-                if (items && items.length > 0) {
-                    items.forEach(buildItemRow);
-                    sortAndGroup();
-                }
-                showStatus('Lista carregada.', false);
+                
+                redrawTable(items); // Usa a função de redesenhar
+                
+                setSyncStatus('saved');
             } catch (error) {
-                showStatus('Erro ao carregar!', true);
-            } finally {
-                createAddItemRow();
+                setSyncStatus('error');
+                createAddItemRow(); // Garante que a linha de adição exista mesmo com erro
             }
         }
 
         function removeItem(button) {
             if (confirm('Tem certeza de que deseja remover este item?')) {
                 button.closest('tr').remove();
-                debouncedSave(); // ATUALIZADO
+                setSyncStatus('syncing');
+                debouncedSave();
             }
         }
 
         function togglePurchased(checkbox) {
             checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
-            debouncedSave(); // ATUALIZADO
+            setSyncStatus('syncing');
+            debouncedSave();
         }
 
         function clearList() {
             if (confirm('Tem certeza que deseja limpar toda a lista?')) {
                 tableBody.innerHTML = '';
-                debouncedSave(); // ATUALIZADO para salvar a lista vazia na nuvem
+                setSyncStatus('syncing');
+                debouncedSave();
                 createAddItemRow();
             }
         }
 
-        // --- FUNÇÕES DE FORMATAÇÃO E COMPARAÇÃO ---
-
         function formatCurrency(input) {
             let value = input.value;
             if (!value) return;
-
             value = value.replace('R$', '').trim().replace(/[^0-9,.]/g, '').replace(',', '.');
             let number = parseFloat(value);
-
             if (isNaN(number) || number < 0) {
                 input.value = '';
             } else {
@@ -574,7 +519,7 @@
 
         function comparePrices(input) {
             const row = input.closest('tr');
-            if (row.classList.contains('add-item-row')) return;
+            if (!row || row.classList.contains('add-item-row')) return;
 
             const shibataInput = row.cells[2].querySelector('input');
             const nagumoInput = row.cells[3].querySelector('input');
@@ -589,11 +534,8 @@
             const validNagumoPrice = !isNaN(nagumoPrice) && nagumoPrice > 0;
 
             if (validShibataPrice && validNagumoPrice) {
-                if (shibataPrice < nagumoPrice) {
-                    shibataInput.classList.add('cheapest-price');
-                } else if (nagumoPrice < shibataPrice) {
-                    nagumoInput.classList.add('cheapest-price');
-                }
+                if (shibataPrice < nagumoPrice) shibataInput.classList.add('cheapest-price');
+                else if (nagumoPrice < shibataPrice) nagumoInput.classList.add('cheapest-price');
             } else if (validShibataPrice) {
                  shibataInput.classList.add('cheapest-price');
             } else if (validNagumoPrice) {
@@ -602,66 +544,68 @@
             sortAndGroup();
         }
 
-        // Lógica de ordenação revisada para agrupar: Sem Preço > Shibata Mais Barato > Nagumo Mais Barato
         function sortAndGroup() {
             const rows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
-
             rows.sort((a, b) => {
                 const getScore = (row) => {
-                    const price = {
-                        shibata: parseValueToFloat(row.cells[2].querySelector('input').value),
-                        nagumo: parseValueToFloat(row.cells[3].querySelector('input').value)
-                    };
-
+                    const price = { shibata: parseValueToFloat(row.cells[2].querySelector('input').value), nagumo: parseValueToFloat(row.cells[3].querySelector('input').value) };
                     const pS = (!isNaN(price.shibata) && price.shibata > 0) ? price.shibata : Infinity;
                     const pN = (!isNaN(price.nagumo) && price.nagumo > 0) ? price.nagumo : Infinity;
-
                     if ((pS === Infinity && pN === Infinity) || pS === pN) return 1;
                     if (pS < pN) return 2;
                     if (pN < pS) return 3;
                     return 1;
                 };
-
                 return getScore(a) - getScore(b);
             });
-
             rows.forEach(row => tableBody.appendChild(row));
+        }
+        
+        // NOVO: Função de Polling para buscar atualizações do servidor
+        async function pollForChanges() {
+            // Não busca atualizações se o usuário estiver digitando ou se uma sincronização já estiver em andamento
+            const activeEl = document.activeElement;
+            if (syncState !== 'saved' || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/list');
+                if (!response.ok) return;
+
+                const remoteItems = await response.json();
+                const localItems = getCurrentLocalItems();
+                
+                // Compara a lista local com a remota e atualiza apenas se houver diferença
+                if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
+                    console.log('Detectada mudança no servidor. Atualizando a lista.');
+                    redrawTable(remoteItems);
+                }
+            } catch (error) {
+                console.error("Erro durante o polling:", error);
+            }
         }
 
         // --- SOLUÇÃO PARA "ACORDAR" O STREAMLIT ---
         const iframeWrapper = document.getElementById('iframe-wrapper');
         const iframeOverlay = document.getElementById('iframe-overlay');
-
         function wakeUpApp() {
             iframeOverlay.style.display = 'flex';
             let streamlitIframe = document.getElementById('streamlit-app');
-
-            if (streamlitIframe) {
-                streamlitIframe.remove();
-            }
-
+            if (streamlitIframe) streamlitIframe.remove();
             const newIframe = document.createElement('iframe');
             newIframe.id = 'streamlit-app';
             const baseUrl = "https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/?embed=true&minimal=true";
             newIframe.src = `${baseUrl}&t=${new Date().getTime()}`;
-
-            newIframe.addEventListener('load', () => {
-                iframeOverlay.style.display = 'none';
-            });
-
+            newIframe.addEventListener('load', () => { iframeOverlay.style.display = 'none'; });
             iframeWrapper.prepend(newIframe);
         }
 
-        // --- LÓGICA PARA REMOVER FOCO AO FECHAR TECLADO VIRTUAL (ANDROID/IOS) ---
+        // --- LÓGICA PARA REMOVER FOCO AO FECHAR TECLADO VIRTUAL ---
         function setupVirtualKeyboardListener() {
             if (!window.visualViewport) return;
-
-            const isLikelyKeyboardOpen = () => {
-                return window.innerHeight - window.visualViewport.height > 150;
-            }
-
+            const isLikelyKeyboardOpen = () => window.innerHeight - window.visualViewport.height > 150;
             let keyboardWasOpen = isLikelyKeyboardOpen();
-
             window.visualViewport.addEventListener('resize', () => {
                 const keyboardIsOpen = isLikelyKeyboardOpen();
                 if (keyboardWasOpen && !keyboardIsOpen) {
@@ -673,10 +617,12 @@
             });
         }
 
-        // ATUALIZADO: Inicia a aplicação carregando da nuvem
+        // Inicia a aplicação
         document.addEventListener('DOMContentLoaded', () => {
-            loadListOnline(); // Alterado para carregar da nuvem
+            loadListOnline();
             setupVirtualKeyboardListener();
+            // Inicia a verificação por mudanças em tempo real a cada 3 segundos
+            setInterval(pollForChanges, 3000);
         });
     </script>
 </body>
