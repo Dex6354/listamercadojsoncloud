@@ -245,16 +245,6 @@
     </div>
 
     <script>
-        // --- Geração de ID Único (UUID v4 simplificado) ---
-        function uuidv4() {
-            // Gera um ID local temporário. Idealmente, o backend deveria garantir a unicidade, 
-            // mas para uso offline/local, isso é suficiente.
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-
         // --- Registro do Service Worker ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -298,7 +288,6 @@
         // --- Funções de Armazenamento Local (MOCK: Use IndexedDB REAL) ---
         async function localSave(items) {
             try {
-                // Salva a lista inteira no localStorage (Substituir por IndexedDB)
                 localStorage.setItem('shoppingList', JSON.stringify(items));
                 return true;
             } catch (error) {
@@ -309,7 +298,6 @@
 
         async function localLoad() {
             try {
-                // Carrega a lista inteira do localStorage (Substituir por IndexedDB)
                 const items = localStorage.getItem('shoppingList');
                 return items ? JSON.parse(items) : [];
             } catch (error) {
@@ -331,29 +319,39 @@
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
                 items.push({
-                    // AGORA INCLUI O ID ÚNICO
-                    id: row.getAttribute('data-id'),
+                    // Item name é agora a chave implícita
                     name: row.cells[1].querySelector('textarea').value.trim(),
                     priceShibata: row.cells[2].querySelector('input').value,
                     priceNagumo: row.cells[3].querySelector('input').value,
                     purchased: row.classList.contains('purchased')
                 });
             });
-            return items;
+            return items.filter(item => item.name !== ''); // Remove itens vazios
         }
 
-        // --- FUNÇÃO DE MERGE REESCRITA (Usa ID) ---
+        // --- FUNÇÃO DE MERGE REESCRITA (Usa Name como chave) ---
         function mergeLists(local, remote) {
-            // Mapeia itens remotos pelo ID
-            const remoteMap = new Map(remote.map(item => [item.id, item])); 
+            // Usa nome em minúsculas e sem espaços como chave
+            const getKey = (item) => item.name.toLowerCase().trim(); 
+            
+            // 1. Mapeia itens remotos pelo nome/chave
+            const remoteMap = new Map();
+            remote.forEach(item => {
+                 const key = getKey(item);
+                 if(key) remoteMap.set(key, item);
+            }); 
 
-            // Cria um mapa com os itens locais, garantindo que o local tem precedência se o ID for o mesmo
-            const mergedMap = new Map(local.map(item => [item.id, item])); 
+            // 2. Cria um mapa com os itens locais, dando precedência ao local
+            const mergedMap = new Map();
+            local.forEach(item => {
+                const key = getKey(item);
+                if(key) mergedMap.set(key, item);
+            }); 
 
-            // Adiciona itens do remoto que NÃO EXISTEM localmente (novos itens criados em outro dispositivo)
-            remoteMap.forEach((remoteItem, id) => {
-                if (!mergedMap.has(id)) {
-                    mergedMap.set(id, remoteItem);
+            // 3. Adiciona itens do remoto que NÃO EXISTEM localmente
+            remoteMap.forEach((remoteItem, key) => {
+                if (!mergedMap.has(key)) {
+                    mergedMap.set(key, remoteItem);
                 }
             });
 
@@ -377,7 +375,7 @@
                 // 2. Get Local List
                 const localItems = getCurrentLocalItems();
                 
-                // 3. Merge das listas (Preserva local e adiciona novo remoto)
+                // 3. Merge das listas
                 const listToUpload = mergeLists(localItems, remoteItems);
 
                 // 4. Verifica se a lista final mesclada é diferente do que já está no servidor
@@ -387,7 +385,6 @@
 
                 if (needsUpload) {
                     // 5. Upload da Lista Mesclada para o Servidor
-                    console.log('Sincronizando (Upload) lista mesclada com o servidor.');
                     const uploadResponse = await fetch('/api/list', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -402,8 +399,6 @@
                 }
 
                 setSyncStatus('saved');
-                console.log('Sincronização concluída. Alterações enviadas:', needsUpload);
-
             } catch (error) {
                 console.error("Erro durante a sincronização:", error);
                 setSyncStatus('error');
@@ -411,10 +406,11 @@
         }
         
         async function saveList() {
+            // Apenas define o status de sincronização inicial
             setSyncStatus(isOnline ? 'syncing' : 'offline');
             const items = getCurrentLocalItems();
             
-            // 1. Salva no IndexedDB localmente
+            // 1. Salva no local
             const saveSuccessful = await localSave(items);
             if (saveSuccessful) {
                 hasPendingLocalChanges = true; // Marca que há mudanças locais
@@ -430,7 +426,7 @@
         
         const debouncedSave = debounce(saveList, 1000);
 
-        // --- Funções de UI (modificadas para ID) ---
+        // --- Funções de UI (Inalteradas, exceto remoção de lógica 'id') ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -444,8 +440,6 @@
                 debouncedSave();
             }
         });
-
-        // ... [Resto dos Listeners de Foco/Blur - Inalterados] ...
 
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
@@ -475,7 +469,6 @@
                 debouncedSave();
             }
         }, true);
-
 
         function createAddItemRow(shouldFocus = false) {
             document.querySelector('.add-item-row')?.remove();
@@ -514,9 +507,8 @@
                 return;
             }
 
-            // CRIA O OBJETO DO ITEM COM O NOVO ID
+            // CRIA O OBJETO DO ITEM (Sem ID, usando nome como chave única)
             const newItem = {
-                id: uuidv4(), // <-- NOVO ID ÚNICO AQUI
                 name: itemName,
                 priceShibata: 'R$ 0,00', 
                 priceNagumo: 'R$ 0,00', 
@@ -533,8 +525,10 @@
 
         function buildItemRow(itemData, isNew = false) {
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
-            // DEFINE O data-id NA LINHA DA TABELA
-            newRow.setAttribute('data-id', itemData.id); 
+            
+            // O item name é a chave de identificação (name.toLowerCase())
+            // newRow.setAttribute('data-id', itemData.name.toLowerCase().trim()); // Não é estritamente necessário, mas pode ajudar na depuração.
+            
             if (itemData.purchased) {
                 newRow.classList.add('purchased');
             }
