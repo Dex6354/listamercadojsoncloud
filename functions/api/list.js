@@ -1,5 +1,3 @@
-// functions/api/list.js
-
 const LIST_KEY = "shopping_list";
 
 export async function onRequestGet({ env }) {
