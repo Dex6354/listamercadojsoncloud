@@ -21,6 +21,15 @@ self.addEventListener('install', event => {
 
 // Evento de Fetch: Intercepta as requisições.
 self.addEventListener('fetch', event => {
+  const requestUrl = new URL(event.request.url);
+
+  // Exclui a API de sincronização do cache para garantir dados frescos.
+  if (requestUrl.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request)); // Sempre busca na rede
+    return;
+  }
+
+  // Para todo o resto (arquivos estáticos): Cache-first, depois Network.
   event.respondWith(
     caches.match(event.request)
       .then(response => {
@@ -28,10 +37,10 @@ self.addEventListener('fetch', event => {
         if (response) {
           return response;
         }
+        
         // Se não, busca na rede, clona, armazena no cache e retorna.
         return fetch(event.request).then(
           (response) => {
-            // Verifica se recebemos uma resposta válida
             if(!response || response.status !== 200 || response.type !== 'basic' && response.type !== 'cors') {
               return response;
             }
