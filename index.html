@@ -147,17 +147,17 @@
 
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
 
-        /* NOVO: Estilo para o indicador de status de sincronização */
+        /* ATUALIZADO: Estilo para o indicador de status de sincronização no cabeçalho */
         #sync-status-indicator {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 15px;
-            height: 15px;
+            position: absolute; /* Relativo ao header */
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
             background-color: var(--green-highlight);
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-            z-index: 1002;
+            z-index: 11;
             transition: background-color 0.5s ease;
         }
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
@@ -170,8 +170,6 @@
     </style>
 </head>
 <body>
-    <div id="sync-status-indicator"></div>
-
     <div id="side-menu" class="side-menu">
         <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
         <a href="#"><i class="fas fa-list-check"></i> Minha Lista</a>
@@ -188,6 +186,7 @@
                 <i class="fas fa-shopping-cart"></i>
                 Lista de Compras
             </span>
+            <div id="sync-status-indicator"></div>
         </div>
 
         <div class="container">
@@ -256,20 +255,18 @@
         let saveTimeout;
         let syncState = 'saved'; // Estados: 'saved', 'syncing', 'error'
 
-        // ATUALIZADO: Controla o indicador de status visual
         function setSyncStatus(newState) {
             syncState = newState;
             statusIndicator.className = `status-${newState}`;
             if (newState === 'error') {
                 setTimeout(() => {
                     if (syncState === 'error') {
-                       setSyncStatus('saved'); // Volta para verde se nenhum outro erro ocorreu
+                       setSyncStatus('saved');
                     }
                 }, 3000);
             }
         }
 
-        // Função Debounce para evitar chamadas excessivas à API
         function debounce(func, delay) {
             return function(...args) {
                 clearTimeout(saveTimeout);
@@ -277,7 +274,6 @@
             };
         }
         
-        // Função para obter os itens atuais da tabela
         function getCurrentLocalItems() {
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
@@ -291,7 +287,6 @@
             return items;
         }
         
-        // Salva os dados na nuvem via API
         async function saveListOnline() {
             setSyncStatus('syncing');
             const items = getCurrentLocalItems();
@@ -311,7 +306,6 @@
         
         const debouncedSave = debounce(saveListOnline, 1000);
 
-        // Função para auto-ajustar a altura do textarea
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -357,7 +351,8 @@
             }
         }, true);
 
-        function createAddItemRow() {
+        // ATUALIZADO: Parâmetro 'shouldFocus' controla se o teclado deve abrir
+        function createAddItemRow(shouldFocus = false) {
             document.querySelector('.add-item-row')?.remove();
             const newRow = tableBody.insertRow(0);
             newRow.classList.add('add-item-row');
@@ -377,7 +372,11 @@
                     commitItem();
                 }
             });
-            newItemInput.focus();
+            
+            // ATUALIZADO: Só foca no input se shouldFocus for verdadeiro
+            if (shouldFocus) {
+                newItemInput.focus();
+            }
         }
 
         function commitItem() {
@@ -391,13 +390,13 @@
                 return;
             }
 
-            addItemRow.remove(); // Remove temporariamente para adicionar o item real
+            addItemRow.remove();
             buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true);
             
             sortAndGroup();
             setSyncStatus('syncing');
             debouncedSave();
-            createAddItemRow();
+            createAddItemRow(true); // Foca no novo campo para adicionar o próximo item
         }
 
         function buildItemRow(itemData, isNew = false) {
@@ -433,8 +432,8 @@
             return newRow;
         }
         
-        // NOVO: Função para redesenhar a tabela preservando o estado da linha de adição
-        function redrawTable(items) {
+        // ATUALIZADO: Parâmetro 'shouldFocusNewItem' para controlar o foco do teclado
+        function redrawTable(items, shouldFocusNewItem = true) {
             const addItemRow = document.querySelector('.add-item-row');
             let newItemName = '', newItemShibata = '', newItemNagumo = '';
             if (addItemRow) {
@@ -444,14 +443,13 @@
                 newItemNagumo = priceInputs[1].value;
             }
 
-            tableBody.innerHTML = ''; // Limpa a tabela
+            tableBody.innerHTML = '';
             if (items && items.length > 0) {
                 items.forEach(item => buildItemRow(item));
                 sortAndGroup();
             }
-            createAddItemRow();
+            createAddItemRow(shouldFocusNewItem);
 
-            // Restaura os valores
             const newAddItemRow = document.querySelector('.add-item-row');
             if (newAddItemRow) {
                 newAddItemRow.querySelector('textarea').value = newItemName;
@@ -468,12 +466,12 @@
                 if (!response.ok) throw new Error('Falha ao buscar dados.');
                 const items = await response.json();
                 
-                redrawTable(items); // Usa a função de redesenhar
+                redrawTable(items, true); // Foca no primeiro carregamento
                 
                 setSyncStatus('saved');
             } catch (error) {
                 setSyncStatus('error');
-                createAddItemRow(); // Garante que a linha de adição exista mesmo com erro
+                createAddItemRow(true);
             }
         }
 
@@ -496,7 +494,7 @@
                 tableBody.innerHTML = '';
                 setSyncStatus('syncing');
                 debouncedSave();
-                createAddItemRow();
+                createAddItemRow(true); // Foca após limpar a lista
             }
         }
 
@@ -561,9 +559,7 @@
             rows.forEach(row => tableBody.appendChild(row));
         }
         
-        // NOVO: Função de Polling para buscar atualizações do servidor
         async function pollForChanges() {
-            // Não busca atualizações se o usuário estiver digitando ou se uma sincronização já estiver em andamento
             const activeEl = document.activeElement;
             if (syncState !== 'saved' || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
                 return;
@@ -576,10 +572,10 @@
                 const remoteItems = await response.json();
                 const localItems = getCurrentLocalItems();
                 
-                // Compara a lista local com a remota e atualiza apenas se houver diferença
                 if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
                     console.log('Detectada mudança no servidor. Atualizando a lista.');
-                    redrawTable(remoteItems);
+                    // ATUALIZADO: Chama redrawTable sem focar no input para não abrir o teclado
+                    redrawTable(remoteItems, false);
                 }
             } catch (error) {
                 console.error("Erro durante o polling:", error);
@@ -621,7 +617,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadListOnline();
             setupVirtualKeyboardListener();
-            // Inicia a verificação por mudanças em tempo real a cada 3 segundos
             setInterval(pollForChanges, 3000);
         });
     </script>
