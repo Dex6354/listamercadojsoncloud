@@ -1,15 +1,7 @@
-const CACHE_NAME = 'meu-treino-cache-v1';
+const CACHE_NAME = 'meu-mercado-editando-cache-v1';
 const urlsToCache = [
   '/',
   '/index',
-  '/sobre',
-  '/todos_exercicios',
-  '/biblioteca_de_treinos',
-  '/personal_trainer',
-  '/exercicios_completo.json',
-  '/img/favicon.png',
-  '/img/icone_treino.jpg',
-  'https://hits.sh/meutreinoapp.pages.dev.svg?label=Total%20de%20Treinos&extraCount=1770&color=ffc107&labelColor=a0a0a0',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/webfonts/fa-brands-400.woff2',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js',
