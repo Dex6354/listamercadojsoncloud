@@ -270,7 +270,7 @@
         const statusIndicator = document.getElementById('sync-status-indicator');
         let saveTimeout;
         let syncState = 'saved'; // Estados: 'saved', 'syncing', 'error', 'offline'
-        let hasPendingLocalChanges = false; // Flag para forçar upload quando reconectar
+        let hasPendingLocalChanges = false; // Flag para indicar que há mudanças locais que precisam ser enviadas
         let isOnline = navigator.onLine;
 
         function setSyncStatus(newState) {
@@ -286,11 +286,9 @@
             }
         }
 
-        // --- Funções de Armazenamento Local (IndexedDB) ---
-        // VOCÊ DEVE IMPLEMENTAR AQUI A LÓGICA COM IndexedDB real
-        // Atualmente, usa o localStorage como mock não persistente
+        // --- Funções de Armazenamento Local (IndexedDB MOCK) ---
+        // ATENÇÃO: SUBSTITUA ESTAS FUNÇÕES PELA LÓGICA REAL DO IndexedDB
         async function localSave(items) {
-            // **SUBSTITUA ESTA FUNÇÃO PELA LÓGICA REAL DO IndexedDB**
             try {
                 localStorage.setItem('shoppingList', JSON.stringify(items));
                 return true;
@@ -301,7 +299,6 @@
         }
 
         async function localLoad() {
-            // **SUBSTITUA ESTA FUNÇÃO PELA LÓGICA REAL DO IndexedDB**
             try {
                 const items = localStorage.getItem('shoppingList');
                 return items ? JSON.parse(items) : [];
@@ -323,7 +320,6 @@
         function getCurrentLocalItems() {
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
-                // Adicionar um ID exclusivo se você for usar IndexedDB/API de verdade
                 items.push({
                     name: row.cells[1].querySelector('textarea').value.trim(),
                     priceShibata: row.cells[2].querySelector('input').value,
@@ -333,31 +329,103 @@
             });
             return items;
         }
+
+        // --- NOVO: FUNÇÃO DE MERGE ---
+        function mergeLists(local, remote) {
+            const remoteMap = new Map();
+            // Mapeia itens remotos pela chave (nome), em minúsculas para comparação
+            remote.forEach(item => remoteMap.set(item.name.toLowerCase().trim(), item));
+
+            const mergedList = [...local]; // Começa com todos os itens locais
+
+            // Remove itens remotos que já estão no local (preservando o local, que pode ter sido alterado offline)
+            for (const localItem of local) {
+                remoteMap.delete(localItem.name.toLowerCase().trim());
+            }
+
+            // Adiciona os itens restantes do remoto (os que não existiam localmente)
+            remoteMap.forEach(item => mergedList.push(item));
+
+            // Ordena por nome para consistência (opcional, mas recomendado)
+            mergedList.sort((a, b) => a.name.localeCompare(b.name));
+
+            return mergedList;
+        }
+        // --- FIM NOVO: FUNÇÃO DE MERGE ---
+
+
+        async function syncList() {
+            if (!isOnline || syncState === 'syncing') return;
+
+            setSyncStatus('syncing');
+
+            try {
+                // 1. Download Remote List (Versão do Servidor)
+                const remoteResponse = await fetch('/api/list');
+                if (!remoteResponse.ok) throw new Error('Falha ao buscar dados remotos.');
+                const remoteItems = await remoteResponse.json();
+
+                // 2. Get Local List (Versão atual na UI/Local Storage)
+                const localItems = getCurrentLocalItems();
+                
+                let listToUpload = localItems;
+                let needsUpload = hasPendingLocalChanges; 
+
+                // Se não há mudanças locais pendentes, verifica se o remoto é diferente
+                if (!hasPendingLocalChanges) {
+                     if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
+                        console.log('Detectada mudança no servidor. Realizando merge para download.');
+                        listToUpload = mergeLists(localItems, remoteItems);
+                        needsUpload = true; // Precisa subir a lista mesclada para o servidor
+                     } else {
+                        setSyncStatus('saved');
+                        return; // Nada mudou em ambos os lados, sai.
+                     }
+                } else {
+                    // Há mudanças locais: faz o merge para incorporar novos itens do servidor, preservando as alterações locais
+                    listToUpload = mergeLists(localItems, remoteItems);
+                    // needsUpload já é true
+                }
+
+                if (needsUpload) {
+                    // 3. Upload da Lista Mesclada para o Servidor
+                    const uploadResponse = await fetch('/api/list', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(listToUpload)
+                    });
+                    if (!uploadResponse.ok) throw new Error('Falha ao sincronizar: Upload da lista mesclada.');
+
+                    // 4. Atualiza UI e Armazenamento Local com a lista final mesclada
+                    await localSave(listToUpload); 
+                    redrawTable(listToUpload, false);
+
+                    hasPendingLocalChanges = false;
+                }
+
+                setSyncStatus('saved');
+                console.log('Sincronização concluída.');
+
+            } catch (error) {
+                console.error("Erro durante a sincronização:", error);
+                setSyncStatus('error');
+                // Se houver erro, hasPendingLocalChanges continua true para tentar novamente depois
+            }
+        }
         
         async function saveList() {
             setSyncStatus(isOnline ? 'syncing' : 'offline');
             const items = getCurrentLocalItems();
             
-            // 1. Salva no IndexedDB localmente, independentemente do status online
-            await localSave(items);
-            hasPendingLocalChanges = true; // Marca que há mudanças locais
+            // 1. Salva no IndexedDB localmente
+            const saveSuccessful = await localSave(items);
+            if (saveSuccessful) {
+                hasPendingLocalChanges = true; // Marca que há mudanças locais
+            }
 
-            // 2. Tenta salvar na API se estiver online
+            // 2. Tenta sincronizar imediatamente se estiver online
             if (isOnline) {
-                try {
-                    const response = await fetch('/api/list', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(items)
-                    });
-                    if (!response.ok) throw new Error('Falha ao salvar online.');
-                    hasPendingLocalChanges = false; // Sincronização de upload bem-sucedida
-                    setSyncStatus('saved');
-                } catch (error) {
-                    console.error('Erro ao salvar online:', error);
-                    setSyncStatus('error');
-                    // Mantém hasPendingLocalChanges = true
-                }
+                await syncList();
             } else {
                  setSyncStatus('offline');
             }
@@ -365,7 +433,7 @@
         
         const debouncedSave = debounce(saveList, 1000);
 
-        // Funções de UI (autoResize, commitItem, removeItem, etc.) permanecem as mesmas
+        // --- Funções de UI (permanecem as mesmas) ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -488,7 +556,6 @@
         }
         
         function redrawTable(items, shouldFocusNewItem = true) {
-            // Preserva o que o usuário estava digitando no item de adição
             const addItemRow = document.querySelector('.add-item-row');
             let newItemName = '', newItemShibata = '', newItemNagumo = '';
             if (addItemRow) {
@@ -505,7 +572,6 @@
             }
             createAddItemRow(shouldFocusNewItem);
 
-            // Restaura o texto digitado
             const newAddItemRow = document.querySelector('.add-item-row');
             if (newAddItemRow) {
                 newAddItemRow.querySelector('textarea').value = newItemName;
@@ -535,12 +601,10 @@
             }
         }
         
-        // --- FUNÇÃO DE INICIALIZAÇÃO E SINCRONIZAÇÃO (ADAPTADA) ---
+        // --- FUNÇÃO DE INICIALIZAÇÃO ---
         async function initializeList() {
-            // 1. Tenta carregar do armazenamento local
             let localItems = await localLoad();
             
-            // 2. Se a lista local estiver vazia, tenta carregar da nuvem
             if (localItems.length === 0 && isOnline) {
                 setSyncStatus('syncing');
                 try {
@@ -548,7 +612,6 @@
                     if (!response.ok) throw new Error('Falha ao buscar dados.');
                     const remoteItems = await response.json();
                     
-                    // Salva a lista remota localmente (para cache)
                     await localSave(remoteItems);
                     localItems = remoteItems;
 
@@ -556,63 +619,23 @@
                 } catch (error) {
                     console.error('Erro ao buscar lista online:', error);
                     setSyncStatus('error');
-                    // Se falhar, a lista local (vazia) é usada.
                 }
             } else if (!isOnline) {
                 setSyncStatus('offline');
             } else {
-                setSyncStatus('saved');
+                // Se carregou do local e está online, tenta sincronizar para baixar alterações remotas
+                syncList(); 
             }
             
-            // 3. Redesenha a tabela com os dados carregados (local ou remoto)
             redrawTable(localItems, true);
-        }
-
-        async function syncWithServer() {
-            if (!isOnline || syncState === 'syncing') return;
-
-            setSyncStatus('syncing');
-
-            try {
-                // A. Se houver mudanças locais pendentes (offline mode usado), força o upload
-                if (hasPendingLocalChanges) {
-                    const localItems = getCurrentLocalItems();
-                    const response = await fetch('/api/list', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(localItems)
-                    });
-                    if (!response.ok) throw new Error('Falha ao sincronizar: Upload.');
-                    hasPendingLocalChanges = false;
-                    console.log('Sincronização forçada (Upload) concluída.');
-
-                } else {
-                    // B. Se não houver mudanças locais, faz o poll para baixar alterações do servidor
-                    const response = await fetch('/api/list');
-                    if (!response.ok) throw new Error('Falha ao sincronizar: Download.');
-                    const remoteItems = await response.json();
-                    const localItems = getCurrentLocalItems();
-
-                    if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
-                        console.log('Detectada mudança no servidor. Atualizando a lista e salvando localmente.');
-                        await localSave(remoteItems); // Salva a versão remota como a nova local
-                        redrawTable(remoteItems, false);
-                    }
-                }
-                setSyncStatus('saved');
-
-            } catch (error) {
-                console.error("Erro durante a sincronização:", error);
-                setSyncStatus('error');
-            }
         }
 
         // --- Lógica de Conexão Online/Offline ---
         window.addEventListener('online', () => {
             isOnline = true;
-            console.log('Online. Tentando sincronizar...');
-            setSyncStatus('saved'); // Estado temporário até a sincronização
-            syncWithServer();
+            console.log('Online. Tentando Merge e Sincronização...');
+            // Chama a função de merge imediatamente ao reconectar
+            syncList(); 
         });
 
         window.addEventListener('offline', () => {
@@ -691,10 +714,8 @@
                 return;
             }
             
-            // Só faz polling se não houver mudanças locais pendentes
-            if (!hasPendingLocalChanges) {
-                syncWithServer();
-            }
+            // Chama a função de merge. Se não houver mudanças locais pendentes, ela fará o download/verificação.
+            syncList();
         }
 
         // --- SOLUÇÃO PARA "ACORDAR" O STREAMLIT ---
