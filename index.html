@@ -39,7 +39,7 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            overflow-x: hidden; 
+            overflow-x: hidden;
         }
 
         /* --- HEADER --- */
@@ -70,40 +70,40 @@
         #page-overlay.show { display: block; }
 
         /* --- CONTEÚDO PRINCIPAL (LARGURA TOTAL) --- */
-        .container { 
-            padding: 0; 
-            max-width: 100%; 
-            margin: 0; 
-            flex-grow: 1; 
+        .container {
+            padding: 0;
+            max-width: 100%;
+            margin: 0;
+            flex-grow: 1;
         }
 
-        .section { 
-            background-color: var(--card-color); 
-            padding: 20px 16px; 
-            border-radius: var(--border-radius); 
-            margin: 0 0 24px 0; 
+        .section {
+            background-color: var(--card-color);
+            padding: 20px 16px;
+            border-radius: var(--border-radius);
+            margin: 0 0 24px 0;
         }
 
         .shopping-list-section {
-            padding: 0; 
-            border-radius: 0; 
+            padding: 0;
+            border-radius: 0;
         }
 
         .shopping-list-section .section-header {
-            padding: 20px 16px 16px 16px; 
+            padding: 20px 16px 16px 16px;
         }
 
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .section-header h2 { margin: 0; font-size: 1.5rem; color: var(--primary-color); }
 
-        .section-header .clear-btn { 
-            background: none; 
-            border: none; 
-            color: var(--danger-color); 
-            cursor: pointer; 
-            font-size: 1.2rem; 
-            transition: color 0.3s; 
-            padding: 5px; 
+        .section-header .clear-btn {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: color 0.3s;
+            padding: 5px;
         }
         .section-header .clear-btn:hover { color: #ff7961; }
 
@@ -113,54 +113,54 @@
         .custom-btn.secondary { background-color: var(--input-bg-color); color: var(--text-color); }
         .custom-btn.secondary:hover { background-color: #555; }
 
-        .button-group { 
-            display: flex; 
-            gap: 10px; 
+        .button-group {
+            display: flex;
+            gap: 10px;
         }
         .button-group .custom-btn, .button-group a {
-             border-radius: 8px; 
+             border-radius: 8px;
         }
 
         /* --- TABELA E PREÇOS --- */
         .table-scroll-wrapper {
-            overflow-x: auto; 
+            overflow-x: auto;
             width: 100%;
         }
 
-        .shopping-list-table { 
-            width: auto; 
-            min-width: 100%; 
-            border-collapse: collapse; 
-            table-layout: fixed; 
+        .shopping-list-table {
+            width: auto;
+            min-width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
         }
-        .shopping-list-table th, .shopping-list-table td { 
-            padding: 12px 8px; 
-            text-align: left; 
-            border-bottom: 1px solid var(--input-bg-color); 
+        .shopping-list-table th, .shopping-list-table td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--input-bg-color);
             vertical-align: middle;
         }
-        .shopping-list-table th { 
-            font-size: 0.8rem; 
-            color: var(--secondary-text-color); 
-            text-transform: uppercase; 
+        .shopping-list-table th {
+            font-size: 0.8rem;
+            color: var(--secondary-text-color);
+            text-transform: uppercase;
         }
 
         .shopping-list-table th:first-child, .shopping-list-table td:first-child { padding-left: 16px; }
         .shopping-list-table th:last-child, .shopping-list-table td:last-child { padding-right: 16px; }
 
-        .price-cell { 
-            padding: 0 !important; 
-            width: 80px; 
+        .price-cell {
+            padding: 0 !important;
+            width: 80px;
             text-align: right;
         }
 
         .price-cell input {
             width: 100%;
-            padding: 12px 8px; 
-            text-align: right; 
-            background-color: var(--card-color); 
+            padding: 12px 8px;
+            text-align: right;
+            background-color: var(--card-color);
             color: var(--text-color);
-            border: none; 
+            border: none;
             border-radius: 0 !important;
         }
 
@@ -170,7 +170,7 @@
         }
 
         .price-cell:first-of-type {
-            border-right: 1px solid var(--input-bg-color); 
+            border-right: 1px solid var(--input-bg-color);
         }
 
         /* Estilos para o campo de nome (textarea) */
@@ -181,10 +181,10 @@
             color: var(--text-color);
             font-size: 1rem;
             font-family: inherit;
-            padding: 4px 0; 
+            padding: 4px 0;
             border-radius: 4px;
-            resize: none; 
-            overflow-y: hidden; 
+            resize: none;
+            overflow-y: hidden;
             line-height: 1.4;
             transition: all 0.2s ease-in-out;
         }
@@ -215,10 +215,10 @@
 
         /* Media Query para telas maiores para aumentar a largura do item */
         @media (min-width: 768px) {
-            .shopping-list-table colgroup col:nth-child(2) { width: 450px; } 
+            .shopping-list-table colgroup col:nth-child(2) { width: 450px; }
         }
         @media (min-width: 1024px) {
-            .shopping-list-table colgroup col:nth-child(2) { width: 550px; } 
+            .shopping-list-table colgroup col:nth-child(2) { width: 550px; }
         }
     </style>
 </head>
@@ -251,7 +251,7 @@
                     </button>
                 </div>
 
-                <div class="table-scroll-wrapper"> 
+                <div class="table-scroll-wrapper">
                     <table class="shopping-list-table">
                         <colgroup>
                             <col style="width: 40px;"> <col style="width: 250px;"> <col style="width: 80px;"> <col style="width: 80px;"> <col style="width: 45px;"> </colgroup>
@@ -293,7 +293,7 @@
         <footer class="footer">
             Feito para facilitar suas compras. 🛒💡
         </footer>
-    </div> 
+    </div>
 
     <script>
         // --- Constante para localStorage
@@ -332,22 +332,29 @@
         tableBody.addEventListener('input', (event) => {
             if (event.target.tagName.toLowerCase() === 'textarea') {
                 autoResizeTextarea(event.target);
-                saveList(); 
+                saveList();
             } else if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
-                saveList(); 
+                saveList();
             } else if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'checkbox') {
-                saveList(); 
+                saveList();
             }
         });
 
-        // Handler para o evento FOCUS (seleciona R$ 0,00 para "digitar por cima")
+        // Handler para o evento FOCUS (seleciona R$ 0,00 ou posiciona o cursor no final)
         tableBody.addEventListener('focus', (event) => {
-            if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
-                // Checa se tem o estilo cinza ou se o valor é o padrão R$ 0,00
-                if (event.target.classList.contains('default-price') || event.target.value.trim() === 'R$ 0,00') {
-                    // Ao focar, apenas seleciona o texto. O próximo dígito substituirá o valor.
-                    event.target.select(); 
-                    event.target.classList.remove('default-price'); // Remove o estilo cinza
+            const target = event.target;
+            if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
+                // Se for o valor padrão, seleciona tudo para facilitar a substituição.
+                if (target.classList.contains('default-price') || target.value.trim() === 'R$ 0,00') {
+                    target.select();
+                    target.classList.remove('default-price');
+                } else {
+                    // Para valores existentes, move o cursor para o final.
+                    const valLength = target.value.length;
+                    // Usar um pequeno timeout garante que a ação ocorra após o foco padrão do navegador.
+                    setTimeout(() => {
+                        target.setSelectionRange(valLength, valLength);
+                    }, 0);
                 }
             }
         }, true);
@@ -369,16 +376,16 @@
                 }
 
                 // 3. Compara e Reordena (depois que o valor final foi definido)
-                comparePrices(event.target); 
+                comparePrices(event.target);
 
                 // 4. Salva
-                saveList(); 
+                saveList();
             }
-        }, true); 
+        }, true);
 
         // Cria a linha inicial para adicionar um novo item
         function createAddItemRow() {
-            document.querySelector('.add-item-row')?.remove(); 
+            document.querySelector('.add-item-row')?.remove();
 
             const newRow = tableBody.insertRow(0);
             newRow.classList.add('add-item-row');
@@ -394,8 +401,8 @@
 
             const newItemInput = document.getElementById('newItemName');
             newItemInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' && !event.shiftKey) { 
-                    event.preventDefault(); 
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
                     commitItem();
                 }
             });
@@ -446,18 +453,18 @@
 
             comparePrices(shibataInput); // Reordena
 
-            saveList(); 
+            saveList();
             createAddItemRow();
         }
 
-        // Constrói uma linha da lista a partir de um objeto de dados 
+        // Constrói uma linha da lista a partir de um objeto de dados
         function buildItemRow(itemData) {
             const newRow = tableBody.insertRow(tableBody.rows.length);
             if (itemData.purchased) {
                 newRow.classList.add('purchased');
             }
 
-            const shibataPrice = itemData.priceShibata || 'R$ 0,00'; 
+            const shibataPrice = itemData.priceShibata || 'R$ 0,00';
             const nagumoPrice = itemData.priceNagumo || 'R$ 0,00';
 
             newRow.innerHTML = `
@@ -506,19 +513,19 @@
 
         function removeItem(button) {
             button.closest('tr').remove();
-            saveList(); 
+            saveList();
         }
 
         function togglePurchased(checkbox) {
             checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
             // NÃO chama sortAndGroup aqui para NÃO ALTERAR A ORDEM (mantendo a regra do usuário)
-            saveList(); 
+            saveList();
         }
 
         function clearList() {
             if (confirm('Tem certeza que deseja limpar toda a lista?')) {
                 tableBody.innerHTML = '';
-                localStorage.removeItem(STORAGE_KEY); 
+                localStorage.removeItem(STORAGE_KEY);
                 createAddItemRow();
             }
         }
@@ -634,8 +641,38 @@
             iframeWrapper.prepend(newIframe);
         }
 
-        // Inicia a aplicação: Carrega a lista do cache e depois cria a linha de adição
-        document.addEventListener('DOMContentLoaded', loadList);
+        // --- LÓGICA PARA REMOVER FOCO AO FECHAR TECLADO VIRTUAL (ANDROID/IOS) ---
+        function setupVirtualKeyboardListener() {
+            if (!window.visualViewport) return; // Se a API não existe, não faz nada.
+
+            const isLikelyKeyboardOpen = () => {
+                // O teclado é considerado aberto se a altura do viewport visual for
+                // significantemente menor que a altura da janela (ex: > 150px).
+                return window.innerHeight - window.visualViewport.height > 150;
+            }
+
+            // Armazena o último estado conhecido do teclado
+            let keyboardWasOpen = isLikelyKeyboardOpen();
+
+            window.visualViewport.addEventListener('resize', () => {
+                const keyboardIsOpen = isLikelyKeyboardOpen();
+                // Se o teclado estava aberto e agora não está...
+                if (keyboardWasOpen && !keyboardIsOpen) {
+                    // ...remove o foco do elemento ativo, se for um campo de texto.
+                    if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                         document.activeElement.blur();
+                    }
+                }
+                // Atualiza o estado para a próxima verificação
+                keyboardWasOpen = keyboardIsOpen;
+            });
+        }
+
+        // Inicia a aplicação: Carrega a lista e configura os listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            loadList();
+            setupVirtualKeyboardListener();
+        });
     </script>
 </body>
 </html>
