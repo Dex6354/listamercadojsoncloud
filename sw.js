@@ -8,22 +8,21 @@ const urlsToCache = [
   'https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js'
 ];
 
-// Evento de Instalação: Abre o cache e armazena os arquivos principais.
+// Evento de Instalação
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Cache aberto');
         return cache.addAll(urlsToCache);
       })
   );
 });
 
-// Evento de Fetch: Intercepta as requisições.
+// Evento de Fetch
 self.addEventListener('fetch', event => {
   const requestUrl = new URL(event.request.url);
 
-  // Exclui a API de sincronização do cache para garantir dados frescos.
+  // CRUCIAL: Exclui a API de sincronização do cache.
   if (requestUrl.pathname.startsWith('/api/')) {
     event.respondWith(fetch(event.request)); // Sempre busca na rede
     return;
@@ -33,12 +32,10 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Se a resposta estiver no cache, retorna do cache.
         if (response) {
           return response;
         }
         
-        // Se não, busca na rede, clona, armazena no cache e retorna.
         return fetch(event.request).then(
           (response) => {
             if(!response || response.status !== 200 || response.type !== 'basic' && response.type !== 'cors') {
@@ -59,7 +56,7 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Opcional: Limpa caches antigos em uma nova ativação
+// Evento de Ativação
 self.addEventListener('activate', event => {
   var cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
