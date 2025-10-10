@@ -245,6 +245,16 @@
     </div>
 
     <script>
+        // --- Geração de ID Único (UUID v4 simplificado) ---
+        function uuidv4() {
+            // Gera um ID local temporário. Idealmente, o backend deveria garantir a unicidade, 
+            // mas para uso offline/local, isso é suficiente.
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
         // --- Registro do Service Worker ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -276,7 +286,6 @@
         function setSyncStatus(newState) {
             syncState = newState;
             statusIndicator.className = `status-${newState}`;
-            // Adiciona um timeout para o estado de erro, exceto se estiver offline
             if (newState === 'error' && isOnline) {
                 setTimeout(() => {
                     if (syncState === 'error') {
@@ -286,10 +295,10 @@
             }
         }
 
-        // --- Funções de Armazenamento Local (IndexedDB MOCK) ---
-        // ATENÇÃO: SUBSTITUA ESTAS FUNÇÕES PELA LÓGICA REAL DO IndexedDB
+        // --- Funções de Armazenamento Local (MOCK: Use IndexedDB REAL) ---
         async function localSave(items) {
             try {
+                // Salva a lista inteira no localStorage (Substituir por IndexedDB)
                 localStorage.setItem('shoppingList', JSON.stringify(items));
                 return true;
             } catch (error) {
@@ -300,6 +309,7 @@
 
         async function localLoad() {
             try {
+                // Carrega a lista inteira do localStorage (Substituir por IndexedDB)
                 const items = localStorage.getItem('shoppingList');
                 return items ? JSON.parse(items) : [];
             } catch (error) {
@@ -321,6 +331,8 @@
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
                 items.push({
+                    // AGORA INCLUI O ID ÚNICO
+                    id: row.getAttribute('data-id'),
                     name: row.cells[1].querySelector('textarea').value.trim(),
                     priceShibata: row.cells[2].querySelector('input').value,
                     priceNagumo: row.cells[3].querySelector('input').value,
@@ -330,28 +342,25 @@
             return items;
         }
 
-        // --- NOVO: FUNÇÃO DE MERGE ---
+        // --- FUNÇÃO DE MERGE REESCRITA (Usa ID) ---
         function mergeLists(local, remote) {
-            const remoteMap = new Map();
-            // Mapeia itens remotos pela chave (nome), em minúsculas para comparação
-            remote.forEach(item => remoteMap.set(item.name.toLowerCase().trim(), item));
+            // Mapeia itens remotos pelo ID
+            const remoteMap = new Map(remote.map(item => [item.id, item])); 
 
-            const mergedList = [...local]; // Começa com todos os itens locais
+            // Cria um mapa com os itens locais, garantindo que o local tem precedência se o ID for o mesmo
+            const mergedMap = new Map(local.map(item => [item.id, item])); 
 
-            // Remove itens remotos que já estão no local (preservando o local, que pode ter sido alterado offline)
-            for (const localItem of local) {
-                remoteMap.delete(localItem.name.toLowerCase().trim());
-            }
+            // Adiciona itens do remoto que NÃO EXISTEM localmente (novos itens criados em outro dispositivo)
+            remoteMap.forEach((remoteItem, id) => {
+                if (!mergedMap.has(id)) {
+                    mergedMap.set(id, remoteItem);
+                }
+            });
 
-            // Adiciona os itens restantes do remoto (os que não existiam localmente)
-            remoteMap.forEach(item => mergedList.push(item));
-
-            // Ordena por nome para consistência (opcional, mas recomendado)
-            mergedList.sort((a, b) => a.name.localeCompare(b.name));
-
-            return mergedList;
+            // Converte Map de volta para Array e ordena
+            return Array.from(mergedMap.values()).sort((a, b) => a.name.localeCompare(b.name));
         }
-        // --- FIM NOVO: FUNÇÃO DE MERGE ---
+        // --- FIM FUNÇÃO DE MERGE REESCRITA ---
 
 
         async function syncList() {
@@ -360,35 +369,25 @@
             setSyncStatus('syncing');
 
             try {
-                // 1. Download Remote List (Versão do Servidor)
+                // 1. Download Remote List
                 const remoteResponse = await fetch('/api/list');
                 if (!remoteResponse.ok) throw new Error('Falha ao buscar dados remotos.');
                 const remoteItems = await remoteResponse.json();
 
-                // 2. Get Local List (Versão atual na UI/Local Storage)
+                // 2. Get Local List
                 const localItems = getCurrentLocalItems();
                 
-                let listToUpload = localItems;
-                let needsUpload = hasPendingLocalChanges; 
+                // 3. Merge das listas (Preserva local e adiciona novo remoto)
+                const listToUpload = mergeLists(localItems, remoteItems);
 
-                // Se não há mudanças locais pendentes, verifica se o remoto é diferente
-                if (!hasPendingLocalChanges) {
-                     if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
-                        console.log('Detectada mudança no servidor. Realizando merge para download.');
-                        listToUpload = mergeLists(localItems, remoteItems);
-                        needsUpload = true; // Precisa subir a lista mesclada para o servidor
-                     } else {
-                        setSyncStatus('saved');
-                        return; // Nada mudou em ambos os lados, sai.
-                     }
-                } else {
-                    // Há mudanças locais: faz o merge para incorporar novos itens do servidor, preservando as alterações locais
-                    listToUpload = mergeLists(localItems, remoteItems);
-                    // needsUpload já é true
-                }
+                // 4. Verifica se a lista final mesclada é diferente do que já está no servidor
+                const isDifferent = JSON.stringify(listToUpload) !== JSON.stringify(remoteItems);
+                
+                let needsUpload = hasPendingLocalChanges || isDifferent;
 
                 if (needsUpload) {
-                    // 3. Upload da Lista Mesclada para o Servidor
+                    // 5. Upload da Lista Mesclada para o Servidor
+                    console.log('Sincronizando (Upload) lista mesclada com o servidor.');
                     const uploadResponse = await fetch('/api/list', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -396,20 +395,18 @@
                     });
                     if (!uploadResponse.ok) throw new Error('Falha ao sincronizar: Upload da lista mesclada.');
 
-                    // 4. Atualiza UI e Armazenamento Local com a lista final mesclada
+                    // 6. Atualiza UI e Armazenamento Local com a lista final mesclada
                     await localSave(listToUpload); 
                     redrawTable(listToUpload, false);
-
                     hasPendingLocalChanges = false;
                 }
 
                 setSyncStatus('saved');
-                console.log('Sincronização concluída.');
+                console.log('Sincronização concluída. Alterações enviadas:', needsUpload);
 
             } catch (error) {
                 console.error("Erro durante a sincronização:", error);
                 setSyncStatus('error');
-                // Se houver erro, hasPendingLocalChanges continua true para tentar novamente depois
             }
         }
         
@@ -433,7 +430,7 @@
         
         const debouncedSave = debounce(saveList, 1000);
 
-        // --- Funções de UI (permanecem as mesmas) ---
+        // --- Funções de UI (modificadas para ID) ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -447,6 +444,8 @@
                 debouncedSave();
             }
         });
+
+        // ... [Resto dos Listeners de Foco/Blur - Inalterados] ...
 
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
@@ -476,6 +475,7 @@
                 debouncedSave();
             }
         }, true);
+
 
         function createAddItemRow(shouldFocus = false) {
             document.querySelector('.add-item-row')?.remove();
@@ -514,16 +514,27 @@
                 return;
             }
 
+            // CRIA O OBJETO DO ITEM COM O NOVO ID
+            const newItem = {
+                id: uuidv4(), // <-- NOVO ID ÚNICO AQUI
+                name: itemName,
+                priceShibata: 'R$ 0,00', 
+                priceNagumo: 'R$ 0,00', 
+                purchased: false
+            };
+
             addItemRow.remove();
-            buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true);
+            buildItemRow(newItem, true);
             
             sortAndGroup();
-            saveList(); // Salva e sincroniza
+            saveList(); 
             createAddItemRow(true);
         }
 
         function buildItemRow(itemData, isNew = false) {
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
+            // DEFINE O data-id NA LINHA DA TABELA
+            newRow.setAttribute('data-id', itemData.id); 
             if (itemData.purchased) {
                 newRow.classList.add('purchased');
             }
@@ -623,7 +634,6 @@
             } else if (!isOnline) {
                 setSyncStatus('offline');
             } else {
-                // Se carregou do local e está online, tenta sincronizar para baixar alterações remotas
                 syncList(); 
             }
             
@@ -634,7 +644,6 @@
         window.addEventListener('online', () => {
             isOnline = true;
             console.log('Online. Tentando Merge e Sincronização...');
-            // Chama a função de merge imediatamente ao reconectar
             syncList(); 
         });
 
@@ -644,7 +653,7 @@
             setSyncStatus('offline');
         });
 
-        // --- Funções Auxiliares de Preço (permanecem as mesmas) ---
+        // --- Funções Auxiliares de Preço (Inalteradas) ---
         function formatCurrency(input) {
             let value = input.value;
             if (!value) return;
@@ -706,15 +715,11 @@
             rows.forEach(row => tableBody.appendChild(row));
         }
         
-        // Polling para mudanças no servidor
         async function pollForChanges() {
             const activeEl = document.activeElement;
-            // Não sincroniza se estiver: offline, com erro, ou se o usuário estiver digitando
             if (!isOnline || syncState !== 'saved' || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
                 return;
             }
-            
-            // Chama a função de merge. Se não houver mudanças locais pendentes, ela fará o download/verificação.
             syncList();
         }
 
@@ -753,7 +758,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             initializeList();
             setupVirtualKeyboardListener();
-            // Polling mais longo, pois o saveList já cuida da sincronização imediata
             setInterval(pollForChanges, 10000); 
         });
     </script>
