@@ -272,6 +272,7 @@
         let syncState = 'saved'; // Estados: 'saved', 'syncing', 'error', 'offline'
         let hasPendingLocalChanges = false; // Flag para indicar que há mudanças locais que precisam ser enviadas
         let isOnline = navigator.onLine;
+        let isRedrawingUI = false; // NOVO: Flag para prevenir loop de sincronização
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -319,7 +320,6 @@
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
                 items.push({
-                    // Item name é agora a chave implícita
                     name: row.cells[1].querySelector('textarea').value.trim(),
                     priceShibata: row.cells[2].querySelector('input').value,
                     priceNagumo: row.cells[3].querySelector('input').value,
@@ -329,36 +329,28 @@
             return items.filter(item => item.name !== ''); // Remove itens vazios
         }
 
-        // --- FUNÇÃO DE MERGE REESCRITA (Usa Name como chave) ---
+        // --- FUNÇÃO DE MERGE CORRIGIDA (Remove itens deletados localmente) ---
         function mergeLists(local, remote) {
-            // Usa nome em minúsculas e sem espaços como chave
-            const getKey = (item) => item.name.toLowerCase().trim(); 
-            
-            // 1. Mapeia itens remotos pelo nome/chave
-            const remoteMap = new Map();
-            remote.forEach(item => {
-                 const key = getKey(item);
-                 if(key) remoteMap.set(key, item);
-            }); 
+            const getKey = (item) => item.name.toLowerCase().trim();
+            // 1. Mapeia itens locais (esta é a nossa fonte de verdade para exclusões/edições)
+            const localMap = new Map(local.map(item => [getKey(item), item]));
 
-            // 2. Cria um mapa com os itens locais, dando precedência ao local
-            const mergedMap = new Map();
-            local.forEach(item => {
-                const key = getKey(item);
-                if(key) mergedMap.set(key, item);
-            }); 
+            // 2. Começa com a lista local (já contem todas as edições e remove todas as exclusões locais)
+            const listToUpload = [...local]; 
 
-            // 3. Adiciona itens do remoto que NÃO EXISTEM localmente
-            remoteMap.forEach((remoteItem, key) => {
-                if (!mergedMap.has(key)) {
-                    mergedMap.set(key, remoteItem);
+            // 3. Adiciona itens do remoto que não estão no local (NOVOS itens remotos)
+            remote.forEach(remoteItem => {
+                const key = getKey(remoteItem);
+                // Se o item remoto não estiver no nosso mapa local, ele foi adicionado em outro lugar.
+                if (key && !localMap.has(key)) {
+                    listToUpload.push(remoteItem);
                 }
             });
 
-            // Converte Map de volta para Array e ordena
-            return Array.from(mergedMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+            // Retorna a lista mesclada (Local Wins + New Remote Adds)
+            return listToUpload.sort((a, b) => a.name.localeCompare(b.name));
         }
-        // --- FIM FUNÇÃO DE MERGE REESCRITA ---
+        // --- FIM FUNÇÃO DE MERGE CORRIGIDA ---
 
 
         async function syncList() {
@@ -375,7 +367,7 @@
                 // 2. Get Local List
                 const localItems = getCurrentLocalItems();
                 
-                // 3. Merge das listas
+                // 3. Merge das listas (Aplicando a lógica de remoção)
                 const listToUpload = mergeLists(localItems, remoteItems);
 
                 // 4. Verifica se a lista final mesclada é diferente do que já está no servidor
@@ -394,7 +386,12 @@
 
                     // 6. Atualiza UI e Armazenamento Local com a lista final mesclada
                     await localSave(listToUpload); 
+                    
+                    // FIX: Bloqueia o listener de input para evitar loop de sincronização
+                    isRedrawingUI = true; 
                     redrawTable(listToUpload, false);
+                    isRedrawingUI = false; 
+
                     hasPendingLocalChanges = false;
                 }
 
@@ -406,7 +403,6 @@
         }
         
         async function saveList() {
-            // Apenas define o status de sincronização inicial
             setSyncStatus(isOnline ? 'syncing' : 'offline');
             const items = getCurrentLocalItems();
             
@@ -426,13 +422,14 @@
         
         const debouncedSave = debounce(saveList, 1000);
 
-        // --- Funções de UI (Inalteradas, exceto remoção de lógica 'id') ---
+        // --- Funções de UI ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
         }
 
         tableBody.addEventListener('input', (event) => {
+            if (isRedrawingUI) return; // FIX: Sai se o redraw estiver em andamento
             if (event.target.tagName.toLowerCase() === 'textarea') {
                 autoResizeTextarea(event.target);
             }
@@ -457,6 +454,7 @@
         }, true);
 
         tableBody.addEventListener('blur', (event) => {
+            if (isRedrawingUI) return; // FIX: Sai se o redraw estiver em andamento
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
                 formatCurrency(event.target);
                 if (event.target.value.trim() === '' || parseValueToFloat(event.target.value) === 0) {
@@ -507,7 +505,6 @@
                 return;
             }
 
-            // CRIA O OBJETO DO ITEM (Sem ID, usando nome como chave única)
             const newItem = {
                 name: itemName,
                 priceShibata: 'R$ 0,00', 
@@ -525,9 +522,6 @@
 
         function buildItemRow(itemData, isNew = false) {
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
-            
-            // O item name é a chave de identificação (name.toLowerCase())
-            // newRow.setAttribute('data-id', itemData.name.toLowerCase().trim()); // Não é estritamente necessário, mas pode ajudar na depuração.
             
             if (itemData.purchased) {
                 newRow.classList.add('purchased');
