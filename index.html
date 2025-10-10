@@ -27,7 +27,9 @@
             --menu-width: 250px;
         }
 
-        *, *::before, *::after { box-sizing: border-box; }
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -69,13 +71,41 @@
         #page-overlay.show { display: block; }
 
         /* --- CONTEÚDO PRINCIPAL --- */
-        .container { padding: 0; max-width: 100%; margin: 0; flex-grow: 1; }
-        .section { background-color: var(--card-color); padding: 20px 16px; border-radius: var(--border-radius); margin: 0 0 24px 0; }
-        .shopping-list-section { padding: 0; border-radius: 0; }
-        .shopping-list-section .section-header { padding: 20px 16px 16px 16px; }
+        .container {
+            padding: 0;
+            max-width: 100%;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .section {
+            background-color: var(--card-color);
+            padding: 20px 16px;
+            border-radius: var(--border-radius);
+            margin: 0 0 24px 0;
+        }
+
+        .shopping-list-section {
+            padding: 0;
+            border-radius: 0;
+        }
+
+        .shopping-list-section .section-header {
+            padding: 20px 16px 16px 16px;
+        }
+
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .section-header h2 { margin: 0; font-size: 1.5rem; color: var(--primary-color); }
-        .section-header .clear-btn { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 1.2rem; transition: color 0.3s; padding: 5px; }
+
+        .section-header .clear-btn {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: color 0.3s;
+            padding: 5px;
+        }
         .section-header .clear-btn:hover { color: #ff7961; }
 
         /* --- BOTÕES --- */
@@ -117,14 +147,14 @@
 
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
 
-        /* ATUALIZADO: Estilo e tamanho da bolinha de status */
+        /* ATUALIZADO: Estilo para o indicador de status de sincronização no cabeçalho */
         #sync-status-indicator {
-            position: absolute;
+            position: absolute; /* Relativo ao header */
             right: 16px;
             top: 50%;
             transform: translateY(-50%);
-            width: 15px; /* Tamanho aumentado */
-            height: 15px; /* Tamanho aumentado */
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
             background-color: var(--green-highlight);
             z-index: 11;
@@ -133,6 +163,7 @@
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
+
 
         @media (min-width: 768px) { .shopping-list-table colgroup col:nth-child(2) { width: 450px; } }
         @media (min-width: 1024px) { .shopping-list-table colgroup col:nth-child(2) { width: 550px; } }
@@ -166,6 +197,7 @@
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
+
                 <div class="table-scroll-wrapper">
                     <table class="shopping-list-table">
                         <colgroup>
@@ -179,10 +211,12 @@
                                 <th></th>
                             </tr>
                         </thead>
-                        <tbody id="shopping-list-body"></tbody>
+                        <tbody id="shopping-list-body">
+                            </tbody>
                     </table>
                 </div>
             </div>
+
             <div class="section">
                 <h2>Comparador de Preços</h2>
                 <div id="iframe-wrapper" class="iframe-container">
@@ -202,6 +236,7 @@
                 </div>
             </div>
         </div>
+
         <footer class="footer">
             Feito para facilitar suas compras. 🛒💡
         </footer>
@@ -213,259 +248,376 @@
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
         document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
 
-        // --- LÓGICA DA LISTA DE COMPRAS (OFFLINE-FIRST) ---
+        // --- LÓGICA DA LISTA DE COMPRAS (INTEGRADA COM API E TEMPO REAL) ---
+
         const tableBody = document.getElementById('shopping-list-body');
         const statusIndicator = document.getElementById('sync-status-indicator');
-        const STORAGE_KEY = 'shoppingListItems';
-        let syncState = 'saved';
+        let saveTimeout;
+        let syncState = 'saved'; // Estados: 'saved', 'syncing', 'error'
 
         function setSyncStatus(newState) {
             syncState = newState;
             statusIndicator.className = `status-${newState}`;
             if (newState === 'error') {
-                setTimeout(() => { if (syncState === 'error') setSyncStatus('saved'); }, 3000);
+                setTimeout(() => {
+                    if (syncState === 'error') {
+                       setSyncStatus('saved');
+                    }
+                }, 3000);
+            }
+        }
+
+        function debounce(func, delay) {
+            return function(...args) {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+        
+        function getCurrentLocalItems() {
+            const items = [];
+            document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
+                items.push({
+                    name: row.cells[1].querySelector('textarea').value.trim(),
+                    priceShibata: row.cells[2].querySelector('input').value,
+                    priceNagumo: row.cells[3].querySelector('input').value,
+                    purchased: row.classList.contains('purchased')
+                });
+            });
+            return items;
+        }
+        
+        async function saveListOnline() {
+            setSyncStatus('syncing');
+            const items = getCurrentLocalItems();
+
+            try {
+                const response = await fetch('/api/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(items)
+                });
+                if (!response.ok) throw new Error('Falha ao salvar.');
+                setSyncStatus('saved');
+            } catch (error) {
+                setSyncStatus('error');
             }
         }
         
-        // ATUALIZADO: Funções de manipulação do cache local (localStorage)
-        function getLocalList() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
-        function saveLocalList(items) { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); }
-
-        // ATUALIZADO: Função principal de sincronização
-        async function syncWithCloud() {
-            if (!navigator.onLine) {
-                console.log("Offline. Sincronização adiada.");
-                return;
-            }
-            if (syncState === 'syncing') return;
-            setSyncStatus('syncing');
-
-            try {
-                const response = await fetch('/api/list');
-                if (!response.ok && response.status !== 404) throw new Error('Falha ao buscar dados da nuvem.');
-                
-                const remoteItems = response.status === 404 ? [] : await response.json();
-                const localItems = getLocalList();
-                
-                // Lógica de mesclagem (merge)
-                const mergedItemsMap = new Map();
-                
-                // Adiciona todos os itens locais ao mapa
-                localItems.forEach(item => mergedItemsMap.set(item.id, item));
-
-                // Mescla com os itens remotos
-                remoteItems.forEach(remoteItem => {
-                    const localItem = mergedItemsMap.get(remoteItem.id);
-                    if (!localItem || remoteItem.lastModified > localItem.lastModified) {
-                        mergedItemsMap.set(remoteItem.id, remoteItem);
-                    }
-                });
-                
-                const finalItems = Array.from(mergedItemsMap.values());
-                
-                // Atualiza o localStorage e a nuvem com a lista mesclada
-                saveLocalList(finalItems);
-                redrawTable(finalItems, false); // Redesenha sem focar
-                
-                // Envia a lista final para a nuvem
-                const saveResponse = await fetch('/api/list', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(finalItems)
-                });
-                if (!saveResponse.ok) throw new Error('Falha ao salvar na nuvem.');
-                
-                setSyncStatus('saved');
-                console.log("Sincronização concluída com sucesso.");
-
-            } catch (error) {
-                setSyncStatus('error');
-                console.error("Erro na sincronização:", error);
-            }
-        }
+        const debouncedSave = debounce(saveListOnline, 1000);
 
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
-            textarea.style.height = `${textarea.scrollHeight}px`;
+            textarea.style.height = textarea.scrollHeight + 'px';
         }
-        
-        // ATUALIZADO: Eventos agora modificam o cache local e disparam a sincronização
-        tableBody.addEventListener('input', (event) => {
-            const target = event.target;
-            const tr = target.closest('tr');
-            if (!tr || !tr.dataset.id) return;
 
-            if (target.tagName.toLowerCase() === 'textarea') autoResizeTextarea(target);
-            
-            const items = getLocalList();
-            const item = items.find(i => i.id == tr.dataset.id);
-            if (item) {
-                item.name = tr.cells[1].querySelector('textarea').value;
-                item.priceShibata = tr.cells[2].querySelector('input').value;
-                item.priceNagumo = tr.cells[3].querySelector('input').value;
-                item.lastModified = Date.now();
-                saveLocalList(items);
-                syncWithCloud(); // Dispara sincronização
+        tableBody.addEventListener('input', (event) => {
+            if (event.target.tagName.toLowerCase() === 'textarea') {
+                autoResizeTextarea(event.target);
+            }
+            if (['textarea', 'input'].includes(event.target.tagName.toLowerCase())) {
+                setSyncStatus('syncing');
+                debouncedSave();
             }
         });
-        
-        function togglePurchased(checkbox) {
-            const tr = checkbox.closest('tr');
-            tr.classList.toggle('purchased', checkbox.checked);
 
-            const items = getLocalList();
-            const item = items.find(i => i.id == tr.dataset.id);
-            if (item) {
-                item.purchased = checkbox.checked;
-                item.lastModified = Date.now();
-                saveLocalList(items);
-                syncWithCloud();
+        tableBody.addEventListener('focus', (event) => {
+            const target = event.target;
+            if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
+                if (target.classList.contains('default-price') || target.value.trim() === 'R$ 0,00') {
+                    target.select();
+                    target.classList.remove('default-price');
+                } else {
+                    const valLength = target.value.length;
+                    setTimeout(() => {
+                        target.setSelectionRange(valLength, valLength);
+                    }, 0);
+                }
             }
-        }
-        
+        }, true);
+
+        tableBody.addEventListener('blur', (event) => {
+            if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
+                formatCurrency(event.target);
+                if (event.target.value.trim() === '' || parseValueToFloat(event.target.value) === 0) {
+                     event.target.value = 'R$ 0,00';
+                     event.target.classList.add('default-price');
+                } else {
+                     event.target.classList.remove('default-price');
+                }
+                comparePrices(event.target);
+                setSyncStatus('syncing');
+                debouncedSave();
+            }
+        }, true);
+
+        // ATUALIZADO: Parâmetro 'shouldFocus' controla se o teclado deve abrir
         function createAddItemRow(shouldFocus = false) {
             document.querySelector('.add-item-row')?.remove();
             const newRow = tableBody.insertRow(0);
             newRow.classList.add('add-item-row');
+
             newRow.innerHTML = `
                 <td></td>
                 <td><textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1"></textarea></td>
                 <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
                 <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
-                <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>`;
-            
+                <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>
+            `;
+
             const newItemInput = document.getElementById('newItemName');
-            newItemInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitItem(); }});
-            if (shouldFocus) newItemInput.focus();
+            newItemInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    commitItem();
+                }
+            });
+            
+            // ATUALIZADO: Só foca no input se shouldFocus for verdadeiro
+            if (shouldFocus) {
+                newItemInput.focus();
+            }
         }
 
         function commitItem() {
+            const addItemRow = document.querySelector('.add-item-row');
+            if (!addItemRow) return;
             const itemNameInput = document.getElementById('newItemName');
             const itemName = itemNameInput.value.trim();
+
             if (itemName === '') {
                 itemNameInput.focus();
                 return;
             }
 
-            const newItem = {
-                id: Date.now(), // ID único
-                name: itemName,
-                priceShibata: 'R$ 0,00',
-                priceNagumo: 'R$ 0,00',
-                purchased: false,
-                lastModified: Date.now() // Timestamp da última modificação
-            };
+            addItemRow.remove();
+            buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true);
             
-            const items = getLocalList();
-            items.unshift(newItem); // Adiciona no início
-            saveLocalList(items);
-            
-            // Adiciona a linha na UI e cria uma nova linha de adição com foco
-            buildItemRow(newItem, true); 
-            createAddItemRow(true);
-            
-            syncWithCloud(); // Sincroniza com a nuvem
+            sortAndGroup();
+            setSyncStatus('syncing');
+            debouncedSave();
+            createAddItemRow(true); // Foca no novo campo para adicionar o próximo item
         }
 
         function buildItemRow(itemData, isNew = false) {
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
-            newRow.dataset.id = itemData.id; // Adiciona ID ao elemento TR
-            if (itemData.purchased) newRow.classList.add('purchased');
+            if (itemData.purchased) {
+                newRow.classList.add('purchased');
+            }
+
+            const shibataPrice = itemData.priceShibata || 'R$ 0,00';
+            const nagumoPrice = itemData.priceNagumo || 'R$ 0,00';
 
             newRow.innerHTML = `
                 <td><input type="checkbox" onchange="togglePurchased(this)" ${itemData.purchased ? 'checked' : ''}></td>
                 <td><textarea class="item-name-input" rows="1">${itemData.name}</textarea></td>
-                <td class="price-cell"><input type="text" value="${itemData.priceShibata || 'R$ 0,00'}"></td>
-                <td class="price-cell"><input type="text" value="${itemData.priceNagumo || 'R$ 0,00'}"></td>
-                <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>`;
-            
-            autoResizeTextarea(newRow.querySelector('textarea'));
+                <td class="price-cell"><input type="text" value="${shibataPrice}"></td>
+                <td class="price-cell"><input type="text" value="${nagumoPrice}"></td>
+                <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
+            `;
+
+            const textarea = newRow.cells[1].querySelector('textarea');
+            autoResizeTextarea(textarea);
+
+            const shibataInput = newRow.cells[2].querySelector('input');
+            const nagumoInput = newRow.cells[3].querySelector('input');
+
+            formatCurrency(shibataInput);
+            formatCurrency(nagumoInput);
+
+            if (parseValueToFloat(shibataInput.value) === 0) shibataInput.classList.add('default-price');
+            if (parseValueToFloat(nagumoInput.value) === 0) nagumoInput.classList.add('default-price');
+
+            comparePrices(shibataInput);
+            return newRow;
         }
         
+        // ATUALIZADO: Parâmetro 'shouldFocusNewItem' para controlar o foco do teclado
         function redrawTable(items, shouldFocusNewItem = true) {
+            const addItemRow = document.querySelector('.add-item-row');
+            let newItemName = '', newItemShibata = '', newItemNagumo = '';
+            if (addItemRow) {
+                newItemName = addItemRow.querySelector('textarea').value;
+                const priceInputs = addItemRow.querySelectorAll('input[type="text"]');
+                newItemShibata = priceInputs[0].value;
+                newItemNagumo = priceInputs[1].value;
+            }
+
             tableBody.innerHTML = '';
-            const sortedItems = sortItems(items);
-            sortedItems.forEach(item => buildItemRow(item, false));
+            if (items && items.length > 0) {
+                items.forEach(item => buildItemRow(item));
+                sortAndGroup();
+            }
             createAddItemRow(shouldFocusNewItem);
+
+            const newAddItemRow = document.querySelector('.add-item-row');
+            if (newAddItemRow) {
+                newAddItemRow.querySelector('textarea').value = newItemName;
+                const newPriceInputs = newAddItemRow.querySelectorAll('input[type="text"]');
+                newPriceInputs[0].value = newItemShibata;
+                newPriceInputs[1].value = newItemNagumo;
+            }
         }
-        
-        function loadInitialList() {
-            const localItems = getLocalList();
-            redrawTable(localItems, true); // Carrega a lista local primeiro para uma experiência rápida
-            syncWithCloud(); // Depois tenta sincronizar com a nuvem
+
+        async function loadListOnline() {
+            setSyncStatus('syncing');
+            try {
+                const response = await fetch('/api/list');
+                if (!response.ok) throw new Error('Falha ao buscar dados.');
+                const items = await response.json();
+                
+                redrawTable(items, true); // Foca no primeiro carregamento
+                
+                setSyncStatus('saved');
+            } catch (error) {
+                setSyncStatus('error');
+                createAddItemRow(true);
+            }
         }
 
         function removeItem(button) {
             if (confirm('Tem certeza de que deseja remover este item?')) {
-                const tr = button.closest('tr');
-                const items = getLocalList().filter(i => i.id != tr.dataset.id);
-                saveLocalList(items);
-                tr.remove();
-                syncWithCloud();
+                button.closest('tr').remove();
+                setSyncStatus('syncing');
+                debouncedSave();
             }
         }
-        
+
+        function togglePurchased(checkbox) {
+            checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
+            setSyncStatus('syncing');
+            debouncedSave();
+        }
+
         function clearList() {
             if (confirm('Tem certeza que deseja limpar toda a lista?')) {
-                saveLocalList([]);
-                redrawTable([], true);
-                syncWithCloud();
+                tableBody.innerHTML = '';
+                setSyncStatus('syncing');
+                debouncedSave();
+                createAddItemRow(true); // Foca após limpar a lista
             }
         }
-        
-        function sortItems(items) {
-            return items.sort((a, b) => {
-                const getScore = (item) => {
-                    const pS = parseValueToFloat(item.priceShibata);
-                    const pN = parseValueToFloat(item.priceNagumo);
-                    if ((!pS && !pN) || pS === pN) return 1;
-                    if (pS > 0 && (pS < pN || !pN)) return 2;
-                    if (pN > 0 && (pN < pS || !pS)) return 3;
+
+        function formatCurrency(input) {
+            let value = input.value;
+            if (!value) return;
+            value = value.replace('R$', '').trim().replace(/[^0-9,.]/g, '').replace(',', '.');
+            let number = parseFloat(value);
+            if (isNaN(number) || number < 0) {
+                input.value = '';
+            } else {
+                input.value = `R$ ${number.toFixed(2).replace('.', ',')}`;
+            }
+        }
+
+        function parseValueToFloat(value) {
+            if (!value) return NaN;
+            return parseFloat(value.replace('R$', '').trim().replace(/[^0-9,.]/g, '').replace(',', '.'));
+        }
+
+        function comparePrices(input) {
+            const row = input.closest('tr');
+            if (!row || row.classList.contains('add-item-row')) return;
+
+            const shibataInput = row.cells[2].querySelector('input');
+            const nagumoInput = row.cells[3].querySelector('input');
+
+            shibataInput.classList.remove('cheapest-price');
+            nagumoInput.classList.remove('cheapest-price');
+
+            const shibataPrice = parseValueToFloat(shibataInput.value);
+            const nagumoPrice = parseValueToFloat(nagumoInput.value);
+
+            const validShibataPrice = !isNaN(shibataPrice) && shibataPrice > 0;
+            const validNagumoPrice = !isNaN(nagumoPrice) && nagumoPrice > 0;
+
+            if (validShibataPrice && validNagumoPrice) {
+                if (shibataPrice < nagumoPrice) shibataInput.classList.add('cheapest-price');
+                else if (nagumoPrice < shibataPrice) nagumoInput.classList.add('cheapest-price');
+            } else if (validShibataPrice) {
+                 shibataInput.classList.add('cheapest-price');
+            } else if (validNagumoPrice) {
+                 nagumoInput.classList.add('cheapest-price');
+            }
+            sortAndGroup();
+        }
+
+        function sortAndGroup() {
+            const rows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
+            rows.sort((a, b) => {
+                const getScore = (row) => {
+                    const price = { shibata: parseValueToFloat(row.cells[2].querySelector('input').value), nagumo: parseValueToFloat(row.cells[3].querySelector('input').value) };
+                    const pS = (!isNaN(price.shibata) && price.shibata > 0) ? price.shibata : Infinity;
+                    const pN = (!isNaN(price.nagumo) && price.nagumo > 0) ? price.nagumo : Infinity;
+                    if ((pS === Infinity && pN === Infinity) || pS === pN) return 1;
+                    if (pS < pN) return 2;
+                    if (pN < pS) return 3;
                     return 1;
                 };
                 return getScore(a) - getScore(b);
             });
+            rows.forEach(row => tableBody.appendChild(row));
         }
         
-        function parseValueToFloat(value) {
-            if (!value) return 0;
-            return parseFloat(value.replace('R$', '').trim().replace(',', '.')) || 0;
+        async function pollForChanges() {
+            const activeEl = document.activeElement;
+            if (syncState !== 'saved' || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/list');
+                if (!response.ok) return;
+
+                const remoteItems = await response.json();
+                const localItems = getCurrentLocalItems();
+                
+                if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
+                    console.log('Detectada mudança no servidor. Atualizando a lista.');
+                    // ATUALIZADO: Chama redrawTable sem focar no input para não abrir o teclado
+                    redrawTable(remoteItems, false);
+                }
+            } catch (error) {
+                console.error("Erro durante o polling:", error);
+            }
         }
 
-        // --- Funções Auxiliares e de UI ---
+        // --- SOLUÇÃO PARA "ACORDAR" O STREAMLIT ---
         const iframeWrapper = document.getElementById('iframe-wrapper');
         const iframeOverlay = document.getElementById('iframe-overlay');
         function wakeUpApp() {
             iframeOverlay.style.display = 'flex';
-            document.getElementById('streamlit-app')?.remove();
+            let streamlitIframe = document.getElementById('streamlit-app');
+            if (streamlitIframe) streamlitIframe.remove();
             const newIframe = document.createElement('iframe');
             newIframe.id = 'streamlit-app';
-            newIframe.src = `https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/?embed=true&minimal=true&t=${Date.now()}`;
+            const baseUrl = "https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/?embed=true&minimal=true";
+            newIframe.src = `${baseUrl}&t=${new Date().getTime()}`;
             newIframe.addEventListener('load', () => { iframeOverlay.style.display = 'none'; });
             iframeWrapper.prepend(newIframe);
         }
 
+        // --- LÓGICA PARA REMOVER FOCO AO FECHAR TECLADO VIRTUAL ---
         function setupVirtualKeyboardListener() {
             if (!window.visualViewport) return;
-            const isKeyboardOpen = () => window.innerHeight - window.visualViewport.height > 150;
-            let wasOpen = isKeyboardOpen();
+            const isLikelyKeyboardOpen = () => window.innerHeight - window.visualViewport.height > 150;
+            let keyboardWasOpen = isLikelyKeyboardOpen();
             window.visualViewport.addEventListener('resize', () => {
-                const isOpen = isKeyboardOpen();
-                if (wasOpen && !isOpen && document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-                    document.activeElement.blur();
+                const keyboardIsOpen = isLikelyKeyboardOpen();
+                if (keyboardWasOpen && !keyboardIsOpen) {
+                    if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                         document.activeElement.blur();
+                    }
                 }
-                wasOpen = isOpen;
+                keyboardWasOpen = keyboardIsOpen;
             });
         }
-        
-        // --- INICIALIZAÇÃO DA APLICAÇÃO ---
+
+        // Inicia a aplicação
         document.addEventListener('DOMContentLoaded', () => {
-            loadInitialList();
+            loadListOnline();
             setupVirtualKeyboardListener();
-            // Tenta sincronizar quando o usuário fica online
-            window.addEventListener('online', syncWithCloud); 
-            // Sincroniza periodicamente para buscar alterações de outros dispositivos
-            setInterval(syncWithCloud, 10000); // A cada 10 segundos
+            setInterval(pollForChanges, 3000);
         });
     </script>
 </body>
