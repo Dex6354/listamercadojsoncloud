@@ -260,7 +260,7 @@
         // NOVO: Variável para bloquear o polling logo após uma sincronização offline
         let pollBlockTimeout = null; 
         
-        // NOVO: Função auxiliar para ordenar itens de forma consistente
+        // NOVO: Função auxiliar para ordenar itens de forma consistente (AGORA USADA TAMBÉM EM getCurrentLocalItems)
         const sortItems = (a, b) => a.name.localeCompare(b.name);
 
         function setSyncStatus(newState) {
@@ -312,6 +312,7 @@
             };
         }
         
+        // CORRIGIDA: Agora retorna a lista do DOM sempre ordenada por nome para comparação consistente.
         function getCurrentLocalItems() {
             const items = [];
             // Remove a linha de adição de item ao coletar os dados
@@ -324,8 +325,8 @@
                     // ID não é incluído no save POST, pois o backend D1 limpa e recria, gerando novos IDs.
                 });
             });
-            // Filtra itens vazios (que têm nome, mas o nome é apenas um espaço vazio)
-            return items.filter(item => item.name !== ''); 
+            // Filtra itens vazios e ORDENA para garantir que o JSON.stringify seja consistente
+            return items.filter(item => item.name !== '').sort(sortItems); 
         }
         
         async function saveList() {
@@ -358,7 +359,7 @@
                 hasPendingOfflineChanges = false;
                 setSyncStatus('saved');
                 
-                // NOVO: Bloqueia o polling por 5 segundos após um upload bem-sucedido
+                // Bloqueia o polling por 5 segundos após um upload bem-sucedido
                 clearTimeout(pollBlockTimeout);
                 pollBlockTimeout = setTimeout(() => {
                     pollBlockTimeout = null;
@@ -369,7 +370,7 @@
             }
         }
 
-        // CORRIGIDA: Lógica de sincronização para dar prioridade ao estado local com mudanças pendentes.
+        // CORRIGIDA: A lógica de comparação agora usa as listas já ordenadas do getCurrentLocalItems() e do mapeamento remoto.
         async function loadList() {
             isOnline = navigator.onLine;
             let localItems = await localLoad();
@@ -392,11 +393,14 @@
                         if (!response.ok) throw new Error('Falha ao buscar dados.');
                         const remoteItems = await response.json();
                         
-                        // CORREÇÃO: Ordena os arrays antes de stringify para comparação agnóstica à ordem.
-                        const normalizedLocal = JSON.stringify(localItems
+                        // Busca o estado local ATUAL (que já vem ordenado pela correção no getCurrentLocalItems)
+                        const currentLocalItems = getCurrentLocalItems(); 
+                        
+                        // Compara a versão local (sem ID e já ordenada) com a versão remota (sem ID e ordenada antes do stringify)
+                        const normalizedLocal = JSON.stringify(currentLocalItems
                             .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
-                            .sort(sortItems)
                         );
+                        
                         const normalizedRemote = JSON.stringify(remoteItems
                             .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
                             .sort(sortItems)
@@ -714,7 +718,7 @@
             rows.forEach(row => tableBody.appendChild(row));
         }
         
-        // ATUALIZADO: Verifica se o polling está bloqueado
+        // CORRIGIDA: A lógica de comparação agora usa as listas já ordenadas.
         async function pollForChanges() {
             const activeEl = document.activeElement;
             // Se NÃO estiver online, ou se o status não for 'saved', ou se houver mudanças locais pendentes,
@@ -728,13 +732,13 @@
                 if (!response.ok) return;
 
                 const remoteItems = await response.json();
-                const localItems = getCurrentLocalItems();
+                const localItems = getCurrentLocalItems(); // Já vem ordenado
                 
-                // CORREÇÃO: Ordena os arrays antes de stringify para comparação agnóstica à ordem.
+                // Compara a versão local (sem ID e já ordenada) com a versão remota (sem ID e ordenada antes do stringify)
                 const normalizedLocal = JSON.stringify(localItems
                     .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
-                    .sort(sortItems)
                 );
+                
                 const normalizedRemote = JSON.stringify(remoteItems
                     .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
                     .sort(sortItems)
