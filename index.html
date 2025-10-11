@@ -254,9 +254,11 @@
         const statusIndicator = document.getElementById('sync-status-indicator');
         let saveTimeout;
         let syncState = 'saved'; // Estados: 'saved', 'syncing', 'error', 'offline'
-        let hasPendingOfflineChanges = false; // NOVO: Flag para mudanças offline pendentes
+        let hasPendingOfflineChanges = false; 
         let isOnline = navigator.onLine;
-
+        
+        // NOVO: Variável para bloquear o polling logo após uma sincronização offline
+        let pollBlockTimeout = null; 
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -313,7 +315,6 @@
             return items.filter(item => item.name !== ''); // Remove itens vazias
         }
         
-        // --- NOVO: Função para salvar local e online (se possível) ---
         async function saveList() {
             const items = getCurrentLocalItems();
             
@@ -329,7 +330,8 @@
                 setSyncStatus('offline');
             }
         }
-
+        
+        // ATUALIZADO: Adiciona o bloqueio de polling (5 segundos) após o sucesso do POST
         async function saveListOnline(items) {
              setSyncStatus('syncing');
 
@@ -342,12 +344,18 @@
                 if (!response.ok) throw new Error('Falha ao salvar.');
                 hasPendingOfflineChanges = false;
                 setSyncStatus('saved');
+                
+                // NOVO: Bloqueia o polling por 5 segundos após um upload bem-sucedido
+                clearTimeout(pollBlockTimeout);
+                pollBlockTimeout = setTimeout(() => {
+                    pollBlockTimeout = null;
+                }, 5000); 
+
             } catch (error) {
                 setSyncStatus('error');
             }
         }
 
-        // --- REVISADO: Função de Load para suportar Offline-First ---
         async function loadList() {
             isOnline = navigator.onLine;
             let localItems = await localLoad();
@@ -361,8 +369,6 @@
                     const remoteItems = await response.json();
                     
                     if (localItems.length === 0 || hasPendingOfflineChanges) {
-                        // Se não há dados locais OU há alterações offline pendentes,
-                        // forçamos a sincronização da lista local para o servidor
                         if (hasPendingOfflineChanges) {
                              finalItems = localItems; // Mantém a lista local (editada offline)
                              await saveListOnline(finalItems);
@@ -371,7 +377,6 @@
                              await localSave(finalItems);
                         }
                     } else if (JSON.stringify(localItems) !== JSON.stringify(remoteItems)) {
-                        // Se as listas são diferentes, assumimos que a remota é mais nova (a menos que haja mudanças offline pendentes)
                         finalItems = remoteItems;
                         await localSave(finalItems);
                     }
@@ -379,7 +384,7 @@
 
                 } catch (error) {
                     console.error('Erro ao buscar lista online:', error);
-                    setSyncStatus('offline'); // Cai para offline se a API falhar
+                    setSyncStatus('offline'); 
                 }
             } else {
                 setSyncStatus('offline');
@@ -390,7 +395,7 @@
         
         const debouncedSave = debounce(saveList, 1000);
 
-        // --- Funções de UI ---
+        // --- Funções de UI (Inalteradas) ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -570,12 +575,10 @@
             console.log('Online. Tentando Sincronização...');
             
             if (hasPendingOfflineChanges) {
-                // Se houver mudanças offline, prioriza o upload da lista local
                 const localItems = getCurrentLocalItems();
-                await saveListOnline(localItems);
+                await saveListOnline(localItems); // Este POST está bloqueando o polling por 5s
             }
             
-            // Depois, executa o load normal para pegar quaisquer mudanças de outros dispositivos
             await loadList(); 
         });
 
@@ -648,10 +651,12 @@
             rows.forEach(row => tableBody.appendChild(row));
         }
         
+        // ATUALIZADO: Verifica se o polling está bloqueado
         async function pollForChanges() {
             const activeEl = document.activeElement;
-            // Bloqueia o polling se não estiver online ou se houver mudanças locais pendentes
-            if (!isOnline || syncState !== 'saved' || hasPendingOfflineChanges || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
+            // Se NÃO estiver online, ou se o status não for 'saved', ou se houver mudanças locais pendentes,
+            // OU se o bloqueio de tempo estiver ativo, o polling é interrompido.
+            if (!isOnline || syncState !== 'saved' || hasPendingOfflineChanges || pollBlockTimeout || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
                 return;
             }
 
@@ -705,7 +710,7 @@
 
         // Inicia a aplicação
         document.addEventListener('DOMContentLoaded', () => {
-            loadList(); // Inicia com o load para verificar online/offline
+            loadList(); 
             setupVirtualKeyboardListener();
             setInterval(pollForChanges, 3000);
         });
