@@ -135,6 +135,7 @@
         .shopping-list-table .action-btn.add:hover { color: #81c784; }
         .cheapest-price { color: var(--green-highlight) !important; font-weight: bold; }
         .cheapest-price::before { content: "✔ "; }
+        .equal-price { color: var(--primary-color) !important; font-weight: bold; } /* NOVO ESTILO */
         .shopping-list-table td input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
         .purchased .item-name-input, .purchased input[type="text"] { text-decoration: line-through; color: var(--secondary-text-color); }
 
@@ -654,8 +655,9 @@
             const shibataInput = row.cells[2].querySelector('input');
             const nagumoInput = row.cells[3].querySelector('input');
 
-            shibataInput.classList.remove('cheapest-price');
-            nagumoInput.classList.remove('cheapest-price');
+            // Limpa classes anteriores
+            shibataInput.classList.remove('cheapest-price', 'equal-price');
+            nagumoInput.classList.remove('cheapest-price', 'equal-price');
 
             const shibataPrice = parseValueToFloat(shibataInput.value);
             const nagumoPrice = parseValueToFloat(nagumoInput.value);
@@ -664,58 +666,75 @@
             const validNagumoPrice = !isNaN(nagumoPrice) && nagumoPrice > 0;
 
             if (validShibataPrice && validNagumoPrice) {
-                if (shibataPrice < nagumoPrice) shibataInput.classList.add('cheapest-price');
-                else if (nagumoPrice < shibataPrice) nagumoInput.classList.add('cheapest-price');
+                if (shibataPrice < nagumoPrice) {
+                    shibataInput.classList.add('cheapest-price');
+                } else if (nagumoPrice < shibataPrice) {
+                    nagumoInput.classList.add('cheapest-price');
+                } else { // Preços iguais
+                    shibataInput.classList.add('equal-price');
+                    nagumoInput.classList.add('equal-price');
+                }
             } else if (validShibataPrice) {
                  shibataInput.classList.add('cheapest-price');
             } else if (validNagumoPrice) {
                  nagumoInput.classList.add('cheapest-price');
             }
+            
             sortAndGroup();
         }
 
-        // --- ATUALIZADO: Lógica de Ordenação Revertida ---
+        // --- ATUALIZADO: Nova Lógica de Ordenação e Agrupamento ---
         function sortAndGroup() {
             const allRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
-            const pricedRows = [];
+            
             const unpricedRows = [];
+            const shibataCheapestRows = [];
+            const equalPriceRows = [];
+            const nagumoCheapestRows = [];
 
-            // 1. Separa as linhas em dois grupos: com preço e sem preço.
+            // 1. Separa as linhas em grupos
             allRows.forEach(row => {
                 const priceShibata = parseValueToFloat(row.cells[2].querySelector('input').value);
                 const priceNagumo = parseValueToFloat(row.cells[3].querySelector('input').value);
-                const isPriced = (!isNaN(priceShibata) && priceShibata > 0) || (!isNaN(priceNagumo) && priceNagumo > 0);
-                
-                if (isPriced) {
-                    pricedRows.push(row);
-                } else {
+                const validShibata = !isNaN(priceShibata) && priceShibata > 0;
+                const validNagumo = !isNaN(priceNagumo) && priceNagumo > 0;
+
+                if (!validShibata && !validNagumo) {
                     unpricedRows.push(row);
+                } else if (validShibata && validNagumo && priceShibata === priceNagumo) {
+                    equalPriceRows.push(row);
+                } else if (validShibata && (!validNagumo || priceShibata < priceNagumo)) {
+                    shibataCheapestRows.push(row);
+                } else {
+                    nagumoCheapestRows.push(row);
                 }
             });
-
-            // 2. Ordena apenas o grupo que tem preços, do mais barato para o mais caro.
-            pricedRows.sort((a, b) => {
-                const getMinPrice = (row) => {
+            
+            const sortByMinPrice = (a, b) => {
+                 const getMinPrice = (row) => {
                     const priceShibata = parseValueToFloat(row.cells[2].querySelector('input').value);
                     const priceNagumo = parseValueToFloat(row.cells[3].querySelector('input').value);
                     const pS = !isNaN(priceShibata) && priceShibata > 0 ? priceShibata : Infinity;
                     const pN = !isNaN(priceNagumo) && priceNagumo > 0 ? priceNagumo : Infinity;
                     return Math.min(pS, pN);
                 };
+                return getMinPrice(a) - getMinPrice(b);
+            };
 
-                const minPriceA = getMinPrice(a);
-                const minPriceB = getMinPrice(b);
-
-                if (minPriceA !== minPriceB) {
-                    return minPriceA - minPriceB;
-                }
-                const nameA = a.cells[1].querySelector('textarea').value.trim();
-                const nameB = b.cells[1].querySelector('textarea').value.trim();
-                return nameA.localeCompare(nameB);
-            });
-
-            // 3. Remonta a tabela: primeiro os itens SEM preço, depois os COM preço (ordenados).
-            [...unpricedRows, ...pricedRows].forEach(row => tableBody.appendChild(row));
+            // 2. Ordena cada grupo internamente por preço (opcional, mas bom para consistência)
+            shibataCheapestRows.sort(sortByMinPrice);
+            equalPriceRows.sort(sortByMinPrice);
+            nagumoCheapestRows.sort(sortByMinPrice);
+            
+            // 3. Remonta a tabela na nova ordem
+            const finalOrder = [
+                ...unpricedRows, 
+                ...shibataCheapestRows, 
+                ...equalPriceRows, 
+                ...nagumoCheapestRows
+            ];
+            
+            finalOrder.forEach(row => tableBody.appendChild(row));
         }
         
         async function pollForChanges() {
