@@ -144,8 +144,6 @@
         #iframe-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 5; color: var(--text-color); text-align: center; }
         .loader { border: 4px solid var(--input-bg-color); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* --- ATUALIZADO: Estilos para Seção Recolhível --- */
         #comparator-section {
             padding-top: 0;
             padding-bottom: 0;
@@ -288,7 +286,6 @@
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
         document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
         
-        // --- ATUALIZADO: Função para expandir/recolher o comparador ---
         function toggleComparator() {
             document.querySelector('.collapsible-header').classList.toggle('active');
             document.getElementById('comparator-content').classList.toggle('expanded');
@@ -298,13 +295,21 @@
         const tableBody = document.getElementById('shopping-list-body');
         const statusIndicator = document.getElementById('sync-status-indicator');
         let saveTimeout;
-        let syncState = 'saved'; // Estados: 'saved', 'syncing', 'error', 'offline'
+        let syncState = 'saved';
         let hasPendingOfflineChanges = false; 
         let isOnline = navigator.onLine;
         
         let pollBlockTimeout = null; 
         const LOCAL_STORAGE_PENDING_KEY = 'pendingOfflineChanges'; 
+
+        // --- ATUALIZADO: Funções auxiliares para comparação de listas ---
         const sortItems = (a, b) => a.name.localeCompare(b.name);
+        
+        const normalizeListForComparison = (list) => {
+            return list
+                .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
+                .sort(sortItems);
+        };
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -345,7 +350,6 @@
         }
         // --- FIM das Funções de Armazenamento Local ---
 
-
         function debounce(func, delay) {
             return function(...args) {
                 clearTimeout(saveTimeout);
@@ -353,17 +357,21 @@
             };
         }
         
+        // --- ATUALIZADO: Captura a ordem visual do DOM sem reordenar ---
         function getCurrentLocalItems() {
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
-                items.push({
-                    name: row.cells[1].querySelector('textarea').value.trim(),
-                    priceShibata: row.cells[2].querySelector('input').value,
-                    priceNagumo: row.cells[3].querySelector('input').value,
-                    purchased: row.classList.contains('purchased')
-                });
+                const name = row.cells[1].querySelector('textarea').value.trim();
+                if (name) { // Adiciona apenas itens que têm um nome
+                    items.push({
+                        name: name,
+                        priceShibata: row.cells[2].querySelector('input').value,
+                        priceNagumo: row.cells[3].querySelector('input').value,
+                        purchased: row.classList.contains('purchased')
+                    });
+                }
             });
-            return items.filter(item => item.name !== '').map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })).sort(sortItems); 
+            return items; // Retorna na ordem exata em que estão na tela
         }
         
         async function saveList() {
@@ -403,6 +411,7 @@
             }
         }
 
+        // --- ATUALIZADO: Usa a função de normalização para comparar o conteúdo das listas ---
         async function loadList() {
             isOnline = navigator.onLine;
             hasPendingOfflineChanges = localStorage.getItem(LOCAL_STORAGE_PENDING_KEY) === 'true'; 
@@ -414,10 +423,8 @@
             if (isOnline) {
                 setSyncStatus('syncing');
                 try {
-                    if (hasPendingOfflineChanges) {
-                        finalItems = getCurrentLocalItems(); 
-                        await localSave(finalItems);
-                        
+                    if (hasPendingOfflineChanges && localItems.length > 0) {
+                        finalItems = localItems;
                         await saveListOnline(finalItems); 
                         didUpload = true; 
                     }
@@ -427,14 +434,12 @@
                         if (!response.ok) throw new Error('Falha ao buscar dados.');
                         const remoteItems = await response.json();
                         
-                        const normalizedLocal = JSON.stringify(getCurrentLocalItems()); 
-                        
-                        const normalizedRemote = JSON.stringify(remoteItems
-                            .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
-                            .sort(sortItems)
-                        );
+                        const localNormalized = normalizeListForComparison(localItems);
+                        const remoteNormalized = normalizeListForComparison(remoteItems);
 
-                        if (normalizedLocal !== normalizedRemote) {
+                        if (JSON.stringify(localNormalized) !== JSON.stringify(remoteNormalized)) {
+                            // Se o conteúdo for diferente, o servidor vence.
+                            // Usamos a lista remota original para preservar a ordem do banco de dados (mais novo primeiro).
                             finalItems = remoteItems;
                             await localSave(finalItems); 
                         }
@@ -527,7 +532,6 @@
             }
         }
 
-        // --- ATUALIZADO: Função para adicionar item ---
         function commitItem() {
             const addItemRow = document.querySelector('.add-item-row');
             if (!addItemRow) return;
@@ -547,17 +551,10 @@
                 purchased: false
             };
 
-            // Remove a linha de "adicionar item" para dar lugar à nova linha de item.
             addItemRow.remove();
-            
-            // Constrói a nova linha do item no topo da tabela.
-            // O parâmetro 'true' informa a função para inserir a linha na posição 0.
             buildItemRow(newItemData, true);
-
-            // Cria uma nova linha de "adicionar item" no topo para o próximo item.
             createAddItemRow(true);
             
-            // Dispara o salvamento da lista com o novo item.
             setSyncStatus(isOnline ? 'syncing' : 'offline');
             saveList(); 
         }
@@ -596,29 +593,12 @@
         }
         
         function redrawTable(items, shouldFocusNewItem = true) {
-            const addItemRow = document.querySelector('.add-item-row');
-            let newItemName = '', newItemShibata = '', newItemNagumo = '';
-            if (addItemRow) {
-                newItemName = addItemRow.querySelector('textarea').value;
-                const priceInputs = addItemRow.querySelectorAll('input[type="text"]');
-                newItemShibata = priceInputs[0].value;
-                newItemNagumo = priceInputs[1].value;
-            }
-
             tableBody.innerHTML = '';
             if (items && items.length > 0) {
                 items.forEach(item => buildItemRow(item));
                 sortAndGroup();
             }
             createAddItemRow(shouldFocusNewItem);
-
-            const newAddItemRow = document.querySelector('.add-item-row');
-            if (newAddItemRow) {
-                newAddItemRow.querySelector('textarea').value = newItemName;
-                const newPriceInputs = newAddItemRow.querySelectorAll('input[type="text"]');
-                newPriceInputs[0].value = newItemShibata;
-                newPriceInputs[1].value = newItemNagumo;
-            }
         }
 
         function removeItem(button) {
@@ -656,7 +636,6 @@
             console.log('Offline.');
             setSyncStatus('offline');
         });
-
 
         // --- Funções Auxiliares de Preço ---
         function formatCurrency(input) {
@@ -710,16 +689,27 @@
                     const price = { shibata: parseValueToFloat(row.cells[2].querySelector('input').value), nagumo: parseValueToFloat(row.cells[3].querySelector('input').value) };
                     const pS = (!isNaN(price.shibata) && price.shibata > 0) ? price.shibata : Infinity;
                     const pN = (!isNaN(price.nagumo) && price.nagumo > 0) ? price.nagumo : Infinity;
-                    if ((pS === Infinity && pN === Infinity) || pS === pN) return 1;
-                    if (pS < pN) return 2;
-                    if (pN < pN) return 3;
-                    return 1;
+                    if ((pS === Infinity && pN === Infinity) || pS === pN) return 3;
+                    if (pS < pN) return 1;
+                    if (pN < pS) return 2;
+                    return 3;
                 };
-                return getScore(a) - getScore(b);
+                
+                const scoreA = getScore(a);
+                const scoreB = getScore(b);
+
+                if (scoreA !== scoreB) {
+                    return scoreA - scoreB;
+                }
+
+                const nameA = a.cells[1].querySelector('textarea').value.trim();
+                const nameB = b.cells[1].querySelector('textarea').value.trim();
+                return nameA.localeCompare(nameB);
             });
             rows.forEach(row => tableBody.appendChild(row));
         }
         
+        // --- ATUALIZADO: Usa a função de normalização para comparar o conteúdo das listas ---
         async function pollForChanges() {
             const activeEl = document.activeElement;
             if (!isOnline || syncState !== 'saved' || hasPendingOfflineChanges || pollBlockTimeout || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
@@ -732,14 +722,10 @@
 
                 const remoteItems = await response.json();
                 
-                const normalizedLocal = JSON.stringify(getCurrentLocalItems()); 
+                const localNormalized = normalizeListForComparison(getCurrentLocalItems());
+                const remoteNormalized = normalizeListForComparison(remoteItems);
                 
-                const normalizedRemote = JSON.stringify(remoteItems
-                    .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
-                    .sort(sortItems)
-                );
-                
-                if (normalizedRemote !== normalizedLocal) {
+                if (JSON.stringify(remoteNormalized) !== JSON.stringify(localNormalized)) {
                     console.log('Detectada mudança no servidor. Atualizando a lista.');
                     await localSave(remoteItems);
                     redrawTable(remoteItems, false);
@@ -784,18 +770,15 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadList(); 
             setupVirtualKeyboardListener();
-            setInterval(pollForChanges, 3000);
+            setInterval(pollForChanges, 5000); // Aumentado o intervalo para 5s para reduzir chamadas
         });
     </script>
     <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-      // O caminho para o seu Service Worker
       navigator.serviceWorker.register('/sw.js').then(function(registration) {
-        // Registro bem-sucedido
         console.log('ServiceWorker registrado com sucesso:', registration.scope);
       }, function(err) {
-        // Falha no registro
         console.log('Falha no registro do ServiceWorker:', err);
       });
     });
