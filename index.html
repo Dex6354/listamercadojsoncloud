@@ -275,7 +275,14 @@
         // --- Funções de Armazenamento Local (localStorage) ---
         async function localSave(items) {
             try {
-                localStorage.setItem('shoppingList', JSON.stringify(items));
+                // Ao salvar localmente, o ID não é crucial, mas para manter a consistência, garantimos que todos os campos estejam presentes.
+                const itemsToSave = items.map(({ name, priceShibata, priceNagumo, purchased }) => ({ 
+                    name, 
+                    priceShibata, 
+                    priceNagumo, 
+                    purchased 
+                }));
+                localStorage.setItem('shoppingList', JSON.stringify(itemsToSave));
                 return true;
             } catch (error) {
                 console.error("Falha ao salvar localmente:", error);
@@ -304,15 +311,19 @@
         
         function getCurrentLocalItems() {
             const items = [];
+            // Remove a linha de adição de item ao coletar os dados
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
                 items.push({
                     name: row.cells[1].querySelector('textarea').value.trim(),
                     priceShibata: row.cells[2].querySelector('input').value,
                     priceNagumo: row.cells[3].querySelector('input').value,
-                    purchased: row.classList.contains('purchased')
+                    purchased: row.classList.contains('purchased'),
+                    // ID não é incluído no save POST, pois o backend D1 limpa e recria, gerando novos IDs.
+                    // Se você optasse por UPDATE/INSERT/DELETE individuais no backend, o ID seria essencial aqui.
                 });
             });
-            return items.filter(item => item.name !== ''); // Remove itens vazias
+            // Filtra itens vazios (que têm nome, mas o nome é apenas um espaço vazio)
+            return items.filter(item => item.name !== ''); 
         }
         
         async function saveList() {
@@ -368,15 +379,23 @@
                     if (!response.ok) throw new Error('Falha ao buscar dados.');
                     const remoteItems = await response.json();
                     
+                    // Compara apenas os campos de dados, ignorando a ordem e o ID (que é gerado pelo D1)
+                    const normalizedLocal = JSON.stringify(localItems.map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })));
+                    const normalizedRemote = JSON.stringify(remoteItems.map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })));
+
                     if (localItems.length === 0 || hasPendingOfflineChanges) {
                         if (hasPendingOfflineChanges) {
-                             finalItems = localItems; // Mantém a lista local (editada offline)
+                             // Houve mudanças offline: Força o envio da lista local para o servidor
+                             finalItems = localItems;
                              await saveListOnline(finalItems);
                         } else {
-                             finalItems = remoteItems; // Lista local vazia, usa a remota
-                             await localSave(finalItems);
+                             // Lista local vazia e sem mudanças pendentes: Usa a remota
+                             finalItems = remoteItems;
+                             // O localSave aqui também normaliza o formato (ignora o ID)
+                             await localSave(finalItems); 
                         }
-                    } else if (JSON.stringify(localItems) !== JSON.stringify(remoteItems)) {
+                    } else if (normalizedLocal !== normalizedRemote) {
+                        // O servidor tem uma versão diferente: Usa a remota
                         finalItems = remoteItems;
                         await localSave(finalItems);
                     }
@@ -395,7 +414,7 @@
         
         const debouncedSave = debounce(saveList, 1000);
 
-        // --- Funções de UI (Inalteradas) ---
+        // --- Funções de UI ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -479,16 +498,32 @@
             }
 
             addItemRow.remove();
-            buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true);
-            
+            // Ao invés de reconstruir a linha, vamos obter a lista atual e redesenhar.
+            const currentItems = getCurrentLocalItems();
+            currentItems.unshift({ 
+                name: itemName, 
+                priceShibata: addItemRow.cells[2].querySelector('input').value, 
+                priceNagumo: addItemRow.cells[3].querySelector('input').value, 
+                purchased: false 
+            });
+
+            // Redesenha para incluir o novo item e reordena/salva.
+            redrawTable(currentItems, true); 
             sortAndGroup();
             setSyncStatus(isOnline ? 'syncing' : 'offline');
             saveList(); 
-            createAddItemRow(true); 
+            // createAddItemRow(true); // Já chamado dentro do redrawTable
         }
 
         function buildItemRow(itemData, isNew = false) {
+            // O ID só existe se a lista vier do servidor (remoto ou após um load/sync)
+            // Não é necessário no frontend para a lógica atual de POST
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
+            // ATUALIZAÇÃO: Se for um item que veio do D1, adiciona o data-id
+            if (itemData.id) { 
+                newRow.setAttribute('data-id', itemData.id);
+            }
+            
             if (itemData.purchased) {
                 newRow.classList.add('purchased');
             }
@@ -516,7 +551,7 @@
             if (parseValueToFloat(shibataInput.value) === 0) shibataInput.classList.add('default-price');
             if (parseValueToFloat(nagumoInput.value) === 0) nagumoInput.classList.add('default-price');
 
-            comparePrices(shibataInput);
+            comparePrices(shibataInput); // Chamada para garantir a seta de preço
             return newRow;
         }
         
@@ -533,9 +568,10 @@
             tableBody.innerHTML = '';
             if (items && items.length > 0) {
                 items.forEach(item => buildItemRow(item));
-                sortAndGroup();
+                //sortAndGroup(); // A ordenação é feita no load, mas a função é mantida para ser chamada em outros momentos
             }
             createAddItemRow(shouldFocusNewItem);
+            sortAndGroup(); // Garante a ordenação após o redraw
 
             const newAddItemRow = document.querySelector('.add-item-row');
             if (newAddItemRow) {
@@ -548,8 +584,10 @@
 
         function removeItem(button) {
             if (confirm('Tem certeza de que deseja remover este item?')) {
-                button.closest('tr').remove();
+                const row = button.closest('tr');
+                row.remove();
                 setSyncStatus(isOnline ? 'syncing' : 'offline');
+                // Salva a lista inteira após a remoção (limpar e reinserir no backend)
                 saveList(); 
             }
         }
@@ -557,14 +595,15 @@
         function togglePurchased(checkbox) {
             checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
             setSyncStatus(isOnline ? 'syncing' : 'offline');
+            // Como o status de compra muda, usamos o debouncedSave
             debouncedSave();
         }
 
         function clearList() {
             if (confirm('Tem certeza que deseja limpar toda a lista?')) {
                 tableBody.innerHTML = '';
-                setSyncStatus(isOnline ? 'syncing' : 'offline');
-                saveList();
+                // O saveList com o corpo vazio limpará a lista no backend.
+                saveList(); 
                 createAddItemRow(true); 
             }
         }
@@ -574,11 +613,7 @@
             isOnline = true;
             console.log('Online. Tentando Sincronização...');
             
-            if (hasPendingOfflineChanges) {
-                const localItems = getCurrentLocalItems();
-                await saveListOnline(localItems); // Este POST está bloqueando o polling por 5s
-            }
-            
+            // Se houver mudanças offline pendentes, o loadList se encarregará de fazer o upload.
             await loadList(); 
         });
 
@@ -589,7 +624,7 @@
         });
 
 
-        // --- Funções Auxiliares de Preço (Inalteradas) ---
+        // --- Funções Auxiliares de Preço ---
         function formatCurrency(input) {
             let value = input.value;
             if (!value) return;
@@ -637,17 +672,32 @@
         function sortAndGroup() {
             const rows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
             rows.sort((a, b) => {
+                const aIsPurchased = a.classList.contains('purchased');
+                const bIsPurchased = b.classList.contains('purchased');
+                
+                // 1. Prioridade: Itens não comprados primeiro
+                if (aIsPurchased !== bIsPurchased) {
+                    return aIsPurchased ? 1 : -1;
+                }
+
                 const getScore = (row) => {
                     const price = { shibata: parseValueToFloat(row.cells[2].querySelector('input').value), nagumo: parseValueToFloat(row.cells[3].querySelector('input').value) };
                     const pS = (!isNaN(price.shibata) && price.shibata > 0) ? price.shibata : Infinity;
                     const pN = (!isNaN(price.nagumo) && price.nagumo > 0) ? price.nagumo : Infinity;
+                    
+                    // 2. Prioridade (apenas para não comprados): Mostrar a melhor opção (mais barato é 2/3, preço igual/zero é 1)
                     if ((pS === Infinity && pN === Infinity) || pS === pN) return 1;
-                    if (pS < pN) return 2;
-                    if (pN < pN) return 3;
+                    if (pS < pN) return 2; // Mais barato no Shibata
+                    if (pN < pS) return 3; // Mais barato no Nagumo
                     return 1;
                 };
-                return getScore(a) - getScore(b);
+
+                // A ordem de retorno dos itens não comprados é ajustada para -score, para que o "melhor" (maior score) suba.
+                // Itens comprados (aIsPurchased === bIsPurchased === true) ficam na ordem que vieram, no final.
+                return getScore(a) - getScore(b); 
             });
+            
+            // Reinsere as linhas na ordem classificada
             rows.forEach(row => tableBody.appendChild(row));
         }
         
@@ -655,7 +705,7 @@
         async function pollForChanges() {
             const activeEl = document.activeElement;
             // Se NÃO estiver online, ou se o status não for 'saved', ou se houver mudanças locais pendentes,
-            // OU se o bloqueio de tempo estiver ativo, o polling é interrompido.
+            // OU se o bloqueio de tempo estiver ativo, ou se houver um input focado, o polling é interrompido.
             if (!isOnline || syncState !== 'saved' || hasPendingOfflineChanges || pollBlockTimeout || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
                 return;
             }
@@ -667,9 +717,15 @@
                 const remoteItems = await response.json();
                 const localItems = getCurrentLocalItems();
                 
-                if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
+                // Compara a versão local (sem ID e sem ordem) com a versão remota (sem ID e sem ordem)
+                const normalizedLocal = JSON.stringify(localItems.map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })));
+                const normalizedRemote = JSON.stringify(remoteItems.map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })));
+                
+                if (normalizedRemote !== normalizedLocal) {
                     console.log('Detectada mudança no servidor. Atualizando a lista.');
-                    await localSave(remoteItems);
+                    // Salva a lista remota (que contém ID e ordem do D1) no localStorage (que não salva o ID).
+                    await localSave(remoteItems); 
+                    // Redesenha com a lista remota.
                     redrawTable(remoteItems, false);
                 }
             } catch (error) {
