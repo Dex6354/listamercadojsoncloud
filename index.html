@@ -319,7 +319,6 @@
                     priceNagumo: row.cells[3].querySelector('input').value,
                     purchased: row.classList.contains('purchased'),
                     // ID não é incluído no save POST, pois o backend D1 limpa e recria, gerando novos IDs.
-                    // Se você optasse por UPDATE/INSERT/DELETE individuais no backend, o ID seria essencial aqui.
                 });
             });
             // Filtra itens vazios (que têm nome, mas o nome é apenas um espaço vazio)
@@ -367,48 +366,53 @@
             }
         }
 
+        // CORRIGIDA: Lógica de sincronização para dar prioridade ao estado local com mudanças pendentes.
         async function loadList() {
             isOnline = navigator.onLine;
             let localItems = await localLoad();
             let finalItems = localItems;
+            let didUpload = false;
 
             if (isOnline) {
                 setSyncStatus('syncing');
                 try {
-                    const response = await fetch('/api/list');
-                    if (!response.ok) throw new Error('Falha ao buscar dados.');
-                    const remoteItems = await response.json();
-                    
-                    // Compara apenas os campos de dados, ignorando a ordem e o ID (que é gerado pelo D1)
-                    const normalizedLocal = JSON.stringify(localItems.map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })));
-                    const normalizedRemote = JSON.stringify(remoteItems.map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })));
-
-                    if (localItems.length === 0 || hasPendingOfflineChanges) {
-                        if (hasPendingOfflineChanges) {
-                             // Houve mudanças offline: Força o envio da lista local para o servidor
-                             finalItems = localItems;
-                             await saveListOnline(finalItems);
-                        } else {
-                             // Lista local vazia e sem mudanças pendentes: Usa a remota
-                             finalItems = remoteItems;
-                             // O localSave aqui também normaliza o formato (ignora o ID)
-                             await localSave(finalItems); 
-                        }
-                    } else if (normalizedLocal !== normalizedRemote) {
-                        // O servidor tem uma versão diferente: Usa a remota
-                        finalItems = remoteItems;
-                        await localSave(finalItems);
+                    // PRIMEIRA PRIORIDADE: Se houver mudanças offline pendentes, o local é o MASTER.
+                    if (hasPendingOfflineChanges) {
+                        finalItems = localItems;
+                        await saveListOnline(finalItems); 
+                        didUpload = true; 
                     }
+
+                    // SEGUNDA PRIORIDADE: Se não houve upload agora, buscamos a versão remota.
+                    if (!didUpload) {
+                        const response = await fetch('/api/list'); 
+                        if (!response.ok) throw new Error('Falha ao buscar dados.');
+                        const remoteItems = await response.json();
+                        
+                        // Compara a versão local (sem ID e sem ordem) com a versão remota (sem ID e sem ordem)
+                        const normalizedLocal = JSON.stringify(localItems.map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })));
+                        const normalizedRemote = JSON.stringify(remoteItems.map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })));
+
+                        if (normalizedLocal !== normalizedRemote) {
+                            // O servidor tem uma versão mais recente (outro dispositivo salvou online).
+                            // Usa a remota e a salva localmente.
+                            finalItems = remoteItems;
+                            await localSave(finalItems); 
+                        }
+                    }
+                    
                     setSyncStatus('saved');
 
                 } catch (error) {
-                    console.error('Erro ao buscar lista online:', error);
+                    console.error('Erro ao buscar/sincronizar lista online:', error);
                     setSyncStatus('offline'); 
+                    // Em caso de erro, continua usando a versão local (finalItems = localItems)
                 }
             } else {
                 setSyncStatus('offline');
             }
 
+            // O finalItems será a versão mais atual (local ou remota sincronizada).
             redrawTable(finalItems, true);
         }
         
