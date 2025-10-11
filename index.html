@@ -145,11 +145,46 @@
         .loader { border: 4px solid var(--input-bg-color); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
+        /* --- ATUALIZADO: Estilos para Seção Recolhível --- */
+        #comparator-section {
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-bottom: 24px;
+        }
+        .collapsible-header {
+            cursor: pointer;
+            padding: 20px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .collapsible-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+        .collapsible-header .fas.fa-chevron-down {
+            transition: transform 0.3s ease;
+            color: var(--secondary-text-color);
+        }
+        .collapsible-header.active .fas.fa-chevron-down {
+            transform: rotate(180deg);
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-out;
+            padding: 0 16px;
+        }
+        .collapsible-content.expanded {
+            max-height: 100vh;
+            padding-bottom: 20px;
+        }
+
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
 
-        /* ATUALIZADO: Estilo para o indicador de status de sincronização no cabeçalho */
         #sync-status-indicator {
-            position: absolute; /* Relativo ao header */
+            position: absolute;
             right: 16px;
             top: 50%;
             transform: translateY(-50%);
@@ -163,8 +198,7 @@
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
-        #sync-status-indicator.status-offline { background-color: #7986cb; /* Um azul suave para offline */ }
-
+        #sync-status-indicator.status-offline { background-color: #7986cb; }
 
         @media (min-width: 768px) { .shopping-list-table colgroup col:nth-child(2) { width: 450px; } }
         @media (min-width: 1024px) { .shopping-list-table colgroup col:nth-child(2) { width: 550px; } }
@@ -218,22 +252,27 @@
                 </div>
             </div>
 
-            <div class="section">
-                <h2>Comparador de Preços</h2>
-                <div id="iframe-wrapper" class="iframe-container">
-                    <div id="iframe-overlay">
-                        <div class="loader"></div>
-                        <span>Acordando o comparador...</span>
-                    </div>
-                    <iframe id="streamlit-app" src="https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/?embed=true&minimal=true"></iframe>
+            <div class="section" id="comparator-section">
+                <div class="section-header collapsible-header" onclick="toggleComparator()">
+                    <h2>Comparador de Preços</h2>
+                    <i class="fas fa-chevron-down"></i>
                 </div>
-                <div class="button-group" style="margin-top: 16px;">
-                     <button class="custom-btn" onclick="wakeUpApp()" style="flex-grow: 1;">
-                        <i class="fas fa-sync-alt"></i> Ativar / Atualizar
-                    </button>
-                    <a href="https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/" target="_blank" rel="noopener noreferrer" class="custom-btn secondary" style="flex-grow: 1; text-align: center; text-decoration: none; line-height: 1.8;">
-                        <i class="fas fa-external-link-alt"></i> Abrir em Nova Guia
-                    </a>
+                <div id="comparator-content" class="collapsible-content">
+                    <div id="iframe-wrapper" class="iframe-container">
+                        <div id="iframe-overlay">
+                            <div class="loader"></div>
+                            <span>Acordando o comparador...</span>
+                        </div>
+                        <iframe id="streamlit-app" src="https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/?embed=true&minimal=true"></iframe>
+                    </div>
+                    <div class="button-group" style="margin-top: 16px;">
+                         <button class="custom-btn" onclick="wakeUpApp()" style="flex-grow: 1;">
+                            <i class="fas fa-sync-alt"></i> Ativar / Atualizar
+                        </button>
+                        <a href="https://precos-mercados-r4yzmwdzsm4ojqxclxln7k.streamlit.app/" target="_blank" rel="noopener noreferrer" class="custom-btn secondary" style="flex-grow: 1; text-align: center; text-decoration: none; line-height: 1.8;">
+                            <i class="fas fa-external-link-alt"></i> Abrir em Nova Guia
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -248,6 +287,12 @@
         function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
         document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
+        
+        // --- ATUALIZADO: Função para expandir/recolher o comparador ---
+        function toggleComparator() {
+            document.querySelector('.collapsible-header').classList.toggle('active');
+            document.getElementById('comparator-content').classList.toggle('expanded');
+        }
 
         // --- Variáveis de Sincronização e Estado ---
         const tableBody = document.getElementById('shopping-list-body');
@@ -257,13 +302,8 @@
         let hasPendingOfflineChanges = false; 
         let isOnline = navigator.onLine;
         
-        // NOVO: Variável para bloquear o polling logo após uma sincronização offline
         let pollBlockTimeout = null; 
-        
-        // NOVO: Chave para persistir o estado de mudanças pendentes (CORREÇÃO DE REFRESH)
         const LOCAL_STORAGE_PENDING_KEY = 'pendingOfflineChanges'; 
-
-        // NOVO: Função auxiliar para ordenar itens de forma consistente (CORREÇÃO DE ORDEM)
         const sortItems = (a, b) => a.name.localeCompare(b.name);
 
         function setSyncStatus(newState) {
@@ -278,7 +318,6 @@
             }
         }
         
-        // NOVA FUNÇÃO: Define o status de mudanças pendentes, persistindo no localStorage
         function setPendingChanges(isPending) {
             hasPendingOfflineChanges = isPending;
             localStorage.setItem(LOCAL_STORAGE_PENDING_KEY, isPending ? 'true' : 'false');
@@ -287,7 +326,6 @@
         // --- Funções de Armazenamento Local (localStorage) ---
         async function localSave(items) {
             try {
-                // Salva a lista já ordenada e minimalista
                 localStorage.setItem('shoppingList', JSON.stringify(items));
                 return true;
             } catch (error) {
@@ -299,7 +337,6 @@
         async function localLoad() {
             try {
                 const items = localStorage.getItem('shoppingList');
-                // Retorna a lista local, que é a versão ordenada mais recente
                 return items ? JSON.parse(items) : []; 
             } catch (error) {
                 console.error("Falha ao carregar localmente:", error);
@@ -316,7 +353,6 @@
             };
         }
         
-        // CORRIGIDA: Agora retorna a lista do DOM sempre ordenada por nome para comparação consistente.
         function getCurrentLocalItems() {
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
@@ -327,28 +363,22 @@
                     purchased: row.classList.contains('purchased')
                 });
             });
-            // Filtra itens vazios e ORDENA para garantir que o JSON.stringify seja consistente
             return items.filter(item => item.name !== '').map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })).sort(sortItems); 
         }
         
         async function saveList() {
-            // Obtém a lista já ordenada e minimalista para salvar local e enviar para o servidor
             const items = getCurrentLocalItems(); 
             
-            // 1. Salva sempre no local (Garantia de persistência offline)
             await localSave(items);
             
             if (isOnline) {
-                // 2. Tenta salvar online se estiver conectado
                 await saveListOnline(items);
             } else {
-                // 3. Marca mudanças offline e atualiza status
-                setPendingChanges(true); // PERSISTE O ESTADO DE MUDANÇA
+                setPendingChanges(true);
                 setSyncStatus('offline');
             }
         }
         
-        // ATUALIZADO: Gerencia a flag de mudanças pendentes.
         async function saveListOnline(items) {
              setSyncStatus('syncing');
 
@@ -360,10 +390,9 @@
                 });
                 if (!response.ok) throw new Error('Falha ao salvar.');
                 
-                setPendingChanges(false); // Limpa o estado persistido após o sucesso
+                setPendingChanges(false);
                 setSyncStatus('saved');
                 
-                // NOVO: Bloqueia o polling por 5 segundos após um upload bem-sucedido
                 clearTimeout(pollBlockTimeout);
                 pollBlockTimeout = setTimeout(() => {
                     pollBlockTimeout = null;
@@ -374,10 +403,8 @@
             }
         }
 
-        // CORRIGIDA: Lógica de sincronização que prioriza o estado local se a flag persistida estiver ativa.
         async function loadList() {
             isOnline = navigator.onLine;
-            // Lê o status persistido (se o refresh perdeu o status transiente)
             hasPendingOfflineChanges = localStorage.getItem(LOCAL_STORAGE_PENDING_KEY) === 'true'; 
 
             let localItems = await localLoad();
@@ -387,23 +414,19 @@
             if (isOnline) {
                 setSyncStatus('syncing');
                 try {
-                    // PRIMEIRA PRIORIDADE (CORREÇÃO): Se houver mudanças offline pendentes (mesmo após refresh)
                     if (hasPendingOfflineChanges) {
-                        finalItems = getCurrentLocalItems(); // O DOM é a fonte da verdade se houve interação
-                        await localSave(finalItems); // Garantir que o local storage também esteja atualizado
+                        finalItems = getCurrentLocalItems(); 
+                        await localSave(finalItems);
                         
-                        // Faz o upload da versão local (que tem o item excluído)
                         await saveListOnline(finalItems); 
                         didUpload = true; 
                     }
 
-                    // SEGUNDA PRIORIDADE: Se não houve upload, buscamos o remoto para verificar mudanças externas.
                     if (!didUpload) {
                         const response = await fetch('/api/list'); 
                         if (!response.ok) throw new Error('Falha ao buscar dados.');
                         const remoteItems = await response.json();
                         
-                        // Garante que as listas a serem comparadas são minimalistas e ordenadas
                         const normalizedLocal = JSON.stringify(getCurrentLocalItems()); 
                         
                         const normalizedRemote = JSON.stringify(remoteItems
@@ -412,7 +435,6 @@
                         );
 
                         if (normalizedLocal !== normalizedRemote) {
-                            // O servidor tem uma versão mais recente (outro dispositivo salvou online).
                             finalItems = remoteItems;
                             await localSave(finalItems); 
                         }
@@ -427,14 +449,13 @@
             } else {
                 setSyncStatus('offline');
             }
-
-            // O finalItems será a versão mais atual (local ou remota sincronizada).
+            
             redrawTable(finalItems, true);
         }
         
         const debouncedSave = debounce(saveList, 1000);
 
-        // --- Funções de UI (Inalteradas) ---
+        // --- Funções de UI ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -506,9 +527,11 @@
             }
         }
 
+        // --- ATUALIZADO: Função para adicionar item ---
         function commitItem() {
             const addItemRow = document.querySelector('.add-item-row');
             if (!addItemRow) return;
+
             const itemNameInput = document.getElementById('newItemName');
             const itemName = itemNameInput.value.trim();
 
@@ -517,20 +540,24 @@
                 return;
             }
 
+            const newItemData = {
+                name: itemName,
+                priceShibata: addItemRow.cells[2].querySelector('input').value || 'R$ 0,00',
+                priceNagumo: addItemRow.cells[3].querySelector('input').value || 'R$ 0,00',
+                purchased: false
+            };
+
+            // Remove a linha de "adicionar item" para dar lugar à nova linha de item.
             addItemRow.remove();
             
-            // Adiciona o novo item e força um novo save/redraw.
-            const currentItems = getCurrentLocalItems();
-             currentItems.push({ 
-                name: itemName, 
-                priceShibata: addItemRow.cells[2].querySelector('input').value, 
-                priceNagumo: addItemRow.cells[3].querySelector('input').value, 
-                purchased: false 
-            });
+            // Constrói a nova linha do item no topo da tabela.
+            // O parâmetro 'true' informa a função para inserir a linha na posição 0.
+            buildItemRow(newItemData, true);
+
+            // Cria uma nova linha de "adicionar item" no topo para o próximo item.
+            createAddItemRow(true);
             
-            // O redrawTable chamará getCurrentLocalItems, que ordenará novamente
-            redrawTable(currentItems, true); 
-            
+            // Dispara o salvamento da lista com o novo item.
             setSyncStatus(isOnline ? 'syncing' : 'offline');
             saveList(); 
         }
@@ -580,9 +607,8 @@
 
             tableBody.innerHTML = '';
             if (items && items.length > 0) {
-                // A lista 'items' já é a lista ordenada/mestra do localLoad ou do getCurrentLocalItems
                 items.forEach(item => buildItemRow(item));
-                sortAndGroup(); // Garante a ordenação visual no DOM
+                sortAndGroup();
             }
             createAddItemRow(shouldFocusNewItem);
 
@@ -599,7 +625,6 @@
             if (confirm('Tem certeza de que deseja remover este item?')) {
                 button.closest('tr').remove();
                 setSyncStatus(isOnline ? 'syncing' : 'offline');
-                // O saveList garante que o estado local com a exclusão seja persistido e, se offline, a flag seja ativada.
                 saveList(); 
             }
         }
@@ -623,8 +648,6 @@
         window.addEventListener('online', async () => {
             isOnline = true;
             console.log('Online. Tentando Sincronização...');
-            
-            // O loadList agora verifica a flag persistida
             await loadList(); 
         });
 
@@ -635,7 +658,7 @@
         });
 
 
-        // --- Funções Auxiliares de Preço (Inalteradas) ---
+        // --- Funções Auxiliares de Preço ---
         function formatCurrency(input) {
             let value = input.value;
             if (!value) return;
@@ -697,10 +720,8 @@
             rows.forEach(row => tableBody.appendChild(row));
         }
         
-        // CORRIGIDA: Lógica de polling para usar a comparação agnóstica à ordem.
         async function pollForChanges() {
             const activeEl = document.activeElement;
-            // Interrompe o polling se houver mudanças locais pendentes (flag persistida ou não) ou se estiver bloqueado.
             if (!isOnline || syncState !== 'saved' || hasPendingOfflineChanges || pollBlockTimeout || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
                 return;
             }
@@ -711,10 +732,8 @@
 
                 const remoteItems = await response.json();
                 
-                // Obtém a lista local (já ordenada) e a serializa
                 const normalizedLocal = JSON.stringify(getCurrentLocalItems()); 
                 
-                // Ordena a lista remota e a serializa
                 const normalizedRemote = JSON.stringify(remoteItems
                     .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
                     .sort(sortItems)
@@ -722,7 +741,6 @@
                 
                 if (normalizedRemote !== normalizedLocal) {
                     console.log('Detectada mudança no servidor. Atualizando a lista.');
-                    // Se o remoto for diferente do local, ele é o mestre (pois a flag de pendência está false)
                     await localSave(remoteItems);
                     redrawTable(remoteItems, false);
                 }
