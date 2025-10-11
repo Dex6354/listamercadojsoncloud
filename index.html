@@ -260,7 +260,10 @@
         // NOVO: Variável para bloquear o polling logo após uma sincronização offline
         let pollBlockTimeout = null; 
         
-        // NOVO: Função auxiliar para ordenar itens de forma consistente (AGORA USADA TAMBÉM EM getCurrentLocalItems)
+        // NOVO: Chave para persistir o estado de mudanças pendentes (CORREÇÃO DE REFRESH)
+        const LOCAL_STORAGE_PENDING_KEY = 'pendingOfflineChanges'; 
+
+        // NOVO: Função auxiliar para ordenar itens de forma consistente (CORREÇÃO DE ORDEM)
         const sortItems = (a, b) => a.name.localeCompare(b.name);
 
         function setSyncStatus(newState) {
@@ -274,18 +277,18 @@
                 }, 3000);
             }
         }
+        
+        // NOVA FUNÇÃO: Define o status de mudanças pendentes, persistindo no localStorage
+        function setPendingChanges(isPending) {
+            hasPendingOfflineChanges = isPending;
+            localStorage.setItem(LOCAL_STORAGE_PENDING_KEY, isPending ? 'true' : 'false');
+        }
 
         // --- Funções de Armazenamento Local (localStorage) ---
         async function localSave(items) {
             try {
-                // Ao salvar localmente, o ID não é crucial, mas para manter a consistência, garantimos que todos os campos estejam presentes.
-                const itemsToSave = items.map(({ name, priceShibata, priceNagumo, purchased }) => ({ 
-                    name, 
-                    priceShibata, 
-                    priceNagumo, 
-                    purchased 
-                }));
-                localStorage.setItem('shoppingList', JSON.stringify(itemsToSave));
+                // Salva a lista já ordenada e minimalista
+                localStorage.setItem('shoppingList', JSON.stringify(items));
                 return true;
             } catch (error) {
                 console.error("Falha ao salvar localmente:", error);
@@ -296,7 +299,8 @@
         async function localLoad() {
             try {
                 const items = localStorage.getItem('shoppingList');
-                return items ? JSON.parse(items) : [];
+                // Retorna a lista local, que é a versão ordenada mais recente
+                return items ? JSON.parse(items) : []; 
             } catch (error) {
                 console.error("Falha ao carregar localmente:", error);
                 return [];
@@ -315,22 +319,21 @@
         // CORRIGIDA: Agora retorna a lista do DOM sempre ordenada por nome para comparação consistente.
         function getCurrentLocalItems() {
             const items = [];
-            // Remove a linha de adição de item ao coletar os dados
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
                 items.push({
                     name: row.cells[1].querySelector('textarea').value.trim(),
                     priceShibata: row.cells[2].querySelector('input').value,
                     priceNagumo: row.cells[3].querySelector('input').value,
-                    purchased: row.classList.contains('purchased'),
-                    // ID não é incluído no save POST, pois o backend D1 limpa e recria, gerando novos IDs.
+                    purchased: row.classList.contains('purchased')
                 });
             });
             // Filtra itens vazios e ORDENA para garantir que o JSON.stringify seja consistente
-            return items.filter(item => item.name !== '').sort(sortItems); 
+            return items.filter(item => item.name !== '').map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased })).sort(sortItems); 
         }
         
         async function saveList() {
-            const items = getCurrentLocalItems();
+            // Obtém a lista já ordenada e minimalista para salvar local e enviar para o servidor
+            const items = getCurrentLocalItems(); 
             
             // 1. Salva sempre no local (Garantia de persistência offline)
             await localSave(items);
@@ -340,12 +343,12 @@
                 await saveListOnline(items);
             } else {
                 // 3. Marca mudanças offline e atualiza status
-                hasPendingOfflineChanges = true;
+                setPendingChanges(true); // PERSISTE O ESTADO DE MUDANÇA
                 setSyncStatus('offline');
             }
         }
         
-        // ATUALIZADO: Adiciona o bloqueio de polling (5 segundos) após o sucesso do POST
+        // ATUALIZADO: Gerencia a flag de mudanças pendentes.
         async function saveListOnline(items) {
              setSyncStatus('syncing');
 
@@ -356,10 +359,11 @@
                     body: JSON.stringify(items)
                 });
                 if (!response.ok) throw new Error('Falha ao salvar.');
-                hasPendingOfflineChanges = false;
+                
+                setPendingChanges(false); // Limpa o estado persistido após o sucesso
                 setSyncStatus('saved');
                 
-                // Bloqueia o polling por 5 segundos após um upload bem-sucedido
+                // NOVO: Bloqueia o polling por 5 segundos após um upload bem-sucedido
                 clearTimeout(pollBlockTimeout);
                 pollBlockTimeout = setTimeout(() => {
                     pollBlockTimeout = null;
@@ -370,9 +374,12 @@
             }
         }
 
-        // CORRIGIDA: A lógica de comparação agora usa as listas já ordenadas do getCurrentLocalItems() e do mapeamento remoto.
+        // CORRIGIDA: Lógica de sincronização que prioriza o estado local se a flag persistida estiver ativa.
         async function loadList() {
             isOnline = navigator.onLine;
+            // Lê o status persistido (se o refresh perdeu o status transiente)
+            hasPendingOfflineChanges = localStorage.getItem(LOCAL_STORAGE_PENDING_KEY) === 'true'; 
+
             let localItems = await localLoad();
             let finalItems = localItems;
             let didUpload = false;
@@ -380,26 +387,24 @@
             if (isOnline) {
                 setSyncStatus('syncing');
                 try {
-                    // PRIMEIRA PRIORIDADE: Se houver mudanças offline pendentes, o local é o MASTER.
+                    // PRIMEIRA PRIORIDADE (CORREÇÃO): Se houver mudanças offline pendentes (mesmo após refresh)
                     if (hasPendingOfflineChanges) {
-                        finalItems = localItems;
+                        finalItems = getCurrentLocalItems(); // O DOM é a fonte da verdade se houve interação
+                        await localSave(finalItems); // Garantir que o local storage também esteja atualizado
+                        
+                        // Faz o upload da versão local (que tem o item excluído)
                         await saveListOnline(finalItems); 
                         didUpload = true; 
                     }
 
-                    // SEGUNDA PRIORIDADE: Se não houve upload agora, buscamos a versão remota.
+                    // SEGUNDA PRIORIDADE: Se não houve upload, buscamos o remoto para verificar mudanças externas.
                     if (!didUpload) {
                         const response = await fetch('/api/list'); 
                         if (!response.ok) throw new Error('Falha ao buscar dados.');
                         const remoteItems = await response.json();
                         
-                        // Busca o estado local ATUAL (que já vem ordenado pela correção no getCurrentLocalItems)
-                        const currentLocalItems = getCurrentLocalItems(); 
-                        
-                        // Compara a versão local (sem ID e já ordenada) com a versão remota (sem ID e ordenada antes do stringify)
-                        const normalizedLocal = JSON.stringify(currentLocalItems
-                            .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
-                        );
+                        // Garante que as listas a serem comparadas são minimalistas e ordenadas
+                        const normalizedLocal = JSON.stringify(getCurrentLocalItems()); 
                         
                         const normalizedRemote = JSON.stringify(remoteItems
                             .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
@@ -408,7 +413,6 @@
 
                         if (normalizedLocal !== normalizedRemote) {
                             // O servidor tem uma versão mais recente (outro dispositivo salvou online).
-                            // Usa a remota e a salva localmente.
                             finalItems = remoteItems;
                             await localSave(finalItems); 
                         }
@@ -419,7 +423,6 @@
                 } catch (error) {
                     console.error('Erro ao buscar/sincronizar lista online:', error);
                     setSyncStatus('offline'); 
-                    // Em caso de erro, continua usando a versão local (finalItems = localItems)
                 }
             } else {
                 setSyncStatus('offline');
@@ -431,7 +434,7 @@
         
         const debouncedSave = debounce(saveList, 1000);
 
-        // --- Funções de UI ---
+        // --- Funções de UI (Inalteradas) ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -515,32 +518,25 @@
             }
 
             addItemRow.remove();
-            // Ao invés de reconstruir a linha, vamos obter a lista atual e redesenhar.
+            
+            // Adiciona o novo item e força um novo save/redraw.
             const currentItems = getCurrentLocalItems();
-            currentItems.unshift({ 
+             currentItems.push({ 
                 name: itemName, 
                 priceShibata: addItemRow.cells[2].querySelector('input').value, 
                 priceNagumo: addItemRow.cells[3].querySelector('input').value, 
                 purchased: false 
             });
-
-            // Redesenha para incluir o novo item e reordena/salva.
+            
+            // O redrawTable chamará getCurrentLocalItems, que ordenará novamente
             redrawTable(currentItems, true); 
-            sortAndGroup();
+            
             setSyncStatus(isOnline ? 'syncing' : 'offline');
             saveList(); 
-            // createAddItemRow(true); // Já chamado dentro do redrawTable
         }
 
         function buildItemRow(itemData, isNew = false) {
-            // O ID só existe se a lista vier do servidor (remoto ou após um load/sync)
-            // Não é necessário no frontend para a lógica atual de POST
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
-            // ATUALIZAÇÃO: Se for um item que veio do D1, adiciona o data-id
-            if (itemData.id) { 
-                newRow.setAttribute('data-id', itemData.id);
-            }
-            
             if (itemData.purchased) {
                 newRow.classList.add('purchased');
             }
@@ -568,7 +564,7 @@
             if (parseValueToFloat(shibataInput.value) === 0) shibataInput.classList.add('default-price');
             if (parseValueToFloat(nagumoInput.value) === 0) nagumoInput.classList.add('default-price');
 
-            comparePrices(shibataInput); // Chamada para garantir a seta de preço
+            comparePrices(shibataInput);
             return newRow;
         }
         
@@ -584,11 +580,11 @@
 
             tableBody.innerHTML = '';
             if (items && items.length > 0) {
+                // A lista 'items' já é a lista ordenada/mestra do localLoad ou do getCurrentLocalItems
                 items.forEach(item => buildItemRow(item));
-                //sortAndGroup(); // A ordenação é feita no load, mas a função é mantida para ser chamada em outros momentos
+                sortAndGroup(); // Garante a ordenação visual no DOM
             }
             createAddItemRow(shouldFocusNewItem);
-            sortAndGroup(); // Garante a ordenação após o redraw
 
             const newAddItemRow = document.querySelector('.add-item-row');
             if (newAddItemRow) {
@@ -601,10 +597,9 @@
 
         function removeItem(button) {
             if (confirm('Tem certeza de que deseja remover este item?')) {
-                const row = button.closest('tr');
-                row.remove();
+                button.closest('tr').remove();
                 setSyncStatus(isOnline ? 'syncing' : 'offline');
-                // Salva a lista inteira após a remoção (limpar e reinserir no backend)
+                // O saveList garante que o estado local com a exclusão seja persistido e, se offline, a flag seja ativada.
                 saveList(); 
             }
         }
@@ -612,15 +607,14 @@
         function togglePurchased(checkbox) {
             checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
             setSyncStatus(isOnline ? 'syncing' : 'offline');
-            // Como o status de compra muda, usamos o debouncedSave
             debouncedSave();
         }
 
         function clearList() {
             if (confirm('Tem certeza que deseja limpar toda a lista?')) {
                 tableBody.innerHTML = '';
-                // O saveList com o corpo vazio limpará a lista no backend.
-                saveList(); 
+                setSyncStatus(isOnline ? 'syncing' : 'offline');
+                saveList();
                 createAddItemRow(true); 
             }
         }
@@ -630,7 +624,7 @@
             isOnline = true;
             console.log('Online. Tentando Sincronização...');
             
-            // Se houver mudanças offline pendentes, o loadList se encarregará de fazer o upload.
+            // O loadList agora verifica a flag persistida
             await loadList(); 
         });
 
@@ -641,7 +635,7 @@
         });
 
 
-        // --- Funções Auxiliares de Preço ---
+        // --- Funções Auxiliares de Preço (Inalteradas) ---
         function formatCurrency(input) {
             let value = input.value;
             if (!value) return;
@@ -689,40 +683,24 @@
         function sortAndGroup() {
             const rows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
             rows.sort((a, b) => {
-                const aIsPurchased = a.classList.contains('purchased');
-                const bIsPurchased = b.classList.contains('purchased');
-                
-                // 1. Prioridade: Itens não comprados primeiro
-                if (aIsPurchased !== bIsPurchased) {
-                    return aIsPurchased ? 1 : -1;
-                }
-
                 const getScore = (row) => {
                     const price = { shibata: parseValueToFloat(row.cells[2].querySelector('input').value), nagumo: parseValueToFloat(row.cells[3].querySelector('input').value) };
                     const pS = (!isNaN(price.shibata) && price.shibata > 0) ? price.shibata : Infinity;
                     const pN = (!isNaN(price.nagumo) && price.nagumo > 0) ? price.nagumo : Infinity;
-                    
-                    // 2. Prioridade (apenas para não comprados): Mostrar a melhor opção (mais barato é 2/3, preço igual/zero é 1)
                     if ((pS === Infinity && pN === Infinity) || pS === pN) return 1;
-                    if (pS < pN) return 2; // Mais barato no Shibata
-                    if (pN < pS) return 3; // Mais barato no Nagumo
+                    if (pS < pN) return 2;
+                    if (pN < pN) return 3;
                     return 1;
                 };
-
-                // A ordem de retorno dos itens não comprados é ajustada para -score, para que o "melhor" (maior score) suba.
-                // Itens comprados (aIsPurchased === bIsPurchased === true) ficam na ordem que vieram, no final.
-                return getScore(a) - getScore(b); 
+                return getScore(a) - getScore(b);
             });
-            
-            // Reinsere as linhas na ordem classificada
             rows.forEach(row => tableBody.appendChild(row));
         }
         
-        // CORRIGIDA: A lógica de comparação agora usa as listas já ordenadas.
+        // CORRIGIDA: Lógica de polling para usar a comparação agnóstica à ordem.
         async function pollForChanges() {
             const activeEl = document.activeElement;
-            // Se NÃO estiver online, ou se o status não for 'saved', ou se houver mudanças locais pendentes,
-            // OU se o bloqueio de tempo estiver ativo, ou se houver um input focado, o polling é interrompido.
+            // Interrompe o polling se houver mudanças locais pendentes (flag persistida ou não) ou se estiver bloqueado.
             if (!isOnline || syncState !== 'saved' || hasPendingOfflineChanges || pollBlockTimeout || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
                 return;
             }
@@ -732,13 +710,11 @@
                 if (!response.ok) return;
 
                 const remoteItems = await response.json();
-                const localItems = getCurrentLocalItems(); // Já vem ordenado
                 
-                // Compara a versão local (sem ID e já ordenada) com a versão remota (sem ID e ordenada antes do stringify)
-                const normalizedLocal = JSON.stringify(localItems
-                    .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
-                );
+                // Obtém a lista local (já ordenada) e a serializa
+                const normalizedLocal = JSON.stringify(getCurrentLocalItems()); 
                 
+                // Ordena a lista remota e a serializa
                 const normalizedRemote = JSON.stringify(remoteItems
                     .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
                     .sort(sortItems)
@@ -746,9 +722,8 @@
                 
                 if (normalizedRemote !== normalizedLocal) {
                     console.log('Detectada mudança no servidor. Atualizando a lista.');
-                    // Salva a lista remota (que contém ID e ordem do D1) no localStorage (que não salva o ID).
-                    await localSave(remoteItems); 
-                    // Redesenha com a lista remota.
+                    // Se o remoto for diferente do local, ele é o mestre (pois a flag de pendência está false)
+                    await localSave(remoteItems);
                     redrawTable(remoteItems, false);
                 }
             } catch (error) {
