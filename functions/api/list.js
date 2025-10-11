@@ -1,19 +1,19 @@
 /* list.js - Implementação para Cloudflare D1 */
 
-// A interface D1 não suporta campos booleanos nativamente
+// A interface D1 não suporta campos booleanos nativamente,
 // então usamos INTEGER (0 para false, 1 para true).
 
 export async function onRequestGet({ env }) {
     // 1. SELECT: Busca todos os itens da lista, ordenando para exibir primeiro os não comprados.
     try {
-        const { results } = await env.nomebcd1.prepare( // ATUALIZADO
+        const { results } = await env.nomevariavel.prepare( // ATUALIZADO
             `SELECT 
                 item AS name, 
                 shibata AS priceShibata, 
                 nagumo AS priceNagumo, 
                 purchased, 
                 id
-            FROM nometabela  -- ATUALIZADO
+            FROM nometabela
             ORDER BY purchased ASC, id DESC`
         ).all();
 
@@ -52,13 +52,13 @@ export async function onRequestPost({ request, env }) {
         // **Alternativa mais performática:** Fazer um diff (INSERT, UPDATE, DELETE) no D1. Para este caso,
         // o "limpar e reinserir" é aceitável, mas pode ser lento para listas muito longas.
 
-        await env.nomebcd1.batch([ // ATUALIZADO
+        await env.nomevariavel.batch([ // ATUALIZADO
             // Exclui todos os itens existentes
-            env.nomebcd1.prepare(`DELETE FROM nometabela`), // ATUALIZADO
+            env.nomevariavel.prepare(`DELETE FROM nometabela`), // ATUALIZADO
             
             // Prepara as inserções dos novos itens
-            ...items.map(item => env.nomebcd1.prepare( // ATUALIZADO
-                `INSERT INTO nometabela (item, shibata, nagumo, purchased)  -- ATUALIZADO
+            ...items.map(item => env.nomevariavel.prepare( // ATUALIZADO
+                `INSERT INTO nometabela (item, shibata, nagumo, purchased)
                  VALUES (?, ?, ?, ?)`
             ).bind(
                 item.name, 
