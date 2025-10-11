@@ -6,14 +6,14 @@
 export async function onRequestGet({ env }) {
     // 1. SELECT: Busca todos os itens da lista, ordenando para exibir primeiro os não comprados.
     try {
-        const { results } = await env.teste.prepare(
+        const { results } = await env.nomebcd1.prepare( // ATUALIZADO
             `SELECT 
                 item AS name, 
                 shibata AS priceShibata, 
                 nagumo AS priceNagumo, 
                 purchased, 
                 id
-            FROM lista
+            FROM nometabela  -- ATUALIZADO
             ORDER BY purchased ASC, id DESC`
         ).all();
 
@@ -52,13 +52,13 @@ export async function onRequestPost({ request, env }) {
         // **Alternativa mais performática:** Fazer um diff (INSERT, UPDATE, DELETE) no D1. Para este caso,
         // o "limpar e reinserir" é aceitável, mas pode ser lento para listas muito longas.
 
-        await env.teste.batch([
+        await env.nomebcd1.batch([ // ATUALIZADO
             // Exclui todos os itens existentes
-            env.teste.prepare(`DELETE FROM lista`),
+            env.nomebcd1.prepare(`DELETE FROM nometabela`), // ATUALIZADO
             
             // Prepara as inserções dos novos itens
-            ...items.map(item => env.teste.prepare(
-                `INSERT INTO lista (item, shibata, nagumo, purchased) 
+            ...items.map(item => env.nomebcd1.prepare( // ATUALIZADO
+                `INSERT INTO nometabela (item, shibata, nagumo, purchased)  -- ATUALIZADO
                  VALUES (?, ?, ?, ?)`
             ).bind(
                 item.name, 
