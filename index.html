@@ -59,7 +59,7 @@
         .header .menu-icon { font-size: 1.5rem; cursor: pointer; color: var(--primary-color); padding: 5px; }
         .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
         .header .title i { margin-right: 8px; color: var(--primary-color); }
-
+        
         /* --- SIDE MENU & OVERLAY --- */
         .side-menu { height: 100%; width: 0; position: fixed; z-index: 1001; top: 0; left: 0; background-color: var(--card-color); overflow-x: hidden; transition: 0.3s; padding-top: 60px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
         .side-menu.open { width: var(--menu-width); }
@@ -299,7 +299,7 @@
                 saveTimeout = setTimeout(() => func.apply(this, args), delay);
             };
         }
-
+        
         function getCurrentLocalItems() {
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
@@ -312,14 +312,14 @@
             });
             return items.filter(item => item.name !== ''); // Remove itens vazias
         }
-
+        
         // --- NOVO: Função para salvar local e online (se possível) ---
         async function saveList() {
             const items = getCurrentLocalItems();
-
+            
             // 1. Salva sempre no local (Garantia de persistência offline)
             await localSave(items);
-
+            
             if (isOnline) {
                 // 2. Tenta salvar online se estiver conectado
                 await saveListOnline(items);
@@ -359,7 +359,7 @@
                     const response = await fetch('/api/list');
                     if (!response.ok) throw new Error('Falha ao buscar dados.');
                     const remoteItems = await response.json();
-
+                    
                     if (localItems.length === 0 || hasPendingOfflineChanges) {
                         // Se não há dados locais OU há alterações offline pendentes,
                         // forçamos a sincronização da lista local para o servidor
@@ -387,7 +387,7 @@
 
             redrawTable(finalItems, true);
         }
-
+        
         const debouncedSave = debounce(saveList, 1000);
 
         // --- Funções de UI ---
@@ -456,7 +456,7 @@
                     commitItem();
                 }
             });
-
+            
             if (shouldFocus) {
                 newItemInput.focus();
             }
@@ -475,7 +475,7 @@
 
             addItemRow.remove();
             buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true);
-
+            
             sortAndGroup();
             setSyncStatus(isOnline ? 'syncing' : 'offline');
             saveList(); 
@@ -514,7 +514,7 @@
             comparePrices(shibataInput);
             return newRow;
         }
-
+        
         function redrawTable(items, shouldFocusNewItem = true) {
             const addItemRow = document.querySelector('.add-item-row');
             let newItemName = '', newItemShibata = '', newItemNagumo = '';
@@ -563,18 +563,18 @@
                 createAddItemRow(true); 
             }
         }
-
+        
         // --- Lógica de Conexão Online/Offline ---
         window.addEventListener('online', async () => {
             isOnline = true;
             console.log('Online. Tentando Sincronização...');
-
+            
             if (hasPendingOfflineChanges) {
                 // Se houver mudanças offline, prioriza o upload da lista local
                 const localItems = getCurrentLocalItems();
                 await saveListOnline(localItems);
             }
-
+            
             // Depois, executa o load normal para pegar quaisquer mudanças de outros dispositivos
             await loadList(); 
         });
@@ -647,7 +647,7 @@
             });
             rows.forEach(row => tableBody.appendChild(row));
         }
-
+        
         async function pollForChanges() {
             const activeEl = document.activeElement;
             // Bloqueia o polling se não estiver online ou se houver mudanças locais pendentes
@@ -661,7 +661,7 @@
 
                 const remoteItems = await response.json();
                 const localItems = getCurrentLocalItems();
-
+                
                 if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
                     console.log('Detectada mudança no servidor. Atualizando a lista.');
                     await localSave(remoteItems);
