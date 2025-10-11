@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Compras</title>
+    <title>Lista de Compras Otimizada</title>
 
-    <meta property="og:title" content="Minha Lista de Compras" />
+    <meta property="og:title" content="Minha Lista de Compras Otimizada" />
     <meta property="og:type" content="website" />
     <meta property="og:description" content="Sua lista de compras inteligente com comparador de preços e otimização." />
 
@@ -163,7 +163,6 @@
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
-        #sync-status-indicator.status-offline { background-color: #7986cb; /* Um azul suave para offline */ }
 
 
         @media (min-width: 768px) { .shopping-list-table colgroup col:nth-child(2) { width: 450px; } }
@@ -249,19 +248,17 @@
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
         document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
 
-        // --- Variáveis de Sincronização e Estado ---
+        // --- LÓGICA DA LISTA DE COMPRAS (INTEGRADA COM API E TEMPO REAL) ---
+
         const tableBody = document.getElementById('shopping-list-body');
         const statusIndicator = document.getElementById('sync-status-indicator');
         let saveTimeout;
-        let syncState = 'saved'; // Estados: 'saved', 'syncing', 'error', 'offline'
-        let hasPendingOfflineChanges = false; // NOVO: Flag para mudanças offline pendentes
-        let isOnline = navigator.onLine;
-
+        let syncState = 'saved'; // Estados: 'saved', 'syncing', 'error'
 
         function setSyncStatus(newState) {
             syncState = newState;
             statusIndicator.className = `status-${newState}`;
-            if (newState === 'error' || newState === 'offline') {
+            if (newState === 'error') {
                 setTimeout(() => {
                     if (syncState === 'error') {
                        setSyncStatus('saved');
@@ -269,29 +266,6 @@
                 }, 3000);
             }
         }
-
-        // --- Funções de Armazenamento Local (localStorage) ---
-        async function localSave(items) {
-            try {
-                localStorage.setItem('shoppingList', JSON.stringify(items));
-                return true;
-            } catch (error) {
-                console.error("Falha ao salvar localmente:", error);
-                return false;
-            }
-        }
-
-        async function localLoad() {
-            try {
-                const items = localStorage.getItem('shoppingList');
-                return items ? JSON.parse(items) : [];
-            } catch (error) {
-                console.error("Falha ao carregar localmente:", error);
-                return [];
-            }
-        }
-        // --- FIM das Funções de Armazenamento Local ---
-
 
         function debounce(func, delay) {
             return function(...args) {
@@ -310,28 +284,12 @@
                     purchased: row.classList.contains('purchased')
                 });
             });
-            return items.filter(item => item.name !== ''); // Remove itens vazias
+            return items;
         }
         
-        // --- NOVO: Função para salvar local e online (se possível) ---
-        async function saveList() {
+        async function saveListOnline() {
+            setSyncStatus('syncing');
             const items = getCurrentLocalItems();
-            
-            // 1. Salva sempre no local (Garantia de persistência offline)
-            await localSave(items);
-            
-            if (isOnline) {
-                // 2. Tenta salvar online se estiver conectado
-                await saveListOnline(items);
-            } else {
-                // 3. Marca mudanças offline e atualiza status
-                hasPendingOfflineChanges = true;
-                setSyncStatus('offline');
-            }
-        }
-
-        async function saveListOnline(items) {
-             setSyncStatus('syncing');
 
             try {
                 const response = await fetch('/api/list', {
@@ -340,57 +298,14 @@
                     body: JSON.stringify(items)
                 });
                 if (!response.ok) throw new Error('Falha ao salvar.');
-                hasPendingOfflineChanges = false;
                 setSyncStatus('saved');
             } catch (error) {
                 setSyncStatus('error');
             }
         }
-
-        // --- REVISADO: Função de Load para suportar Offline-First ---
-        async function loadList() {
-            isOnline = navigator.onLine;
-            let localItems = await localLoad();
-            let finalItems = localItems;
-
-            if (isOnline) {
-                setSyncStatus('syncing');
-                try {
-                    const response = await fetch('/api/list');
-                    if (!response.ok) throw new Error('Falha ao buscar dados.');
-                    const remoteItems = await response.json();
-                    
-                    if (localItems.length === 0 || hasPendingOfflineChanges) {
-                        // Se não há dados locais OU há alterações offline pendentes,
-                        // forçamos a sincronização da lista local para o servidor
-                        if (hasPendingOfflineChanges) {
-                             finalItems = localItems; // Mantém a lista local (editada offline)
-                             await saveListOnline(finalItems);
-                        } else {
-                             finalItems = remoteItems; // Lista local vazia, usa a remota
-                             await localSave(finalItems);
-                        }
-                    } else if (JSON.stringify(localItems) !== JSON.stringify(remoteItems)) {
-                        // Se as listas são diferentes, assumimos que a remota é mais nova (a menos que haja mudanças offline pendentes)
-                        finalItems = remoteItems;
-                        await localSave(finalItems);
-                    }
-                    setSyncStatus('saved');
-
-                } catch (error) {
-                    console.error('Erro ao buscar lista online:', error);
-                    setSyncStatus('offline'); // Cai para offline se a API falhar
-                }
-            } else {
-                setSyncStatus('offline');
-            }
-
-            redrawTable(finalItems, true);
-        }
         
-        const debouncedSave = debounce(saveList, 1000);
+        const debouncedSave = debounce(saveListOnline, 1000);
 
-        // --- Funções de UI ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -401,7 +316,7 @@
                 autoResizeTextarea(event.target);
             }
             if (['textarea', 'input'].includes(event.target.tagName.toLowerCase())) {
-                setSyncStatus(isOnline ? 'syncing' : 'offline');
+                setSyncStatus('syncing');
                 debouncedSave();
             }
         });
@@ -431,11 +346,12 @@
                      event.target.classList.remove('default-price');
                 }
                 comparePrices(event.target);
-                setSyncStatus(isOnline ? 'syncing' : 'offline');
+                setSyncStatus('syncing');
                 debouncedSave();
             }
         }, true);
 
+        // ATUALIZADO: Parâmetro 'shouldFocus' controla se o teclado deve abrir
         function createAddItemRow(shouldFocus = false) {
             document.querySelector('.add-item-row')?.remove();
             const newRow = tableBody.insertRow(0);
@@ -457,6 +373,7 @@
                 }
             });
             
+            // ATUALIZADO: Só foca no input se shouldFocus for verdadeiro
             if (shouldFocus) {
                 newItemInput.focus();
             }
@@ -477,9 +394,9 @@
             buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true);
             
             sortAndGroup();
-            setSyncStatus(isOnline ? 'syncing' : 'offline');
-            saveList(); 
-            createAddItemRow(true); 
+            setSyncStatus('syncing');
+            debouncedSave();
+            createAddItemRow(true); // Foca no novo campo para adicionar o próximo item
         }
 
         function buildItemRow(itemData, isNew = false) {
@@ -515,6 +432,7 @@
             return newRow;
         }
         
+        // ATUALIZADO: Parâmetro 'shouldFocusNewItem' para controlar o foco do teclado
         function redrawTable(items, shouldFocusNewItem = true) {
             const addItemRow = document.querySelector('.add-item-row');
             let newItemName = '', newItemShibata = '', newItemNagumo = '';
@@ -541,52 +459,45 @@
             }
         }
 
+        async function loadListOnline() {
+            setSyncStatus('syncing');
+            try {
+                const response = await fetch('/api/list');
+                if (!response.ok) throw new Error('Falha ao buscar dados.');
+                const items = await response.json();
+                
+                redrawTable(items, true); // Foca no primeiro carregamento
+                
+                setSyncStatus('saved');
+            } catch (error) {
+                setSyncStatus('error');
+                createAddItemRow(true);
+            }
+        }
+
         function removeItem(button) {
             if (confirm('Tem certeza de que deseja remover este item?')) {
                 button.closest('tr').remove();
-                setSyncStatus(isOnline ? 'syncing' : 'offline');
-                saveList(); 
+                setSyncStatus('syncing');
+                debouncedSave();
             }
         }
 
         function togglePurchased(checkbox) {
             checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
-            setSyncStatus(isOnline ? 'syncing' : 'offline');
+            setSyncStatus('syncing');
             debouncedSave();
         }
 
         function clearList() {
             if (confirm('Tem certeza que deseja limpar toda a lista?')) {
                 tableBody.innerHTML = '';
-                setSyncStatus(isOnline ? 'syncing' : 'offline');
-                saveList();
-                createAddItemRow(true); 
+                setSyncStatus('syncing');
+                debouncedSave();
+                createAddItemRow(true); // Foca após limpar a lista
             }
         }
-        
-        // --- Lógica de Conexão Online/Offline ---
-        window.addEventListener('online', async () => {
-            isOnline = true;
-            console.log('Online. Tentando Sincronização...');
-            
-            if (hasPendingOfflineChanges) {
-                // Se houver mudanças offline, prioriza o upload da lista local
-                const localItems = getCurrentLocalItems();
-                await saveListOnline(localItems);
-            }
-            
-            // Depois, executa o load normal para pegar quaisquer mudanças de outros dispositivos
-            await loadList(); 
-        });
 
-        window.addEventListener('offline', () => {
-            isOnline = false;
-            console.log('Offline.');
-            setSyncStatus('offline');
-        });
-
-
-        // --- Funções Auxiliares de Preço (Inalteradas) ---
         function formatCurrency(input) {
             let value = input.value;
             if (!value) return;
@@ -640,7 +551,7 @@
                     const pN = (!isNaN(price.nagumo) && price.nagumo > 0) ? price.nagumo : Infinity;
                     if ((pS === Infinity && pN === Infinity) || pS === pN) return 1;
                     if (pS < pN) return 2;
-                    if (pN < pN) return 3;
+                    if (pN < pS) return 3;
                     return 1;
                 };
                 return getScore(a) - getScore(b);
@@ -650,8 +561,7 @@
         
         async function pollForChanges() {
             const activeEl = document.activeElement;
-            // Bloqueia o polling se não estiver online ou se houver mudanças locais pendentes
-            if (!isOnline || syncState !== 'saved' || hasPendingOfflineChanges || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
+            if (syncState !== 'saved' || (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT'))) {
                 return;
             }
 
@@ -664,7 +574,7 @@
                 
                 if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
                     console.log('Detectada mudança no servidor. Atualizando a lista.');
-                    await localSave(remoteItems);
+                    // ATUALIZADO: Chama redrawTable sem focar no input para não abrir o teclado
                     redrawTable(remoteItems, false);
                 }
             } catch (error) {
@@ -705,7 +615,7 @@
 
         // Inicia a aplicação
         document.addEventListener('DOMContentLoaded', () => {
-            loadList(); // Inicia com o load para verificar online/offline
+            loadListOnline();
             setupVirtualKeyboardListener();
             setInterval(pollForChanges, 3000);
         });
