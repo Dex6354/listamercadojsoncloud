@@ -304,7 +304,7 @@
         
         const normalizeListForComparison = (list) => {
             const sortItems = (a, b) => a.name.localeCompare(b.name);
-            return [...list] // Cria uma cópia para não modificar o original
+            return [...list] 
                 .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
                 .sort(sortItems);
         };
@@ -357,7 +357,6 @@
         
         function getCurrentLocalItems() {
             const items = [];
-            // A ordem das linhas no DOM é a ordem que queremos salvar
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
                 const name = row.cells[1].querySelector('textarea').value.trim();
                 if (name) {
@@ -430,12 +429,10 @@
                         if (!response.ok) throw new Error('Falha ao buscar dados.');
                         const remoteItems = await response.json();
                         
-                        // Compara o CONTEÚDO, ignorando a ordem
                         const localNormalized = normalizeListForComparison(localItems);
                         const remoteNormalized = normalizeListForComparison(remoteItems);
 
                         if (JSON.stringify(localNormalized) !== JSON.stringify(remoteNormalized)) {
-                            // Se o conteúdo mudou, o remoto vence e traz sua ordem.
                             finalItems = remoteItems;
                             await localSave(finalItems); 
                         }
@@ -451,7 +448,6 @@
                 setSyncStatus('offline');
             }
             
-            // finalItems contém a ordem correta, seja do localStorage ou do servidor
             redrawTable(finalItems, true);
         }
         
@@ -549,7 +545,7 @@
             };
 
             addItemRow.remove();
-            buildItemRow(newItemData, true); // O 'true' insere o item no topo da tabela
+            buildItemRow(newItemData, true); 
             createAddItemRow(true);
             
             setSyncStatus(isOnline ? 'syncing' : 'offline');
@@ -557,7 +553,6 @@
         }
 
         function buildItemRow(itemData, isNew = false) {
-            // Se isNew for true, insere na primeira posição (topo), senão, no final.
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
             
             if (itemData.purchased) {
@@ -594,9 +589,8 @@
         function redrawTable(items, shouldFocusNewItem = true) {
             tableBody.innerHTML = '';
             if (items && items.length > 0) {
-                // Constrói as linhas na ordem exata recebida (do localStorage ou servidor)
-                items.forEach(item => buildItemRow(item, false)); // 'false' para adicionar no final, preservando a ordem do array
-                sortAndGroup(); // Aplica a lógica de agrupamento
+                items.forEach(item => buildItemRow(item, false));
+                sortAndGroup();
             }
             createAddItemRow(shouldFocusNewItem);
         }
@@ -680,7 +674,7 @@
             sortAndGroup();
         }
 
-        // --- ATUALIZADO: Lógica de Ordenação e Agrupamento ---
+        // --- ATUALIZADO: Lógica de Ordenação Revertida ---
         function sortAndGroup() {
             const allRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
             const pricedRows = [];
@@ -695,7 +689,7 @@
                 if (isPriced) {
                     pricedRows.push(row);
                 } else {
-                    unpricedRows.push(row); // A ordem original é preservada aqui
+                    unpricedRows.push(row);
                 }
             });
 
@@ -715,14 +709,13 @@
                 if (minPriceA !== minPriceB) {
                     return minPriceA - minPriceB;
                 }
-                // Se o preço for igual, mantém a ordem alfabética como desempate.
                 const nameA = a.cells[1].querySelector('textarea').value.trim();
                 const nameB = b.cells[1].querySelector('textarea').value.trim();
                 return nameA.localeCompare(nameB);
             });
 
-            // 3. Remonta a tabela: primeiro os itens com preço (ordenados), depois os sem preço (na ordem original).
-            [...pricedRows, ...unpricedRows].forEach(row => tableBody.appendChild(row));
+            // 3. Remonta a tabela: primeiro os itens SEM preço, depois os COM preço (ordenados).
+            [...unpricedRows, ...pricedRows].forEach(row => tableBody.appendChild(row));
         }
         
         async function pollForChanges() {
