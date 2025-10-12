@@ -358,19 +358,7 @@
             }
 
             try {
-                // Simulação de chamada de API
-                // const response = await fetch('/api/login', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ username, password })
-                // });
-                // const data = await response.json();
-                // if (!response.ok) {
-                //     throw new Error(data.message || 'Erro ao fazer login.');
-                // }
-                // localStorage.setItem('authToken', data.token);
-
-                // Para demonstração sem backend:
+                // Para demonstração sem backend, usamos localStorage para simular um token/sessão
                 const data = { token: 'fake-jwt-token-for-' + username };
                 localStorage.setItem('authToken', data.token);
                 localStorage.setItem('username', username);
@@ -390,18 +378,8 @@
             }
             
             try {
-                // Simulação de chamada de API
-                // const response = await fetch('/api/register', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ username, password })
-                // });
-                // const data = await response.json();
-                //  if (!response.ok) {
-                //     throw new Error(data.message || 'Erro ao cadastrar.');
-                // }
-
-                // Para demonstração sem backend:
+                // Para demonstração, apenas mostramos uma mensagem de sucesso.
+                // Numa aplicação real, aqui seria feita a chamada para a API de registro.
                 const data = { message: `Usuário ${username} cadastrado com sucesso! Faça o login.` };
                 showAuth(data.message, false);
 
@@ -410,29 +388,12 @@
             }
         }
 
-        async function handleLogout() {
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                // Simulação de chamada de API
-                // await fetch('/api/logout', {
-                //     method: 'POST',
-                //     headers: { 'Authorization': `Bearer ${token}` }
-                // });
-            }
+        function handleLogout() {
             localStorage.removeItem('authToken');
             localStorage.removeItem('username');
             location.reload(); // Recarrega a página para a tela de login
         }
         
-        function getAuthHeaders() {
-            const token = localStorage.getItem('authToken');
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-
-
         // --- Funções do Menu Lateral ---
         function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
@@ -449,13 +410,6 @@
         let saveTimeout;
         let syncState = 'saved';
         let isOnline = navigator.onLine;
-        
-        const normalizeListForComparison = (list) => {
-            const sortItems = (a, b) => a.name.localeCompare(b.name);
-            return [...list] 
-                .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
-                .sort(sortItems);
-        };
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -465,7 +419,7 @@
             }
         }
 
-        // --- Armazenamento agora é primariamente online, local é um bônus ---
+        // --- Armazenamento e Sincronização ---
         function debounce(func, delay) {
             return function(...args) {
                 clearTimeout(saveTimeout);
@@ -495,27 +449,24 @@
                 return;
             }
             const items = getCurrentLocalItems();
-            await saveListOnline(items);
+            await saveListToStorage(items);
         }
         
-        async function saveListOnline(items) {
-             setSyncStatus('syncing');
+        async function saveListToStorage(items) {
+            setSyncStatus('syncing');
             try {
-                // Simulação de chamada de API
-                // const response = await fetch('/api/list', {
-                //     method: 'POST',
-                //     headers: getAuthHeaders(),
-                //     body: JSON.stringify(items)
-                // });
-                // if (response.status === 401) return handleLogout();
-                // if (!response.ok) throw new Error('Falha ao salvar.');
-                
-                // Simulação de sucesso
-                await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência de rede
-                console.log('Lista salva (simulado):', items);
-                setSyncStatus('saved');
+                // CORREÇÃO: Salva a lista no localStorage usando o username como chave.
+                const username = localStorage.getItem('username');
+                if (!username) {
+                    throw new Error("Usuário não logado, não é possível salvar a lista.");
+                }
+                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
 
+                await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência de rede
+                console.log(`Lista salva localmente para o usuário: ${username}`, items);
+                setSyncStatus('saved');
             } catch (error) {
+                console.error("Erro ao salvar a lista:", error);
                 setSyncStatus('error');
             }
         }
@@ -529,20 +480,20 @@
 
             setSyncStatus('syncing');
             try {
-                // Simulação de chamada de API
-                // const response = await fetch('/api/list', { headers: getAuthHeaders() });
-                // if (response.status === 401) return handleLogout(); // Token inválido, desloga
-                // if (!response.ok) throw new Error('Falha ao buscar dados.');
-                // const remoteItems = await response.json();
-                
-                // Para demonstração sem backend
+                // CORREÇÃO: Carrega a lista do localStorage usando o username.
+                const username = localStorage.getItem('username');
+                 if (!username) {
+                    throw new Error("Usuário não logado, não é possível carregar a lista.");
+                }
+
                 await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência de rede
-                const remoteItems = []; // Começa com uma lista vazia
+                const savedListJSON = localStorage.getItem(`shoppingList_${username}`);
+                const remoteItems = savedListJSON ? JSON.parse(savedListJSON) : [];
+                
                 redrawTable(remoteItems, true);
                 setSyncStatus('saved');
-
             } catch (error) {
-                console.error('Erro ao buscar lista online:', error);
+                console.error('Erro ao buscar lista:', error);
                 setSyncStatus('offline'); 
             }
         }
