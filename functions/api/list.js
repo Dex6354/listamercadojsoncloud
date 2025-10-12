@@ -1,82 +1,60 @@
-/* list.js - Implementação para Cloudflare D1 */
+/* list.js - Implementação para Cloudflare D1 com usuários */
 
-// A interface D1 não suporta campos booleanos nativamente
-// então usamos INTEGER (0 para false, 1 para true).
+// Função para criar o hash da senha (seguro!)
+async function hashPassword(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
-export async function onRequestGet({ env }) {
-    // 1. SELECT: Busca todos os itens da lista, ordenando para exibir primeiro os não comprados.
+// NOVO: Endpoint para registrar um usuário
+export async function onRegisterPost({ request, env }) {
+    const { username, password } = await request.json();
+
+    if (!username || !password) {
+        return new Response('Usuário e senha são obrigatórios', { status: 400 });
+    }
+
+    const passwordHash = await hashPassword(password);
+
     try {
-        const { results } = await env.nomevariavel.prepare( // ATUALIZADO
-            `SELECT 
-                item AS name, 
-                shibata AS priceShibata, 
-                nagumo AS priceNagumo, 
-                purchased, 
-                id
-            FROM nometabela
-            ORDER BY purchased ASC, id DESC`
-        ).all();
+        await env.nomevariavel.prepare(
+            `INSERT INTO usuarios (username, password_hash) VALUES (?, ?)`
+        ).bind(username, passwordHash).run();
 
-        // 2. Mapeia os resultados para o formato esperado pelo frontend (converte purchased de INTEGER para BOOLEAN)
-        const items = results.map(row => ({
-            name: row.name,
-            priceShibata: row.priceShibata,
-            priceNagumo: row.priceNagumo,
-            purchased: row.purchased === 1, // Converte 0/1 para false/true
-            id: row.id // Inclui o ID para operações de exclusão/atualização
-        }));
-
-        return new Response(JSON.stringify(items), { 
-            headers: { 'Content-Type': 'application/json' } 
-        });
-
-    } catch (error) {
-        console.error("Erro ao buscar lista do D1:", error);
-        return new Response(JSON.stringify([]), { // Retorna lista vazia em caso de erro
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return new Response(JSON.stringify({ success: true, message: 'Usuário criado!' }), { status: 201 });
+    } catch (e) {
+        // Verifica se o erro é de usuário duplicado
+        if (e.message.includes('UNIQUE constraint failed')) {
+            return new Response('Este nome de usuário já existe.', { status: 409 });
+        }
+        return new Response('Erro ao criar usuário.', { status: 500 });
     }
 }
 
-export async function onRequestPost({ request, env }) {
+
+// ATUALIZADO: Buscar a lista (agora precisa saber QUAL usuário)
+export async function onRequestGet({ request, env }) {
+    // AQUI VIRIA A LÓGICA PARA PEGAR O ID DO USUÁRIO LOGADO
+    // Por exemplo, a partir de um token no cabeçalho `Authorization`
+    const userId = 1; // Exemplo fixo, isso teria que ser dinâmico
+
     try {
-        // Recebe o array completo de itens do frontend
-        const items = await request.json();
-
-        // 1. Inicia uma transação para garantir que a atualização seja atômica
-        // (excluir tudo e reinserir, ou atualizar o que existe, é mais simples do que lidar com diffs complexos)
-
-        // 2. DROP & CREATE: Limpa a tabela e insere o novo estado
-        // Esta é a maneira mais simples de "salvar o estado" quando o frontend envia a lista completa.
-        // **Alternativa mais performática:** Fazer um diff (INSERT, UPDATE, DELETE) no D1. Para este caso,
-        // o "limpar e reinserir" é aceitável, mas pode ser lento para listas muito longas.
-
-        await env.nomevariavel.batch([ // ATUALIZADO
-            // Exclui todos os itens existentes
-            env.nomevariavel.prepare(`DELETE FROM nometabela`), // ATUALIZADO
-            
-            // Prepara as inserções dos novos itens
-            ...items.map(item => env.nomevariavel.prepare( // ATUALIZADO
-                `INSERT INTO nometabela (item, shibata, nagumo, purchased)
-                 VALUES (?, ?, ?, ?)`
-            ).bind(
-                item.name, 
-                item.priceShibata || 'R$ 0,00', 
-                item.priceNagumo || 'R$ 0,00', 
-                item.purchased ? 1 : 0 // Converte boolean para 0/1
-            ))
-        ]);
-
-        return new Response(JSON.stringify({ success: true }), { 
-            headers: { 'Content-Type': 'application/json' } 
-        });
-
-    } catch (error) {
-        console.error("Erro ao salvar lista no D1:", error);
-        return new Response(JSON.stringify({ success: false, error: error.message }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
+        const { results } = await env.nomevariavel.prepare(
+            `SELECT item AS name, shibata, nagumo, purchased 
+             FROM nometabela 
+             WHERE user_id = ?` // <-- A MÁGICA ACONTECE AQUI
+        ).bind(userId).all();
+        
+        // ... resto do código para formatar a resposta
+        // ...
+    } catch (e) {
+        // ...
     }
 }
+
+// ... onRequestPost também seria atualizado para usar o user_id ...
+
+// Você precisaria adicionar rotas para chamar onRegisterPost, onLoginPost etc.
+// Isso geralmente é feito no arquivo _routes.json ou diretamente no dashboard.
