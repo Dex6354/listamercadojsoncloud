@@ -1,6 +1,6 @@
 /* list.js - Implementação para Cloudflare D1 */
 
-// A interface D1 não suporta campos booleanos nativamente,
+// A interface D1 não suporta campos booleanos nativamente
 // então usamos INTEGER (0 para false, 1 para true).
 
 export async function onRequestGet({ env }) {
