@@ -1,5 +1,5 @@
 // Aumentamos a versão do cache para forçar o navegador a instalar o novo Service Worker
-const CACHE_NAME = 'meu-mercado-editando-cache-v4'; 
+const CACHE_NAME = 'meu-mercado-cache-v1'; 
 const urlsToCache = [
   '/', 
   'index.html', // Garante que o arquivo HTML seja cacheado para carregamento offline
