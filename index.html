@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Mercado</title>
+    <title>Lista de Compras</title>
 
-    <meta property="og:title" content="Meu Mercado" />
+    <meta property="og:title" content="Minha Lista de Compras" />
     <meta property="og:type" content="website" />
     <meta property="og:description" content="Sua lista de compras inteligente com comparador de preços e otimização." />
-    <meta property="og:image" content="https://meumercado.pages.dev/01.png" />
-    
-    
-    <link rel="icon" href="01.png" type="image/png">
+
+    <link rel="icon" href="https://raw.githubusercontent.com/google/material-design-icons/master/png/action/shopping_cart/materialicons/48dp/1x/baseline_shopping_cart_black_48dp.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
     <style>
@@ -125,15 +123,6 @@
         }
         .header .menu-icon { font-size: 1.5rem; cursor: pointer; color: var(--primary-color); padding: 5px; }
         .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
-        
-        /* --- CÓDIGO AJUSTADO PARA O ÍCONE --- */
-        .header .title img {
-            height: 30px; /* Altere a altura do ícone aqui */
-            width: auto; /* Mantém a proporção da imagem */
-            margin-right: 10px; /* Espaçamento entre o ícone e o texto */
-            border-radius: 5px;
-        }
-        
         .header .title i { margin-right: 8px; color: var(--primary-color); }
         .header-right { display: flex; align-items: center; gap: 15px; }
         #user-display { color: var(--secondary-text-color); font-size: 0.9rem; }
@@ -262,8 +251,8 @@
             <div class="header">
                 <span class="menu-icon" onclick="openNav()">&#9776;</span>
                 <span class="title">
-                    <img src="01.png" alt="Ícone">
-                    Meu Mercado
+                    <i class="fas fa-shopping-cart"></i>
+                    Lista de Compras
                 </span>
                 <div class="header-right">
                     <span id="user-display"></span>
@@ -358,7 +347,19 @@
             }
 
             try {
-                // Para demonstração sem backend, usamos localStorage para simular um token/sessão
+                // Simulação de chamada de API
+                // const response = await fetch('/api/login', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({ username, password })
+                // });
+                // const data = await response.json();
+                // if (!response.ok) {
+                //     throw new Error(data.message || 'Erro ao fazer login.');
+                // }
+                // localStorage.setItem('authToken', data.token);
+
+                // Para demonstração sem backend:
                 const data = { token: 'fake-jwt-token-for-' + username };
                 localStorage.setItem('authToken', data.token);
                 localStorage.setItem('username', username);
@@ -378,8 +379,18 @@
             }
             
             try {
-                // Para demonstração, apenas mostramos uma mensagem de sucesso.
-                // Numa aplicação real, aqui seria feita a chamada para a API de registro.
+                // Simulação de chamada de API
+                // const response = await fetch('/api/register', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({ username, password })
+                // });
+                // const data = await response.json();
+                //  if (!response.ok) {
+                //     throw new Error(data.message || 'Erro ao cadastrar.');
+                // }
+
+                // Para demonstração sem backend:
                 const data = { message: `Usuário ${username} cadastrado com sucesso! Faça o login.` };
                 showAuth(data.message, false);
 
@@ -388,12 +399,29 @@
             }
         }
 
-        function handleLogout() {
+        async function handleLogout() {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                // Simulação de chamada de API
+                // await fetch('/api/logout', {
+                //     method: 'POST',
+                //     headers: { 'Authorization': `Bearer ${token}` }
+                // });
+            }
             localStorage.removeItem('authToken');
             localStorage.removeItem('username');
             location.reload(); // Recarrega a página para a tela de login
         }
         
+        function getAuthHeaders() {
+            const token = localStorage.getItem('authToken');
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+
         // --- Funções do Menu Lateral ---
         function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
@@ -410,6 +438,13 @@
         let saveTimeout;
         let syncState = 'saved';
         let isOnline = navigator.onLine;
+        
+        const normalizeListForComparison = (list) => {
+            const sortItems = (a, b) => a.name.localeCompare(b.name);
+            return [...list] 
+                .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
+                .sort(sortItems);
+        };
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -419,7 +454,7 @@
             }
         }
 
-        // --- Armazenamento e Sincronização ---
+        // --- Armazenamento agora é primariamente online, local é um bônus ---
         function debounce(func, delay) {
             return function(...args) {
                 clearTimeout(saveTimeout);
@@ -449,24 +484,27 @@
                 return;
             }
             const items = getCurrentLocalItems();
-            await saveListToStorage(items);
+            await saveListOnline(items);
         }
         
-        async function saveListToStorage(items) {
-            setSyncStatus('syncing');
+        async function saveListOnline(items) {
+             setSyncStatus('syncing');
             try {
-                // CORREÇÃO: Salva a lista no localStorage usando o username como chave.
-                const username = localStorage.getItem('username');
-                if (!username) {
-                    throw new Error("Usuário não logado, não é possível salvar a lista.");
-                }
-                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
-
+                // Simulação de chamada de API
+                // const response = await fetch('/api/list', {
+                //     method: 'POST',
+                //     headers: getAuthHeaders(),
+                //     body: JSON.stringify(items)
+                // });
+                // if (response.status === 401) return handleLogout();
+                // if (!response.ok) throw new Error('Falha ao salvar.');
+                
+                // Simulação de sucesso
                 await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência de rede
-                console.log(`Lista salva localmente para o usuário: ${username}`, items);
+                console.log('Lista salva (simulado):', items);
                 setSyncStatus('saved');
+
             } catch (error) {
-                console.error("Erro ao salvar a lista:", error);
                 setSyncStatus('error');
             }
         }
@@ -480,20 +518,20 @@
 
             setSyncStatus('syncing');
             try {
-                // CORREÇÃO: Carrega a lista do localStorage usando o username.
-                const username = localStorage.getItem('username');
-                 if (!username) {
-                    throw new Error("Usuário não logado, não é possível carregar a lista.");
-                }
-
-                await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência de rede
-                const savedListJSON = localStorage.getItem(`shoppingList_${username}`);
-                const remoteItems = savedListJSON ? JSON.parse(savedListJSON) : [];
+                // Simulação de chamada de API
+                // const response = await fetch('/api/list', { headers: getAuthHeaders() });
+                // if (response.status === 401) return handleLogout(); // Token inválido, desloga
+                // if (!response.ok) throw new Error('Falha ao buscar dados.');
+                // const remoteItems = await response.json();
                 
+                // Para demonstração sem backend
+                await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência de rede
+                const remoteItems = []; // Começa com uma lista vazia
                 redrawTable(remoteItems, true);
                 setSyncStatus('saved');
+
             } catch (error) {
-                console.error('Erro ao buscar lista:', error);
+                console.error('Erro ao buscar lista online:', error);
                 setSyncStatus('offline'); 
             }
         }
