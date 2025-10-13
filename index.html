@@ -580,7 +580,6 @@
             }
         });
 
-        // CÓDIGO AJUSTADO INICIA AQUI
         // Comportamento do cursor ao focar em um campo de preço.
         // Se for um novo valor, seleciona tudo. Se for um valor existente, posiciona o cursor no final.
         tableBody.addEventListener('focus', (event) => {
@@ -598,7 +597,6 @@
                 }, 1); // Um atraso muito pequeno é suficiente.
             }
         }, true);
-        // CÓDIGO AJUSTADO TERMINA AQUI
 
         tableBody.addEventListener('blur', (event) => {
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
@@ -765,6 +763,18 @@
             } else {
                 showAuth();
             }
+            
+            // CÓDIGO AJUSTADO: Força a remoção do foco (e fecha o teclado) ao tocar fora de um campo de texto.
+            document.getElementById('main-content-wrapper').addEventListener('click', function(event) {
+                const activeEl = document.activeElement;
+                const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+                
+                // Se um campo de texto/número está focado e o clique não foi em outro campo de texto/número,
+                // remove o foco do elemento ativo.
+                if (isInput && event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
+                    activeEl.blur();
+                }
+            });
         });
     </script>
 </body>
