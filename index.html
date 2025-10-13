@@ -9,8 +9,8 @@
     <meta property="og:type" content="website" />
     <meta property="og:description" content="Sua lista de compras inteligente com comparador de preços e otimização." />
     <meta property="og:image" content="https://meumercado.pages.dev/01.png" />
-    
-    
+
+
     <link rel="icon" href="01.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
@@ -104,7 +104,7 @@
             margin-top: 15px;
             font-size: 0.9rem;
         }
-        
+
         /* Ocultar app-container por padrão */
         #app-container {
             display: none;
@@ -131,7 +131,7 @@
         .header .menu-icon { font-size: 1.5rem; cursor: pointer; color: var(--primary-color); padding: 5px; }
         .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
         .header .title i { margin-right: 8px; color: var(--primary-color); }
-        
+
         /* --- SIDE MENU & OVERLAY --- */
         .side-menu { height: 100%; width: 0; position: fixed; z-index: 1001; top: 0; left: 0; background-color: var(--card-color); overflow-x: hidden; transition: 0.3s; padding-top: 60px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
         .side-menu.open { width: var(--menu-width); }
@@ -213,7 +213,33 @@
         .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; padding: 0 16px; }
         .collapsible-content.expanded { max-height: 100vh; padding-bottom: 20px; }
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
-        #sync-status-indicator { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; border-radius: 50%; background-color: var(--green-highlight); z-index: 11; transition: background-color 0.5s ease; }
+
+        /* AJUSTE CSS: Removido posicionamento absoluto daqui */
+        #sync-status-indicator { 
+            width: 12px; 
+            height: 12px; 
+            border-radius: 50%; 
+            background-color: var(--green-highlight); 
+            z-index: 11; 
+            transition: background-color 0.5s ease; 
+            flex-shrink: 0; /* Impede que o indicador encolha */
+        }
+
+        /* --- INÍCIO DAS NOVAS REGRAS DE CSS --- */
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px; /* Espaço entre o nome de usuário e o indicador de sync */
+        }
+        #username-display {
+            color: var(--secondary-text-color);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Espaço entre o ícone e o nome */
+        }
+        /* --- FIM DAS NOVAS REGRAS DE CSS --- */
+
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
@@ -258,8 +284,12 @@
                     <img src="01.png" alt="Ícone">
                     Meu Mercado
                 </span>
-                <div id="sync-status-indicator"></div>
-            </div>
+
+                <div class="header-right">
+                    <span id="username-display"></span>
+                    <div id="sync-status-indicator"></div>
+                </div>
+                </div>
 
             <div class="container">
                 <div class="section shopping-list-section">
@@ -318,7 +348,7 @@
             </footer>
         </div>
     </div>
-    
+
     <script>
         // --- GERENCIAMENTO DE AUTENTICAÇÃO ---
         const authContainer = document.getElementById('auth-container');
@@ -328,17 +358,22 @@
         const passwordInput = document.getElementById('password');
 
         togglePassword.addEventListener('click', function () {
-            // Toggle the type attribute
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
-            
-            // Toggle the eye icon
             this.classList.toggle('fa-eye-slash');
         });
 
         function showApp() {
             authContainer.style.display = 'none';
             appContainer.style.display = 'block';
+
+            // ALTERAÇÃO JAVASCRIPT: Exibe o nome do usuário no cabeçalho
+            const username = localStorage.getItem('currentUser');
+            const usernameDisplay = document.getElementById('username-display');
+            if (username && usernameDisplay) {
+                usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
+            }
+
             loadList(); // Carrega a lista do usuário logado
         }
 
@@ -368,8 +403,10 @@
                 if (!response.ok) {
                     throw new Error(data.message || 'Erro ao fazer login.');
                 }
-                
+
+                // ALTERAÇÃO JAVASCRIPT: Salva o nome de usuário e o token
                 localStorage.setItem('authToken', data.token);
+                localStorage.setItem('currentUser', username); 
                 showApp();
             } catch (error) {
                 showAuth(error.message, true);
@@ -383,7 +420,7 @@
                 showAuth('Por favor, preencha usuário e senha para cadastrar.', true);
                 return;
             }
-            
+
             try {
                 const response = await fetch('/api/register', {
                     method: 'POST',
@@ -408,10 +445,12 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
             }
+            // ALTERAÇÃO JAVASCRIPT: Limpa o usuário e o token do localStorage
             localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
             location.reload(); // Recarrega a página para a tela de login
         }
-        
+
         function getAuthHeaders() {
             const token = localStorage.getItem('authToken');
             return {
@@ -425,7 +464,7 @@
         function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
         document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
-        
+
         function toggleComparator() {
             document.querySelector('.collapsible-header').classList.toggle('active');
             document.getElementById('comparator-content').classList.toggle('expanded');
@@ -437,7 +476,7 @@
         let saveTimeout;
         let syncState = 'saved';
         let isOnline = navigator.onLine;
-        
+
         const normalizeListForComparison = (list) => {
             const sortItems = (a, b) => a.name.localeCompare(b.name);
             return [...list] 
@@ -460,7 +499,7 @@
                 saveTimeout = setTimeout(() => func.apply(this, args), delay);
             };
         }
-        
+
         function getCurrentLocalItems() {
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
@@ -476,7 +515,7 @@
             });
             return items;
         }
-        
+
         async function saveList() {
             if (!isOnline) {
                 setSyncStatus('offline');
@@ -485,7 +524,7 @@
             const items = getCurrentLocalItems();
             await saveListOnline(items);
         }
-        
+
         async function saveListOnline(items) {
              setSyncStatus('syncing');
             try {
@@ -514,7 +553,7 @@
                 const response = await fetch('/api/list', { headers: getAuthHeaders() });
                 if (response.status === 401) return handleLogout(); // Token inválido, desloga
                 if (!response.ok) throw new Error('Falha ao buscar dados.');
-                
+
                 const remoteItems = await response.json();
                 redrawTable(remoteItems, true);
                 setSyncStatus('saved');
@@ -524,7 +563,7 @@
                 setSyncStatus('offline'); 
             }
         }
-        
+
         const debouncedSave = debounce(saveList, 1000);
 
         // --- Funções de UI (sem alterações significativas, exceto eventos) ---
@@ -557,7 +596,7 @@
                 debouncedSave();
             }
         }, true);
-        
+
         function createAddItemRow(shouldFocus = false) {
             document.querySelector('.add-item-row')?.remove();
             const newRow = tableBody.insertRow(0);
@@ -606,7 +645,7 @@
             formatCurrency(newRow.cells[3].querySelector('input'));
             comparePrices(newRow.cells[2].querySelector('input'));
         }
-        
+
         function redrawTable(items, shouldFocusNewItem = true) {
             tableBody.innerHTML = '';
             if (items && items.length > 0) {
@@ -635,7 +674,7 @@
                 createAddItemRow(true); 
             }
         }
-        
+
         window.addEventListener('online', () => { isOnline = true; loadList(); });
         window.addEventListener('offline', () => { isOnline = false; setSyncStatus('offline'); });
 
