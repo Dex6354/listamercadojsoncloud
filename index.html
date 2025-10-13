@@ -8,7 +8,7 @@
     <meta property="og:title" content="Minha Lista de Compras" />
     <meta property="og:type" content="website" />
     <meta property="og:description" content="Sua lista de compras inteligente com comparador de preços e otimização." />
-
+    
     <link rel="icon" href="https://raw.githubusercontent.com/google/material-design-icons/master/png/action/shopping_cart/materialicons/48dp/1x/baseline_shopping_cart_black_48dp.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
@@ -72,6 +72,23 @@
             font-size: 1rem;
             margin-bottom: 15px;
         }
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .password-wrapper .auth-input {
+            margin-bottom: 0;
+            padding-right: 45px;
+        }
+        .password-wrapper #togglePassword {
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: var(--secondary-text-color);
+        }
         .auth-buttons {
             display: flex;
             gap: 10px;
@@ -107,6 +124,9 @@
         .header .menu-icon { font-size: 1.5rem; cursor: pointer; color: var(--primary-color); padding: 5px; }
         .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
         .header .title i { margin-right: 8px; color: var(--primary-color); }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        #user-display { color: var(--secondary-text-color); font-size: 0.9rem; }
+        #user-display i { margin-right: 6px; color: var(--primary-color); }
         
         /* --- SIDE MENU & OVERLAY --- */
         .side-menu { height: 100%; width: 0; position: fixed; z-index: 1001; top: 0; left: 0; background-color: var(--card-color); overflow-x: hidden; transition: 0.3s; padding-top: 60px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
@@ -189,7 +209,7 @@
         .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; padding: 0 16px; }
         .collapsible-content.expanded { max-height: 100vh; padding-bottom: 20px; }
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
-        #sync-status-indicator { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; border-radius: 50%; background-color: var(--green-highlight); z-index: 11; transition: background-color 0.5s ease; }
+        #sync-status-indicator { width: 12px; height: 12px; border-radius: 50%; background-color: var(--green-highlight); transition: background-color 0.5s ease; }
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
@@ -205,7 +225,10 @@
         <div class="auth-box">
             <h2><i class="fas fa-lock"></i> Acesso Seguro</h2>
             <input type="text" id="username" class="auth-input" placeholder="Nome de usuário" autocomplete="username">
-            <input type="password" id="password" class="auth-input" placeholder="Senha" autocomplete="current-password">
+            <div class="password-wrapper">
+                <input type="password" id="password" class="auth-input" placeholder="Senha" autocomplete="current-password">
+                <i class="fas fa-eye" id="togglePassword"></i>
+            </div>
             <div class="auth-buttons">
                 <button class="custom-btn" onclick="handleLogin()">Entrar</button>
                 <button class="custom-btn secondary" onclick="handleRegister()">Cadastrar</button>
@@ -231,7 +254,10 @@
                     <i class="fas fa-shopping-cart"></i>
                     Lista de Compras
                 </span>
-                <div id="sync-status-indicator"></div>
+                <div class="header-right">
+                    <span id="user-display"></span>
+                    <div id="sync-status-indicator"></div>
+                </div>
             </div>
 
             <div class="container">
@@ -293,14 +319,15 @@
     </div>
     
     <script>
-        // --- GERENCIAMENTO DE AUTENTICAÇÃO ---
+        // --- GERENCIAMENTO DE AUTENTICAÇÃO (LÓGICA CORRETA COM LOCALSTORAGE) ---
         const authContainer = document.getElementById('auth-container');
         const appContainer = document.getElementById('app-container');
         const authMessage = document.getElementById('auth-message');
 
-        function showApp() {
+        function showApp(username) {
             authContainer.style.display = 'none';
             appContainer.style.display = 'block';
+            document.getElementById('user-display').innerHTML = `<i class="fas fa-user"></i> ${username}`;
             loadList(); // Carrega a lista do usuário logado
         }
 
@@ -318,24 +345,11 @@
                 showAuth('Por favor, preencha usuário e senha.', true);
                 return;
             }
-
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.message || 'Erro ao fazer login.');
-                }
-                
-                localStorage.setItem('authToken', data.token);
-                showApp();
-            } catch (error) {
-                showAuth(error.message, true);
-            }
+            // Lógica de demonstração sem backend
+            const data = { token: 'fake-jwt-token-for-' + username };
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('username', username);
+            showApp(username);
         }
 
         async function handleRegister() {
@@ -345,44 +359,17 @@
                 showAuth('Por favor, preencha usuário e senha para cadastrar.', true);
                 return;
             }
-            
-            try {
-                const response = await fetch('/api/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await response.json();
-                 if (!response.ok) {
-                    throw new Error(data.message || 'Erro ao cadastrar.');
-                }
-                showAuth(data.message, false);
-            } catch (error) {
-                 showAuth(error.message, true);
-            }
+             // Lógica de demonstração sem backend
+            const data = { message: `Usuário ${username} cadastrado com sucesso! Faça o login.` };
+            showAuth(data.message, false);
         }
 
-        async function handleLogout() {
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                await fetch('/api/logout', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-            }
+        function handleLogout() {
             localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
             location.reload(); // Recarrega a página para a tela de login
         }
         
-        function getAuthHeaders() {
-            const token = localStorage.getItem('authToken');
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-
-
         // --- Funções do Menu Lateral ---
         function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
@@ -399,13 +386,6 @@
         let saveTimeout;
         let syncState = 'saved';
         let isOnline = navigator.onLine;
-        
-        const normalizeListForComparison = (list) => {
-            const sortItems = (a, b) => a.name.localeCompare(b.name);
-            return [...list] 
-                .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
-                .sort(sortItems);
-        };
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -415,7 +395,7 @@
             }
         }
 
-        // --- Armazenamento agora é primariamente online, local é um bônus ---
+        // --- Armazenamento e Sincronização ---
         function debounce(func, delay) {
             return function(...args) {
                 clearTimeout(saveTimeout);
@@ -445,21 +425,22 @@
                 return;
             }
             const items = getCurrentLocalItems();
-            await saveListOnline(items);
+            await saveListToStorage(items);
         }
         
-        async function saveListOnline(items) {
-             setSyncStatus('syncing');
+        async function saveListToStorage(items) {
+            setSyncStatus('syncing');
             try {
-                const response = await fetch('/api/list', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify(items)
-                });
-                if (response.status === 401) return handleLogout();
-                if (!response.ok) throw new Error('Falha ao salvar.');
+                const username = localStorage.getItem('username');
+                if (!username) throw new Error("Usuário não logado.");
+                
+                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
+
+                await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência
+                console.log(`Lista salva para o usuário: ${username}`);
                 setSyncStatus('saved');
             } catch (error) {
+                console.error("Erro ao salvar a lista:", error);
                 setSyncStatus('error');
             }
         }
@@ -467,22 +448,23 @@
         async function loadList() {
             if (!isOnline) {
                 setSyncStatus('offline');
-                redrawTable([]); // Limpa a tabela se estiver offline ao carregar
+                redrawTable([]);
                 return;
             }
-
             setSyncStatus('syncing');
             try {
-                const response = await fetch('/api/list', { headers: getAuthHeaders() });
-                if (response.status === 401) return handleLogout(); // Token inválido, desloga
-                if (!response.ok) throw new Error('Falha ao buscar dados.');
+                const username = localStorage.getItem('username');
+                if (!username) throw new Error("Usuário não logado.");
+
+                await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência
                 
-                const remoteItems = await response.json();
+                const savedListJSON = localStorage.getItem(`shoppingList_${username}`);
+                const remoteItems = savedListJSON ? JSON.parse(savedListJSON) : [];
+                
                 redrawTable(remoteItems, true);
                 setSyncStatus('saved');
-
             } catch (error) {
-                console.error('Erro ao buscar lista online:', error);
+                console.error('Erro ao buscar lista:', error);
                 setSyncStatus('offline'); 
             }
         }
@@ -672,11 +654,23 @@
 
         // --- INICIALIZAÇÃO DA APLICAÇÃO ---
         document.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('authToken')) {
-                showApp();
+            const token = localStorage.getItem('authToken');
+            const username = localStorage.getItem('username');
+            if (token && username) {
+                showApp(username);
             } else {
                 showAuth();
             }
+
+            // Lógica para alternar visibilidade da senha
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordInput = document.getElementById('password');
+
+            togglePassword.addEventListener('click', function () {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                this.classList.toggle('fa-eye-slash');
+            });
         });
     </script>
 </body>
