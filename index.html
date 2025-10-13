@@ -581,32 +581,29 @@
         });
 
         // CÓDIGO AJUSTADO INICIA AQUI
-        // Comportamento do cursor ao focar em um campo de preço.
-        // Se for um novo valor, seleciona tudo. Se for um valor existente, posiciona o cursor no final.
+        // Gerencia o comportamento dos campos de preço para uma melhor experiência do usuário.
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
-                // Atraso mínimo para garantir que a ação ocorra após o foco ser totalmente processado pelo navegador,
-                // especialmente útil em dispositivos móveis.
-                setTimeout(() => {
-                    if (target.value.trim() === 'R$ 0,00') {
-                        target.select();
-                    } else {
-                        const valueLength = target.value.length;
-                        target.setSelectionRange(valueLength, valueLength);
-                    }
-                }, 1); // Um atraso muito pequeno é suficiente.
+                if (target.value.trim() === 'R$ 0,00') {
+                    // Limpa o valor padrão para facilitar a digitação de um novo preço.
+                    target.value = '';
+                } else {
+                    // Para valores existentes, seleciona o conteúdo para permitir fácil substituição.
+                    // Usamos um timeout para garantir que a seleção funcione em todos os navegadores.
+                    setTimeout(() => target.select(), 1);
+                }
             }
         }, true);
-        // CÓDIGO AJUSTADO TERMINA AQUI
 
         tableBody.addEventListener('blur', (event) => {
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
-                formatCurrency(event.target);
+                formatCurrency(event.target); // Formata ao sair do campo
                 comparePrices(event.target);
                 debouncedSave();
             }
         }, true);
+        // CÓDIGO AJUSTADO TERMINA AQUI
 
         function createAddItemRow(shouldFocus = false) {
             document.querySelector('.add-item-row')?.remove();
@@ -690,11 +687,22 @@
         window.addEventListener('offline', () => { isOnline = false; setSyncStatus('offline'); });
 
         function formatCurrency(input) {
-            let value = input.value.replace(/\D/g, '');
-            let number = parseFloat(value) / 100;
+            let value = input.value.trim();
+            
+            // Se o campo estiver vazio ou for invalidado, define como o valor padrão "R$ 0,00".
+            if (value === '') {
+                input.value = 'R$ 0,00';
+                return;
+            }
+
+            // Utiliza a mesma função de parse do restante da aplicação para garantir consistência.
+            const number = parseValueToFloat(value);
+            
+            // Se o valor inserido não for um número (ex: "abc"), reverte para o padrão.
             if (isNaN(number)) {
                 input.value = 'R$ 0,00';
             } else {
+                // Formata o número para o padrão de moeda brasileira (BRL).
                 input.value = number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             }
         }
