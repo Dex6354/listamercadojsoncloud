@@ -580,14 +580,25 @@
             }
         });
 
+        // CÓDIGO AJUSTADO INICIA AQUI
+        // Comportamento do cursor ao focar em um campo de preço.
+        // Se for um novo valor, seleciona tudo. Se for um valor existente, posiciona o cursor no final.
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
-                if (target.classList.contains('default-price') || target.value.trim() === 'R$ 0,00') {
-                    target.select();
-                }
+                // Atraso mínimo para garantir que a ação ocorra após o foco ser totalmente processado pelo navegador,
+                // especialmente útil em dispositivos móveis.
+                setTimeout(() => {
+                    if (target.value.trim() === 'R$ 0,00') {
+                        target.select();
+                    } else {
+                        const valueLength = target.value.length;
+                        target.setSelectionRange(valueLength, valueLength);
+                    }
+                }, 1); // Um atraso muito pequeno é suficiente.
             }
         }, true);
+        // CÓDIGO AJUSTADO TERMINA AQUI
 
         tableBody.addEventListener('blur', (event) => {
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
