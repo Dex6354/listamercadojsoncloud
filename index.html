@@ -507,8 +507,8 @@
                 if (name) {
                     items.push({
                         name: name,
-                        priceShibata: row.cells[2].querySelector('input').value,
-                        priceNagumo: row.cells[3].querySelector('input').value,
+                        priceShibata: row.cells[2].querySelector('input').value || 'R$ 0,00',
+                        priceNagumo: row.cells[3].querySelector('input').value || 'R$ 0,00',
                         purchased: row.classList.contains('purchased')
                     });
                 }
@@ -585,13 +585,10 @@
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
-                // Atraso mínimo para garantir que a ação ocorra após o foco ser totalmente processado.
+                // Se o campo tiver um valor real (não um placeholder), posiciona o cursor no final.
+                // O navegador já lida com o desaparecimento do placeholder automaticamente.
                 setTimeout(() => {
-                    if (target.value.trim() === 'R$ 0,00') {
-                        // Limpa o valor padrão para facilitar a digitação de um novo preço.
-                        target.value = '';
-                    } else {
-                        // Para valores existentes, posiciona o cursor no final do campo para edição.
+                    if (target.value !== '') {
                         const valueLength = target.value.length;
                         target.setSelectionRange(valueLength, valueLength);
                     }
@@ -640,22 +637,29 @@
             createAddItemRow(true);
             saveList(); 
         }
-
+        
+        // CÓDIGO AJUSTADO
         function buildItemRow(itemData, isNew = false) {
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
             if (itemData.purchased) newRow.classList.add('purchased');
+
+            // Função auxiliar para gerar o HTML do input de preço
+            const getPriceInputHTML = (price) => {
+                const hasValue = price && price.trim() !== 'R$ 0,00';
+                return `<input type="text" ${hasValue ? `value="${price}"` : ''} placeholder="R$ 0,00">`;
+            };
+
             newRow.innerHTML = `
                 <td><input type="checkbox" onchange="togglePurchased(this)" ${itemData.purchased ? 'checked' : ''}></td>
                 <td><textarea class="item-name-input" rows="1">${itemData.name}</textarea></td>
-                <td class="price-cell"><input type="text" value="${itemData.priceShibata || 'R$ 0,00'}"></td>
-                <td class="price-cell"><input type="text" value="${itemData.priceNagumo || 'R$ 0,00'}"></td>
+                <td class="price-cell">${getPriceInputHTML(itemData.priceShibata)}</td>
+                <td class="price-cell">${getPriceInputHTML(itemData.priceNagumo)}</td>
                 <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
             `;
             autoResizeTextarea(newRow.cells[1].querySelector('textarea'));
-            formatCurrency(newRow.cells[2].querySelector('input'));
-            formatCurrency(newRow.cells[3].querySelector('input'));
             comparePrices(newRow.cells[2].querySelector('input'));
         }
+
 
         function redrawTable(items, shouldFocusNewItem = true) {
             tableBody.innerHTML = '';
@@ -689,34 +693,25 @@
         window.addEventListener('online', () => { isOnline = true; loadList(); });
         window.addEventListener('offline', () => { isOnline = false; setSyncStatus('offline'); });
 
+        // CÓDIGO AJUSTADO
         function formatCurrency(input) {
-            let value = input.value.trim();
-            
-            // Se o campo estiver vazio ou for invalidado, define como o valor padrão "R$ 0,00".
-            if (value === '') {
-                input.value = 'R$ 0,00';
-                return;
-            }
-
-            // Utiliza a mesma função de parse do restante da aplicação para garantir consistência.
+            const value = input.value.trim();
             const number = parseValueToFloat(value);
-            
-            // Se o valor inserido não for um número (ex: "abc"), reverte para o padrão.
-            if (isNaN(number)) {
-                input.value = 'R$ 0,00';
+
+            // Se o valor for inválido ou zero, trata como placeholder.
+            if (isNaN(number) || number === 0) {
+                input.value = '';
+                input.placeholder = 'R$ 0,00';
             } else {
-                // Formata o número para o padrão de moeda brasileira (BRL).
+                // Se for um valor real, formata e define como 'value'.
                 input.value = number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                input.placeholder = 'R$ 0,00'; // Garante que o placeholder ainda exista para o caso de o valor ser apagado.
             }
         }
 
         function parseValueToFloat(value) {
             if (!value) return NaN;
-            // Remove tudo que não for dígito ou vírgula/ponto
-            let cleanValue = value.replace(/[^\d,.]/g, '');
-            // Substitui o último ponto ou vírgula por um separador decimal padrão (.)
-            cleanValue = cleanValue.replace(/,(\d{2})$/, '.$1').replace(/\./g, (match, offset, string) => offset < string.lastIndexOf('.') ? '' : match);
-            return parseFloat(cleanValue);
+            return parseFloat(value.replace('R$', '').trim().replace('.', '').replace(',', '.'));
         }
 
         function comparePrices(input) {
