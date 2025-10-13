@@ -585,14 +585,17 @@
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
-                if (target.value.trim() === 'R$ 0,00') {
-                    // Limpa o valor padrão para facilitar a digitação de um novo preço.
-                    target.value = '';
-                } else {
-                    // Para valores existentes, seleciona o conteúdo para permitir fácil substituição.
-                    // Usamos um timeout para garantir que a seleção funcione em todos os navegadores.
-                    setTimeout(() => target.select(), 1);
-                }
+                // Atraso mínimo para garantir que a ação ocorra após o foco ser totalmente processado.
+                setTimeout(() => {
+                    if (target.value.trim() === 'R$ 0,00') {
+                        // Limpa o valor padrão para facilitar a digitação de um novo preço.
+                        target.value = '';
+                    } else {
+                        // Para valores existentes, posiciona o cursor no final do campo para edição.
+                        const valueLength = target.value.length;
+                        target.setSelectionRange(valueLength, valueLength);
+                    }
+                }, 1);
             }
         }, true);
 
@@ -709,7 +712,11 @@
 
         function parseValueToFloat(value) {
             if (!value) return NaN;
-            return parseFloat(value.replace('R$', '').trim().replace('.', '').replace(',', '.'));
+            // Remove tudo que não for dígito ou vírgula/ponto
+            let cleanValue = value.replace(/[^\d,.]/g, '');
+            // Substitui o último ponto ou vírgula por um separador decimal padrão (.)
+            cleanValue = cleanValue.replace(/,(\d{2})$/, '.$1').replace(/\./g, (match, offset, string) => offset < string.lastIndexOf('.') ? '' : match);
+            return parseFloat(cleanValue);
         }
 
         function comparePrices(input) {
