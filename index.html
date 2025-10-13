@@ -72,23 +72,6 @@
             font-size: 1rem;
             margin-bottom: 15px;
         }
-        .password-wrapper {
-            position: relative;
-            width: 100%;
-            margin-bottom: 15px;
-        }
-        .password-wrapper .auth-input {
-            margin-bottom: 0;
-            padding-right: 45px;
-        }
-        .password-wrapper #togglePassword {
-            position: absolute;
-            top: 50%;
-            right: 15px;
-            transform: translateY(-50%);
-            cursor: pointer;
-            color: var(--secondary-text-color);
-        }
         .auth-buttons {
             display: flex;
             gap: 10px;
@@ -124,9 +107,6 @@
         .header .menu-icon { font-size: 1.5rem; cursor: pointer; color: var(--primary-color); padding: 5px; }
         .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
         .header .title i { margin-right: 8px; color: var(--primary-color); }
-        .header-right { display: flex; align-items: center; gap: 15px; }
-        #user-display { color: var(--secondary-text-color); font-size: 0.9rem; }
-        #user-display i { margin-right: 6px; color: var(--primary-color); }
         
         /* --- SIDE MENU & OVERLAY --- */
         .side-menu { height: 100%; width: 0; position: fixed; z-index: 1001; top: 0; left: 0; background-color: var(--card-color); overflow-x: hidden; transition: 0.3s; padding-top: 60px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
@@ -209,7 +189,7 @@
         .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; padding: 0 16px; }
         .collapsible-content.expanded { max-height: 100vh; padding-bottom: 20px; }
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
-        #sync-status-indicator { width: 12px; height: 12px; border-radius: 50%; background-color: var(--green-highlight); transition: background-color 0.5s ease; }
+        #sync-status-indicator { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; border-radius: 50%; background-color: var(--green-highlight); z-index: 11; transition: background-color 0.5s ease; }
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
@@ -225,10 +205,7 @@
         <div class="auth-box">
             <h2><i class="fas fa-lock"></i> Acesso Seguro</h2>
             <input type="text" id="username" class="auth-input" placeholder="Nome de usuário" autocomplete="username">
-            <div class="password-wrapper">
-                <input type="password" id="password" class="auth-input" placeholder="Senha" autocomplete="current-password">
-                <i class="fas fa-eye" id="togglePassword"></i>
-            </div>
+            <input type="password" id="password" class="auth-input" placeholder="Senha" autocomplete="current-password">
             <div class="auth-buttons">
                 <button class="custom-btn" onclick="handleLogin()">Entrar</button>
                 <button class="custom-btn secondary" onclick="handleRegister()">Cadastrar</button>
@@ -254,10 +231,7 @@
                     <i class="fas fa-shopping-cart"></i>
                     Lista de Compras
                 </span>
-                <div class="header-right">
-                    <span id="user-display"></span>
-                    <div id="sync-status-indicator"></div>
-                </div>
+                <div id="sync-status-indicator"></div>
             </div>
 
             <div class="container">
@@ -324,10 +298,9 @@
         const appContainer = document.getElementById('app-container');
         const authMessage = document.getElementById('auth-message');
 
-        function showApp(username) {
+        function showApp() {
             authContainer.style.display = 'none';
             appContainer.style.display = 'block';
-            document.getElementById('user-display').innerHTML = `<i class="fas fa-user"></i> ${username}`;
             loadList(); // Carrega a lista do usuário logado
         }
 
@@ -347,24 +320,19 @@
             }
 
             try {
-                // Simulação de chamada de API
-                // const response = await fetch('/api/login', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ username, password })
-                // });
-                // const data = await response.json();
-                // if (!response.ok) {
-                //     throw new Error(data.message || 'Erro ao fazer login.');
-                // }
-                // localStorage.setItem('authToken', data.token);
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
 
-                // Para demonstração sem backend:
-                const data = { token: 'fake-jwt-token-for-' + username };
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Erro ao fazer login.');
+                }
+                
                 localStorage.setItem('authToken', data.token);
-                localStorage.setItem('username', username);
-                showApp(username);
-
+                showApp();
             } catch (error) {
                 showAuth(error.message, true);
             }
@@ -379,21 +347,16 @@
             }
             
             try {
-                // Simulação de chamada de API
-                // const response = await fetch('/api/register', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ username, password })
-                // });
-                // const data = await response.json();
-                //  if (!response.ok) {
-                //     throw new Error(data.message || 'Erro ao cadastrar.');
-                // }
-
-                // Para demonstração sem backend:
-                const data = { message: `Usuário ${username} cadastrado com sucesso! Faça o login.` };
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                 if (!response.ok) {
+                    throw new Error(data.message || 'Erro ao cadastrar.');
+                }
                 showAuth(data.message, false);
-
             } catch (error) {
                  showAuth(error.message, true);
             }
@@ -402,14 +365,12 @@
         async function handleLogout() {
             const token = localStorage.getItem('authToken');
             if (token) {
-                // Simulação de chamada de API
-                // await fetch('/api/logout', {
-                //     method: 'POST',
-                //     headers: { 'Authorization': `Bearer ${token}` }
-                // });
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
             }
             localStorage.removeItem('authToken');
-            localStorage.removeItem('username');
             location.reload(); // Recarrega a página para a tela de login
         }
         
@@ -490,20 +451,14 @@
         async function saveListOnline(items) {
              setSyncStatus('syncing');
             try {
-                // Simulação de chamada de API
-                // const response = await fetch('/api/list', {
-                //     method: 'POST',
-                //     headers: getAuthHeaders(),
-                //     body: JSON.stringify(items)
-                // });
-                // if (response.status === 401) return handleLogout();
-                // if (!response.ok) throw new Error('Falha ao salvar.');
-                
-                // Simulação de sucesso
-                await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência de rede
-                console.log('Lista salva (simulado):', items);
+                const response = await fetch('/api/list', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(items)
+                });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) throw new Error('Falha ao salvar.');
                 setSyncStatus('saved');
-
             } catch (error) {
                 setSyncStatus('error');
             }
@@ -518,15 +473,11 @@
 
             setSyncStatus('syncing');
             try {
-                // Simulação de chamada de API
-                // const response = await fetch('/api/list', { headers: getAuthHeaders() });
-                // if (response.status === 401) return handleLogout(); // Token inválido, desloga
-                // if (!response.ok) throw new Error('Falha ao buscar dados.');
-                // const remoteItems = await response.json();
+                const response = await fetch('/api/list', { headers: getAuthHeaders() });
+                if (response.status === 401) return handleLogout(); // Token inválido, desloga
+                if (!response.ok) throw new Error('Falha ao buscar dados.');
                 
-                // Para demonstração sem backend
-                await new Promise(resolve => setTimeout(resolve, 500)); // Simula latência de rede
-                const remoteItems = []; // Começa com uma lista vazia
+                const remoteItems = await response.json();
                 redrawTable(remoteItems, true);
                 setSyncStatus('saved');
 
@@ -721,24 +672,11 @@
 
         // --- INICIALIZAÇÃO DA APLICAÇÃO ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Inicialização do App
-            const token = localStorage.getItem('authToken');
-            const username = localStorage.getItem('username');
-            if (token && username) {
-                showApp(username);
+            if (localStorage.getItem('authToken')) {
+                showApp();
             } else {
                 showAuth();
             }
-
-            // Lógica para alternar visibilidade da senha
-            const togglePassword = document.getElementById('togglePassword');
-            const passwordInput = document.getElementById('password');
-
-            togglePassword.addEventListener('click', function () {
-                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                passwordInput.setAttribute('type', type);
-                this.classList.toggle('fa-eye-slash');
-            });
         });
     </script>
 </body>
