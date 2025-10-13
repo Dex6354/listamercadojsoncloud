@@ -367,14 +367,13 @@
             authContainer.style.display = 'none';
             appContainer.style.display = 'block';
 
-            // ALTERAÇÃO JAVASCRIPT: Exibe o nome do usuário no cabeçalho
             const username = localStorage.getItem('currentUser');
             const usernameDisplay = document.getElementById('username-display');
             if (username && usernameDisplay) {
                 usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
             }
 
-            loadList(); // Carrega a lista do usuário logado
+            loadList(); 
         }
 
         function showAuth(message = '', isError = false) {
@@ -404,7 +403,6 @@
                     throw new Error(data.message || 'Erro ao fazer login.');
                 }
 
-                // ALTERAÇÃO JAVASCRIPT: Salva o nome de usuário e o token
                 localStorage.setItem('authToken', data.token);
                 localStorage.setItem('currentUser', username); 
                 showApp();
@@ -445,10 +443,9 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
             }
-            // ALTERAÇÃO JAVASCRIPT: Limpa o usuário e o token do localStorage
             localStorage.removeItem('authToken');
             localStorage.removeItem('currentUser');
-            location.reload(); // Recarrega a página para a tela de login
+            location.reload(); 
         }
 
         function getAuthHeaders() {
@@ -544,14 +541,14 @@
         async function loadList() {
             if (!isOnline) {
                 setSyncStatus('offline');
-                redrawTable([]); // Limpa a tabela se estiver offline ao carregar
+                redrawTable([]); 
                 return;
             }
 
             setSyncStatus('syncing');
             try {
                 const response = await fetch('/api/list', { headers: getAuthHeaders() });
-                if (response.status === 401) return handleLogout(); // Token inválido, desloga
+                if (response.status === 401) return handleLogout(); 
                 if (!response.ok) throw new Error('Falha ao buscar dados.');
 
                 const remoteItems = await response.json();
@@ -566,7 +563,7 @@
 
         const debouncedSave = debounce(saveList, 1000);
 
-        // --- Funções de UI (sem alterações significativas, exceto eventos) ---
+        // --- Funções de UI ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -580,28 +577,22 @@
             }
         });
 
-        // Comportamento do cursor ao focar em um campo de preço.
-        // Se for um novo valor, seleciona tudo. Se for um valor existente, posiciona o cursor no final.
+        // CÓDIGO AJUSTADO: Ao focar, apaga o valor se for "R$ 0,00".
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
-            if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
-                // Atraso mínimo para garantir que a ação ocorra após o foco ser totalmente processado pelo navegador,
-                // especialmente útil em dispositivos móveis.
-                setTimeout(() => {
-                    if (target.value.trim() === 'R$ 0,00') {
-                        target.select();
-                    } else {
-                        const valueLength = target.value.length;
-                        target.setSelectionRange(valueLength, valueLength);
-                    }
-                }, 1); // Um atraso muito pequeno é suficiente.
+            if (target.tagName.toLowerCase() === 'input' && target.type === 'tel') {
+                if (target.value.trim() === 'R$ 0,00') {
+                    target.value = '';
+                }
             }
         }, true);
 
         tableBody.addEventListener('blur', (event) => {
-            if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
-                formatCurrency(event.target);
-                comparePrices(event.target);
+            const target = event.target;
+            // Usamos 'tel' para campos de preço para melhorar a UX em mobile
+            if (target.tagName.toLowerCase() === 'input' && target.type === 'tel') {
+                formatCurrency(target);
+                comparePrices(target);
                 debouncedSave();
             }
         }, true);
@@ -613,8 +604,8 @@
             newRow.innerHTML = `
                 <td></td>
                 <td><textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1"></textarea></td>
-                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
-                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
+                <td class="price-cell"><input type="tel" placeholder="R$ 0,00"></td>
+                <td class="price-cell"><input type="tel" placeholder="R$ 0,00"></td>
                 <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>
             `;
             const newItemInput = document.getElementById('newItemName');
@@ -645,8 +636,8 @@
             newRow.innerHTML = `
                 <td><input type="checkbox" onchange="togglePurchased(this)" ${itemData.purchased ? 'checked' : ''}></td>
                 <td><textarea class="item-name-input" rows="1">${itemData.name}</textarea></td>
-                <td class="price-cell"><input type="text" value="${itemData.priceShibata || 'R$ 0,00'}"></td>
-                <td class="price-cell"><input type="text" value="${itemData.priceNagumo || 'R$ 0,00'}"></td>
+                <td class="price-cell"><input type="tel" value="${itemData.priceShibata || 'R$ 0,00'}"></td>
+                <td class="price-cell"><input type="tel" value="${itemData.priceNagumo || 'R$ 0,00'}"></td>
                 <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
             `;
             autoResizeTextarea(newRow.cells[1].querySelector('textarea'));
@@ -689,6 +680,11 @@
 
         function formatCurrency(input) {
             let value = input.value.replace(/\D/g, '');
+            // Se o valor estiver vazio após a limpeza (ou seja, o usuário apagou tudo), formata para 0,00
+            if (value === '') {
+                input.value = 'R$ 0,00';
+                return;
+            }
             let number = parseFloat(value) / 100;
             if (isNaN(number)) {
                 input.value = 'R$ 0,00';
@@ -764,17 +760,23 @@
                 showAuth();
             }
             
-            // CÓDIGO AJUSTADO: Força a remoção do foco (e fecha o teclado) ao tocar fora de um campo de texto.
-            document.getElementById('main-content-wrapper').addEventListener('click', function(event) {
-                const activeEl = document.activeElement;
-                const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
-                
-                // Se um campo de texto/número está focado e o clique não foi em outro campo de texto/número,
-                // remove o foco do elemento ativo.
-                if (isInput && event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
-                    activeEl.blur();
+            // CÓDIGO AJUSTADO: Força a remoção do foco ao fechar o teclado virtual (detectando a mudança de tamanho da tela).
+            try {
+                if (window.visualViewport) {
+                    let initialHeight = window.visualViewport.height;
+                    window.visualViewport.addEventListener('resize', () => {
+                        const currentHeight = window.visualViewport.height;
+                        // Se a tela voltou a um tamanho próximo do original, é provável que o teclado fechou.
+                        if (currentHeight > initialHeight * 0.9) { 
+                            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+                                document.activeElement.blur();
+                            }
+                        }
+                    });
                 }
-            });
+            } catch(e) {
+                console.warn("VisualViewport API not supported, keyboard detection may not work perfectly.");
+            }
         });
     </script>
 </body>
