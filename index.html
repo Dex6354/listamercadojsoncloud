@@ -577,7 +577,7 @@
             }
         });
 
-        // CÓDIGO AJUSTADO: Ao focar, apaga o valor se for "R$ 0,00".
+        // Ao focar, apaga o valor se for "R$ 0,00".
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'input' && target.type === 'tel') {
@@ -760,18 +760,25 @@
                 showAuth();
             }
             
-            // CÓDIGO AJUSTADO: Força a remoção do foco ao fechar o teclado virtual (detectando a mudança de tamanho da tela).
+            // CÓDIGO CORRIGIDO: Força a remoção do foco apenas quando o teclado fecha (a tela aumenta).
             try {
                 if (window.visualViewport) {
-                    let initialHeight = window.visualViewport.height;
+                    let lastViewportHeight = window.visualViewport.height;
+
                     window.visualViewport.addEventListener('resize', () => {
-                        const currentHeight = window.visualViewport.height;
-                        // Se a tela voltou a um tamanho próximo do original, é provável que o teclado fechou.
-                        if (currentHeight > initialHeight * 0.9) { 
-                            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
-                                document.activeElement.blur();
+                        // Usamos um timeout para garantir que a animação do teclado tenha terminado
+                        setTimeout(() => {
+                            const newViewportHeight = window.visualViewport.height;
+                            const activeEl = document.activeElement;
+
+                            // Se a nova altura é MAIOR que a anterior, o teclado FECHOU.
+                            if (newViewportHeight > lastViewportHeight && activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                                activeEl.blur();
                             }
-                        }
+
+                            // Atualiza a última altura conhecida para a próxima comparação.
+                            lastViewportHeight = newViewportHeight;
+                        }, 50);
                     });
                 }
             } catch(e) {
