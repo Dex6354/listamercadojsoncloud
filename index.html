@@ -214,7 +214,6 @@
         .collapsible-content.expanded { max-height: 100vh; padding-bottom: 20px; }
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
 
-        /* AJUSTE CSS: Removido posicionamento absoluto daqui */
         #sync-status-indicator { 
             width: 12px; 
             height: 12px; 
@@ -222,23 +221,21 @@
             background-color: var(--green-highlight); 
             z-index: 11; 
             transition: background-color 0.5s ease; 
-            flex-shrink: 0; /* Impede que o indicador encolha */
+            flex-shrink: 0;
         }
 
-        /* --- INÍCIO DAS NOVAS REGRAS DE CSS --- */
         .header-right {
             display: flex;
             align-items: center;
-            gap: 15px; /* Espaço entre o nome de usuário e o indicador de sync */
+            gap: 15px;
         }
         #username-display {
             color: var(--secondary-text-color);
             font-size: 0.9rem;
             display: flex;
             align-items: center;
-            gap: 8px; /* Espaço entre o ícone e o nome */
+            gap: 8px;
         }
-        /* --- FIM DAS NOVAS REGRAS DE CSS --- */
 
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
@@ -363,10 +360,9 @@
             this.classList.toggle('fa-eye-slash');
         });
         
-        // AJUSTE 1: Adicionado evento para o 'Enter' na senha
         passwordInput.addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
-                event.preventDefault(); // Impede qualquer comportamento padrão do 'Enter'
+                event.preventDefault();
                 handleLogin();
             }
         });
@@ -375,14 +371,13 @@
             authContainer.style.display = 'none';
             appContainer.style.display = 'block';
 
-            // ALTERAÇÃO JAVASCRIPT: Exibe o nome do usuário no cabeçalho
             const username = localStorage.getItem('currentUser');
             const usernameDisplay = document.getElementById('username-display');
             if (username && usernameDisplay) {
                 usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
             }
 
-            loadList(); // Carrega a lista do usuário logado
+            loadList();
         }
 
         function showAuth(message = '', isError = false) {
@@ -412,7 +407,6 @@
                     throw new Error(data.message || 'Erro ao fazer login.');
                 }
 
-                // ALTERAÇÃO JAVASCRIPT: Salva o nome de usuário e o token
                 localStorage.setItem('authToken', data.token);
                 localStorage.setItem('currentUser', username); 
                 showApp();
@@ -448,17 +442,18 @@
         async function handleLogout() {
             const token = localStorage.getItem('authToken');
             if (token) {
-                await fetch('/api/logout', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                try {
+                    await fetch('/api/logout', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                } catch (error) {
+                    console.error("Logout failed, but proceeding.", error);
+                }
             }
-            // ALTERAÇÃO JAVASCRIPT: Limpa o usuário e o token do localStorage
             localStorage.removeItem('authToken');
             localStorage.removeItem('currentUser');
-            // Nota: Não limpa a lista do cache local, pois pode ser útil se o usuário logar novamente.
-            // A lista é atrelada ao nome de usuário, então não haverá conflito.
-            location.reload(); // Recarrega a página para a tela de login
+            location.reload();
         }
 
         function getAuthHeaders() {
@@ -469,8 +464,6 @@
             };
         }
 
-
-        // --- Funções do Menu Lateral ---
         function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
         function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
         document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
@@ -487,22 +480,14 @@
         let syncState = 'saved';
         let isOnline = navigator.onLine;
 
-        const normalizeListForComparison = (list) => {
-            const sortItems = (a, b) => a.name.localeCompare(b.name);
-            return [...list] 
-                .map(({ name, priceShibata, priceNagumo, purchased }) => ({ name, priceShibata, priceNagumo, purchased }))
-                .sort(sortItems);
-        };
-
         function setSyncStatus(newState) {
             syncState = newState;
             statusIndicator.className = `status-${newState}`;
             if (newState === 'error') {
-                setTimeout(() => { if (syncState === 'error') setSyncStatus('saved'); }, 3000);
+                setTimeout(() => { if (syncState === 'error') setSyncStatus('offline'); }, 3000);
             }
         }
 
-        // --- Armazenamento agora é primariamente online, local é um bônus ---
         function debounce(func, delay) {
             return function(...args) {
                 clearTimeout(saveTimeout);
@@ -526,17 +511,32 @@
             return items;
         }
 
+        // --- LÓGICA DE SINCRONIZAÇÃO E CACHE OFFLINE ---
+        
+        // Esta é a função principal que é chamada sempre que há uma alteração na lista.
         async function saveList() {
+            const items = getCurrentLocalItems();
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            // Se estiver offline, salva a lista atual em uma chave "pendente" no localStorage.
             if (!isOnline) {
                 setSyncStatus('offline');
+                console.log("Offline: Salvando alterações localmente.");
+                localStorage.setItem(`offlineList_${username}`, JSON.stringify(items));
                 return;
             }
-            const items = getCurrentLocalItems();
+
+            // Se estiver online, tenta salvar diretamente no servidor.
             await saveListOnline(items);
         }
 
+        // Envia a lista para o servidor.
         async function saveListOnline(items) {
-             setSyncStatus('syncing');
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            setSyncStatus('syncing');
             try {
                 const response = await fetch('/api/list', {
                     method: 'POST',
@@ -544,56 +544,84 @@
                     body: JSON.stringify(items)
                 });
                 if (response.status === 401) return handleLogout();
-                if (!response.ok) throw new Error('Falha ao salvar.');
-                setSyncStatus('saved');
+                if (!response.ok) throw new Error('Falha ao salvar no servidor.');
                 
-                // AJUSTE 2: Salva a lista bem-sucedida no cache local
-                const username = localStorage.getItem('currentUser');
-                if (username) {
-                    localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
-                }
+                setSyncStatus('saved');
+                // Se o salvamento online for bem-sucedido, atualiza o cache principal.
+                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
+                // Garante que não há mais uma lista offline pendente.
+                localStorage.removeItem(`offlineList_${username}`);
+
             } catch (error) {
                 setSyncStatus('error');
+                console.error("Erro ao salvar online:", error);
             }
         }
 
-        // AJUSTE 2: Função loadList modificada para carregar do cache quando offline
+        // Tenta sincronizar as alterações pendentes quando a conexão é restabelecida.
+        async function syncOfflineChanges() {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+            
+            const pendingItemsJSON = localStorage.getItem(`offlineList_${username}`);
+            if (!pendingItemsJSON) {
+                console.log("Nenhuma alteração offline para sincronizar.");
+                return; // Nada para sincronizar
+            }
+
+            const itemsToSync = JSON.parse(pendingItemsJSON);
+            console.log("Conectado. Sincronizando alterações pendentes...");
+            await saveListOnline(itemsToSync); // Reutiliza a função de salvar online
+        }
+
+        // Carrega a lista com uma nova lógica de prioridade.
         async function loadList() {
             const username = localStorage.getItem('currentUser');
-            const localKey = `shoppingList_${username}`;
+            if (!username) return;
 
-            if (!isOnline) {
-                setSyncStatus('offline');
-                const cachedItems = JSON.parse(localStorage.getItem(localKey) || '[]');
-                redrawTable(cachedItems); 
+            const offlineKey = `offlineList_${username}`;
+            const cacheKey = `shoppingList_${username}`;
+            const pendingOfflineItems = JSON.parse(localStorage.getItem(offlineKey));
+
+            // 1. PRIORIDADE MÁXIMA: Se existem alterações offline pendentes, exibe elas.
+            if (pendingOfflineItems) {
+                console.log("Carregando lista com alterações offline pendentes.");
+                redrawTable(pendingOfflineItems);
+                setSyncStatus('offline'); // Indica que a lista exibida não está no servidor.
                 return;
             }
 
+            // 2. Se estiver offline (e sem alterações pendentes), carrega o último cache.
+            if (!isOnline) {
+                console.log("Offline. Carregando lista do cache.");
+                setSyncStatus('offline');
+                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+                redrawTable(cachedItems);
+                return;
+            }
+            
+            // 3. Se estiver online e sem alterações pendentes, busca a lista do servidor.
             setSyncStatus('syncing');
             try {
                 const response = await fetch('/api/list', { headers: getAuthHeaders() });
-                if (response.status === 401) return handleLogout(); // Token inválido, desloga
+                if (response.status === 401) return handleLogout();
                 if (!response.ok) throw new Error('Falha ao buscar dados.');
 
                 const remoteItems = await response.json();
-                if (username) {
-                    localStorage.setItem(localKey, JSON.stringify(remoteItems)); // Atualiza o cache
-                }
+                localStorage.setItem(cacheKey, JSON.stringify(remoteItems)); // Atualiza o cache
                 redrawTable(remoteItems, true);
                 setSyncStatus('saved');
-
             } catch (error) {
-                console.error('Erro ao buscar lista online:', error);
-                setSyncStatus('offline');
-                const cachedItems = JSON.parse(localStorage.getItem(localKey) || '[]');
-                redrawTable(cachedItems); // Fallback para o cache
+                console.error('Erro ao buscar lista online, usando cache como fallback:', error);
+                setSyncStatus('offline'); 
+                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+                redrawTable(cachedItems);
             }
         }
 
+        const debouncedSave = debounce(saveList, 1500);
 
-        const debouncedSave = debounce(saveList, 1000);
-
-        // --- Funções de UI (sem alterações significativas, exceto eventos) ---
+        // --- Funções de UI (sem alterações significativas) ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -602,18 +630,19 @@
         tableBody.addEventListener('input', (event) => {
             if (event.target.tagName.toLowerCase() === 'textarea') autoResizeTextarea(event.target);
             if (['textarea', 'input'].includes(event.target.tagName.toLowerCase())) {
-                setSyncStatus(isOnline ? 'syncing' : 'offline');
                 debouncedSave();
             }
         });
+        
+        tableBody.addEventListener('change', (event) => {
+             if (event.target.type === 'checkbox') {
+                debouncedSave();
+             }
+        });
 
-        // CÓDIGO AJUSTADO INICIA AQUI
-        // Gerencia o comportamento dos campos de preço para uma melhor experiência do usuário.
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
-                // Se o campo tiver um valor real (não um placeholder), posiciona o cursor no final.
-                // O navegador já lida com o desaparecimento do placeholder automaticamente.
                 setTimeout(() => {
                     if (target.value !== '') {
                         const valueLength = target.value.length;
@@ -625,13 +654,12 @@
 
         tableBody.addEventListener('blur', (event) => {
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
-                formatCurrency(event.target); // Formata ao sair do campo
+                formatCurrency(event.target);
                 comparePrices(event.target);
                 debouncedSave();
             }
         }, true);
-        // CÓDIGO AJUSTADO TERMINA AQUI
-
+        
         function createAddItemRow(shouldFocus = false) {
             document.querySelector('.add-item-row')?.remove();
             const newRow = tableBody.insertRow(0);
@@ -665,12 +693,10 @@
             saveList(); 
         }
         
-        // CÓDIGO AJUSTADO
         function buildItemRow(itemData, isNew = false) {
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
             if (itemData.purchased) newRow.classList.add('purchased');
 
-            // Função auxiliar para gerar o HTML do input de preço
             const getPriceInputHTML = (price) => {
                 const hasValue = price && price.trim() !== 'R$ 0,00';
                 return `<input type="text" ${hasValue ? `value="${price}"` : ''} placeholder="R$ 0,00">`;
@@ -686,7 +712,6 @@
             autoResizeTextarea(newRow.cells[1].querySelector('textarea'));
             comparePrices(newRow.cells[2].querySelector('input'));
         }
-
 
         function redrawTable(items, shouldFocusNewItem = true) {
             tableBody.innerHTML = '';
@@ -706,7 +731,7 @@
 
         function togglePurchased(checkbox) {
             checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
-            debouncedSave();
+            // O evento 'change' no tableBody já chama o debouncedSave
         }
 
         function clearList() {
@@ -716,23 +741,28 @@
                 createAddItemRow(true); 
             }
         }
+        
+        // --- Eventos de Conexão ---
+        window.addEventListener('online', async () => {
+            isOnline = true;
+            await syncOfflineChanges(); // Tenta enviar as alterações pendentes
+            await loadList();           // Recarrega a lista do servidor
+        });
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            setSyncStatus('offline');
+        });
 
-        window.addEventListener('online', () => { isOnline = true; loadList(); });
-        window.addEventListener('offline', () => { isOnline = false; setSyncStatus('offline'); });
-
-        // CÓDIGO AJUSTADO
+        // --- Funções de Formatação e Comparação de Preços ---
         function formatCurrency(input) {
             const value = input.value.trim();
             const number = parseValueToFloat(value);
-
-            // Se o valor for inválido ou zero, trata como placeholder.
             if (isNaN(number) || number === 0) {
                 input.value = '';
                 input.placeholder = 'R$ 0,00';
             } else {
-                // Se for um valor real, formata e define como 'value'.
                 input.value = number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                input.placeholder = 'R$ 0,00'; // Garante que o placeholder ainda exista para o caso de o valor ser apagado.
+                input.placeholder = 'R$ 0,00';
             }
         }
 
@@ -781,7 +811,7 @@
             [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
         }
 
-        // --- SOLUÇÃO PARA "ACORDAR" O STREAMLIT ---
+        // --- Funções Auxiliares (Streamlit, Teclado Virtual) ---
         function wakeUpApp() {
             const iframeWrapper = document.getElementById('iframe-wrapper');
             const iframeOverlay = document.getElementById('iframe-overlay');
@@ -795,29 +825,17 @@
             iframeWrapper.prepend(newIframe);
         }
 
-        // --- LÓGICA PARA REMOVER FOCO AO FECHAR TECLADO VIRTUAL (ANDROID/IOS) ---
         function setupVirtualKeyboardListener() {
-            if (!window.visualViewport) return; // Se a API não existe, não faz nada.
-
-            const isLikelyKeyboardOpen = () => {
-                // O teclado é considerado aberto se a altura do viewport visual for
-                // significantemente menor que a altura da janela (ex: > 150px).
-                return window.innerHeight - window.visualViewport.height > 150;
-            }
-
-            // Armazena o último estado conhecido do teclado
+            if (!window.visualViewport) return;
+            const isLikelyKeyboardOpen = () => window.innerHeight - window.visualViewport.height > 150;
             let keyboardWasOpen = isLikelyKeyboardOpen();
-
             window.visualViewport.addEventListener('resize', () => {
                 const keyboardIsOpen = isLikelyKeyboardOpen();
-                // Se o teclado estava aberto e agora não está...
                 if (keyboardWasOpen && !keyboardIsOpen) {
-                    // ...remove o foco do elemento ativo, se for um campo de texto.
                     if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
                          document.activeElement.blur();
                     }
                 }
-                // Atualiza o estado para a próxima verificação
                 keyboardWasOpen = keyboardIsOpen;
             });
         }
@@ -830,19 +848,21 @@
                 showAuth();
             }
             setupVirtualKeyboardListener();
+            setSyncStatus(isOnline ? 'saved' : 'offline');
         });
+        
         // Service Worker Registration
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(registration => {
-          console.log('ServiceWorker registrado com sucesso: ', registration.scope);
-        })
-        .catch(error => {
-          console.log('Falha ao registrar o ServiceWorker: ', error);
-        });
-    });
-  }
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(registration => {
+                console.log('ServiceWorker registrado com sucesso: ', registration.scope);
+                })
+                .catch(error => {
+                console.log('Falha ao registrar o ServiceWorker: ', error);
+                });
+            });
+        }
     </script>
 </body>
 </html>
