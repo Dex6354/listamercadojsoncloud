@@ -513,13 +513,11 @@
 
         // --- LÓGICA DE SINCRONIZAÇÃO E CACHE OFFLINE ---
         
-        // Esta é a função principal que é chamada sempre que há uma alteração na lista.
         async function saveList() {
             const items = getCurrentLocalItems();
             const username = localStorage.getItem('currentUser');
             if (!username) return;
 
-            // Se estiver offline, salva a lista atual em uma chave "pendente" no localStorage.
             if (!isOnline) {
                 setSyncStatus('offline');
                 console.log("Offline: Salvando alterações localmente.");
@@ -527,11 +525,9 @@
                 return;
             }
 
-            // Se estiver online, tenta salvar diretamente no servidor.
             await saveListOnline(items);
         }
 
-        // Envia a lista para o servidor.
         async function saveListOnline(items) {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
@@ -547,9 +543,7 @@
                 if (!response.ok) throw new Error('Falha ao salvar no servidor.');
                 
                 setSyncStatus('saved');
-                // Se o salvamento online for bem-sucedido, atualiza o cache principal.
                 localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
-                // Garante que não há mais uma lista offline pendente.
                 localStorage.removeItem(`offlineList_${username}`);
 
             } catch (error) {
@@ -558,7 +552,6 @@
             }
         }
 
-        // Tenta sincronizar as alterações pendentes quando a conexão é restabelecida.
         async function syncOfflineChanges() {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
@@ -566,15 +559,14 @@
             const pendingItemsJSON = localStorage.getItem(`offlineList_${username}`);
             if (!pendingItemsJSON) {
                 console.log("Nenhuma alteração offline para sincronizar.");
-                return; // Nada para sincronizar
+                return;
             }
 
             const itemsToSync = JSON.parse(pendingItemsJSON);
             console.log("Conectado. Sincronizando alterações pendentes...");
-            await saveListOnline(itemsToSync); // Reutiliza a função de salvar online
+            await saveListOnline(itemsToSync);
         }
 
-        // Carrega a lista com uma nova lógica de prioridade.
         async function loadList() {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
@@ -583,15 +575,13 @@
             const cacheKey = `shoppingList_${username}`;
             const pendingOfflineItems = JSON.parse(localStorage.getItem(offlineKey));
 
-            // 1. PRIORIDADE MÁXIMA: Se existem alterações offline pendentes, exibe elas.
             if (pendingOfflineItems) {
                 console.log("Carregando lista com alterações offline pendentes.");
                 redrawTable(pendingOfflineItems);
-                setSyncStatus('offline'); // Indica que a lista exibida não está no servidor.
+                setSyncStatus('offline');
                 return;
             }
 
-            // 2. Se estiver offline (e sem alterações pendentes), carrega o último cache.
             if (!isOnline) {
                 console.log("Offline. Carregando lista do cache.");
                 setSyncStatus('offline');
@@ -600,7 +590,6 @@
                 return;
             }
             
-            // 3. Se estiver online e sem alterações pendentes, busca a lista do servidor.
             setSyncStatus('syncing');
             try {
                 const response = await fetch('/api/list', { headers: getAuthHeaders() });
@@ -608,7 +597,7 @@
                 if (!response.ok) throw new Error('Falha ao buscar dados.');
 
                 const remoteItems = await response.json();
-                localStorage.setItem(cacheKey, JSON.stringify(remoteItems)); // Atualiza o cache
+                localStorage.setItem(cacheKey, JSON.stringify(remoteItems));
                 redrawTable(remoteItems, true);
                 setSyncStatus('saved');
             } catch (error) {
@@ -621,7 +610,7 @@
 
         const debouncedSave = debounce(saveList, 1500);
 
-        // --- Funções de UI (sem alterações significativas) ---
+        // --- Funções de UI ---
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -634,12 +623,6 @@
             }
         });
         
-        tableBody.addEventListener('change', (event) => {
-             if (event.target.type === 'checkbox') {
-                debouncedSave();
-             }
-        });
-
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
@@ -729,9 +712,10 @@
             }
         }
 
+        // AJUSTE FINAL: A função agora chama debouncedSave() diretamente.
         function togglePurchased(checkbox) {
             checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
-            // O evento 'change' no tableBody já chama o debouncedSave
+            debouncedSave(); // Garante que qualquer mudança no checkbox acione um salvamento.
         }
 
         function clearList() {
@@ -745,8 +729,8 @@
         // --- Eventos de Conexão ---
         window.addEventListener('online', async () => {
             isOnline = true;
-            await syncOfflineChanges(); // Tenta enviar as alterações pendentes
-            await loadList();           // Recarrega a lista do servidor
+            await syncOfflineChanges();
+            await loadList();
         });
         window.addEventListener('offline', () => {
             isOnline = false;
