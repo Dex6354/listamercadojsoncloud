@@ -362,6 +362,14 @@
             passwordInput.setAttribute('type', type);
             this.classList.toggle('fa-eye-slash');
         });
+        
+        // AJUSTE 1: Adicionado evento para o 'Enter' na senha
+        passwordInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Impede qualquer comportamento padrão do 'Enter'
+                handleLogin();
+            }
+        });
 
         function showApp() {
             authContainer.style.display = 'none';
@@ -448,6 +456,8 @@
             // ALTERAÇÃO JAVASCRIPT: Limpa o usuário e o token do localStorage
             localStorage.removeItem('authToken');
             localStorage.removeItem('currentUser');
+            // Nota: Não limpa a lista do cache local, pois pode ser útil se o usuário logar novamente.
+            // A lista é atrelada ao nome de usuário, então não haverá conflito.
             location.reload(); // Recarrega a página para a tela de login
         }
 
@@ -536,15 +546,26 @@
                 if (response.status === 401) return handleLogout();
                 if (!response.ok) throw new Error('Falha ao salvar.');
                 setSyncStatus('saved');
+                
+                // AJUSTE 2: Salva a lista bem-sucedida no cache local
+                const username = localStorage.getItem('currentUser');
+                if (username) {
+                    localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
+                }
             } catch (error) {
                 setSyncStatus('error');
             }
         }
 
+        // AJUSTE 2: Função loadList modificada para carregar do cache quando offline
         async function loadList() {
+            const username = localStorage.getItem('currentUser');
+            const localKey = `shoppingList_${username}`;
+
             if (!isOnline) {
                 setSyncStatus('offline');
-                redrawTable([]); // Limpa a tabela se estiver offline ao carregar
+                const cachedItems = JSON.parse(localStorage.getItem(localKey) || '[]');
+                redrawTable(cachedItems); 
                 return;
             }
 
@@ -555,14 +576,20 @@
                 if (!response.ok) throw new Error('Falha ao buscar dados.');
 
                 const remoteItems = await response.json();
+                if (username) {
+                    localStorage.setItem(localKey, JSON.stringify(remoteItems)); // Atualiza o cache
+                }
                 redrawTable(remoteItems, true);
                 setSyncStatus('saved');
 
             } catch (error) {
                 console.error('Erro ao buscar lista online:', error);
-                setSyncStatus('offline'); 
+                setSyncStatus('offline');
+                const cachedItems = JSON.parse(localStorage.getItem(localKey) || '[]');
+                redrawTable(cachedItems); // Fallback para o cache
             }
         }
+
 
         const debouncedSave = debounce(saveList, 1000);
 
