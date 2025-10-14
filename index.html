@@ -712,10 +712,10 @@
             }
         }
 
-        // AJUSTE FINAL: A função agora chama debouncedSave() diretamente.
+        // AJUSTE FINAL E DEFINITIVO: A função agora chama saveList() diretamente, sem atraso.
         function togglePurchased(checkbox) {
             checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
-            debouncedSave(); // Garante que qualquer mudança no checkbox acione um salvamento.
+            saveList(); // Garante que qualquer mudança no checkbox acione um salvamento IMEDIATO.
         }
 
         function clearList() {
