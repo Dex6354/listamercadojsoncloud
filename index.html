@@ -501,7 +501,7 @@
 
         function startPolling() {
             stopPolling(); // Garante que não haja múltiplos intervalos rodando
-            pollingIntervalId = setInterval(pollForChanges, 7000); // Verifica por mudanças a cada 7 segundos
+            pollingIntervalId = setInterval(pollForChanges, 3000); // Verifica por mudanças a cada 7 segundos
         }
         
         async function pollForChanges() {
