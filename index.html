@@ -482,6 +482,12 @@
         let syncState = 'saved';
         let isOnline = navigator.onLine;
         let pollingIntervalId = null; // ID para o intervalo do polling
+        
+        // Novo: Armazena o índice do item que está sendo editado (para evitar interrupção)
+        let activeElementIndex = -1; 
+        
+        // Novo: Mapeia o elemento ativo para poder restaurar o foco e a seleção
+        let activeElement = null; 
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -491,7 +497,7 @@
             }
         }
         
-        // --- LÓGICA DE POLLING E SINCRONIZAÇÃO (AJUSTADO) ---
+        // --- LÓGICA DE POLLING (SINCRONIZAÇÃO CONTÍNUA) ---
         function stopPolling() {
             if (pollingIntervalId) {
                 clearInterval(pollingIntervalId);
@@ -504,50 +510,11 @@
             pollingIntervalId = setInterval(pollForChanges, 3000); // Verifica por mudanças a cada 3 segundos
         }
         
-        /**
-         * Atualiza os campos de uma linha da tabela se os dados remotos forem diferentes,
-         * respeitando o campo que está atualmente em foco.
-         */
-        function updateRowIfNeeded(row, remoteItem, activeEl) {
-            const checkbox = row.cells[0].querySelector('input[type="checkbox"]');
-            const shibataInput = row.cells[2].querySelector('input');
-            const nagumoInput = row.cells[3].querySelector('input');
-
-            // Atualiza o status de "comprado" (checkbox)
-            const localPurchased = row.classList.contains('purchased');
-            if (localPurchased !== remoteItem.purchased && checkbox !== activeEl) {
-                checkbox.checked = remoteItem.purchased;
-                row.classList.toggle('purchased', remoteItem.purchased);
-            }
-
-            // O nome do item é a nossa chave de identificação, então não o atualizamos aqui
-            // para evitar conflitos. Uma mudança de nome é tratada como exclusão/adição.
-
-            // Atualiza o preço do Shibata
-            const remoteShibataPrice = (remoteItem.priceShibata && remoteItem.priceShibata.trim() !== 'R$ 0,00') ? remoteItem.priceShibata.trim() : '';
-            if (shibataInput.value.trim() !== remoteShibataPrice && shibataInput !== activeEl) {
-                shibataInput.value = remoteShibataPrice;
-                formatCurrency(shibataInput);
-            }
-            
-            // Atualiza o preço do Nagumo
-            const remoteNagumoPrice = (remoteItem.priceNagumo && remoteItem.priceNagumo.trim() !== 'R$ 0,00') ? remoteItem.priceNagumo.trim() : '';
-            if (nagumoInput.value.trim() !== remoteNagumoPrice && nagumoInput !== activeEl) {
-                nagumoInput.value = remoteNagumoPrice;
-                formatCurrency(nagumoInput);
-            }
-
-            // Re-executa a comparação de preços para garantir que os destaques de cor estejam corretos.
-            comparePrices(shibataInput);
-        }
-
         async function pollForChanges() {
-            // Pausa a verificação se a aba estiver inativa ou se o navegador estiver offline.
+            // Não faz polling se estiver offline ou com a aba inativa
             if (!isOnline || document.hidden) {
                 return;
             }
-
-            const activeEl = document.activeElement;
 
             try {
                 const response = await fetch('/api/list', { headers: getAuthHeaders() });
@@ -555,53 +522,119 @@
                 if (!response.ok) return;
 
                 const remoteItems = await response.json();
-
-                // Cria um mapa das linhas atuais da tabela (DOM), usando o nome do item como chave.
+                
+                // Mapeia os itens locais (os que estão na tela)
                 const localRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
-                const localItemsMap = new Map();
-                localRows.forEach(row => {
-                    const nameInput = row.cells[1].querySelector('textarea');
-                    if (nameInput && nameInput.value.trim()) {
-                        localItemsMap.set(nameInput.value.trim(), row);
-                    }
-                });
-
-                const remoteItemNames = new Set(remoteItems.map(item => item.name.trim()));
-
-                // --- LÓGICA DE SINCRONIZAÇÃO GRANULAR ---
-
-                // 1. Atualiza itens existentes e adiciona os novos.
-                remoteItems.forEach(remoteItem => {
-                    const itemName = remoteItem.name.trim();
-                    const existingRow = localItemsMap.get(itemName);
-
-                    if (existingRow) {
-                        // O item já existe localmente. Verifica se algum campo mudou e atualiza.
-                        updateRowIfNeeded(existingRow, remoteItem, activeEl);
-                    } else {
-                        // É um item novo, adicionado por outro dispositivo. Cria a linha na tabela.
-                        buildItemRow(remoteItem, false);
-                    }
-                });
-
-                // 2. Remove itens que foram deletados em outro dispositivo.
-                localItemsMap.forEach((row, itemName) => {
-                    if (!remoteItemNames.has(itemName)) {
-                        // O item existe localmente mas não remotamente. Remove-o,
-                        // a menos que o usuário esteja editando esta linha específica.
-                        if (!row.contains(activeEl)) {
-                            row.remove();
-                        }
-                    }
+                
+                // Extrai os dados locais da UI, incluindo o estado do checkbox
+                const localItems = localRows.map((row, index) => {
+                    return {
+                        name: row.cells[1].querySelector('textarea').value.trim(),
+                        priceShibata: row.cells[2].querySelector('input').value,
+                        priceNagumo: row.cells[3].querySelector('input').value,
+                        purchased: row.cells[0].querySelector('input[type="checkbox"]').checked,
+                        rowIndex: index // Adiciona o índice na UI para mapeamento
+                    };
                 });
                 
-                // 3. Reordena a tabela para agrupar os itens corretamente após adições.
-                sortAndGroup();
-
+                // Se a contagem de itens mudar, ou se o JSON completo for muito diferente, redesenha
+                if (localItems.length !== remoteItems.length || !smartUpdateUI(remoteItems, localItems)) {
+                    // Se a diferença for grande (exclusão, reorganização), redesenha a lista inteira
+                    redrawTable(remoteItems, false);
+                }
+                
             } catch (error) {
-                // Falha silenciosa para não poluir o console com erros de rede.
+                // Falha silenciosa para não poluir o console com erros de rede
+                console.warn("Polling error:", error);
             }
         }
+        
+        // NOVO: Função para atualizar a UI de forma inteligente (sem perder o foco)
+        function smartUpdateUI(remoteItems, localItems) {
+            let changesDetected = false;
+            const remoteItemMap = new Map();
+            remoteItems.forEach(item => remoteItemMap.set(item.name, item));
+            
+            // 1. Verifica itens locais que podem ter sido deletados remotamente
+            // Esta é a parte mais difícil de fazer sem redesenhar. Se um item local foi deletado remotamente,
+            // e não for o item ativo, o ideal seria removê-lo. Se for o ativo, ignoramos (o usuário terminará de editar).
+            // Para simplificar, faremos um check de diferença estrutural (tamanho da lista) e depois a atualização de campos.
+            if (remoteItems.length !== localItems.length) {
+                return false; // Se a contagem for diferente, redesenha a tabela
+            }
+            
+            const activeEl = document.activeElement;
+            const activeRow = activeEl?.closest('tr');
+            
+            // 2. Compara e atualiza os valores
+            for (let i = 0; i < remoteItems.length; i++) {
+                const remote = remoteItems[i];
+                const local = localItems[i];
+                const row = document.getElementById('shopping-list-body').rows[i];
+                
+                if (!local || local.name !== remote.name) {
+                     return false; // Item fora de ordem ou item novo, redesenha
+                }
+                
+                const itemNameTextarea = row.cells[1].querySelector('textarea');
+                const priceShibataInput = row.cells[2].querySelector('input');
+                const priceNagumoInput = row.cells[3].querySelector('input');
+                const checkbox = row.cells[0].querySelector('input[type="checkbox"]');
+                
+                const elementsToCheck = [
+                    { element: itemNameTextarea, localValue: local.name, remoteValue: remote.name },
+                    { element: priceShibataInput, localValue: local.priceShibata, remoteValue: remote.priceShibata },
+                    { element: priceNagumoInput, localValue: local.priceNagumo, remoteValue: remote.priceNagumo }
+                ];
+
+                for (const { element, localValue, remoteValue } of elementsToCheck) {
+                    const elementIsActive = element === activeEl;
+                    
+                    // Compara o valor, tratando a formatação
+                    const remoteCleanValue = remoteValue.trim();
+                    const localCleanValue = localValue.trim();
+                    
+                    if (remoteCleanValue !== localCleanValue) {
+                        changesDetected = true;
+                        
+                        if (!elementIsActive) {
+                            // Atualiza o elemento se ele não estiver sendo editado
+                            element.value = remoteCleanValue;
+                            if (element.tagName.toLowerCase() === 'textarea') autoResizeTextarea(element);
+                            if (element.type === 'text') {
+                                formatCurrency(element);
+                                comparePrices(element);
+                            }
+                        } else {
+                            // Se estiver ativo, e o valor remoto for diferente do que ele *tinha* antes de ser editado,
+                            // podemos atualizar (por exemplo, um preço que foi encontrado)
+                            // MAS MANTEMOS O FOCO e a posição do cursor.
+                            // Por segurança em sync entre dispositivos, vamos atualizar o valor do input ativo,
+                            // mas o foco e a seleção serão restaurados abaixo.
+                            const currentCaretPos = element.selectionStart;
+                            element.value = remoteCleanValue;
+                            // Tenta restaurar a posição do cursor. Se o novo valor for menor, vai para o final.
+                            element.setSelectionRange(currentCaretPos, currentCaretPos); 
+                            
+                            if (element.type === 'text') {
+                                formatCurrency(element);
+                                comparePrices(element);
+                            }
+                        }
+                    }
+                }
+                
+                // Checkbox e classe 'purchased'
+                if (checkbox.checked !== remote.purchased) {
+                    checkbox.checked = remote.purchased;
+                    row.classList.toggle('purchased', remote.purchased);
+                    changesDetected = true;
+                }
+            }
+            
+            return changesDetected;
+        }
+
 
         function debounce(func, delay) {
             return function(...args) {
@@ -610,16 +643,18 @@
             };
         }
 
+        // NOVO: Adiciona um campo de 'id' temporário (ou 'name') para ajudar na comparação
         function getCurrentLocalItems() {
             const items = [];
             document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
-                const name = row.cells[1].querySelector('textarea').value.trim();
+                const nameTextarea = row.cells[1].querySelector('textarea');
+                const name = nameTextarea.value.trim();
                 if (name) {
                     items.push({
                         name: name,
-                        priceShibata: row.cells[2].querySelector('input').value || 'R$ 0,00',
-                        priceNagumo: row.cells[3].querySelector('input').value || 'R$ 0,00',
-                        purchased: row.classList.contains('purchased')
+                        priceShibata: row.cells[2].querySelector('input').value,
+                        priceNagumo: row.cells[3].querySelector('input').value,
+                        purchased: row.cells[0].querySelector('input[type="checkbox"]').checked
                     });
                 }
             });
@@ -665,24 +700,30 @@
             }
         }
 
+        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
         async function syncOfflineChanges() {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
             
             const pendingItemsJSON = localStorage.getItem(`offlineList_${username}`);
             if (!pendingItemsJSON) {
+                console.log("Nenhuma alteração offline para sincronizar.");
                 return;
             }
 
             console.log("Conectado. Sincronizando alterações pendentes...");
             
             try {
+                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
                 const localOfflineItems = JSON.parse(pendingItemsJSON);
-                // A lista offline é a "fonte da verdade". Envia ela inteira para o servidor.
+
                 await saveListOnline(localOfflineItems);
+                
+                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
                 redrawTable(localOfflineItems);
+
             } catch (error) {
-                console.error("Falha ao sincronizar alterações offline:", error);
+                console.error("Falha ao sincronizar as alterações offline:", error);
                 setSyncStatus('error');
             }
         }
@@ -744,8 +785,11 @@
             }
         });
         
+        // NOVO: Adiciona os listeners para rastrear o elemento ativo
         tableBody.addEventListener('focus', (event) => {
             const target = event.target;
+            activeElement = target; // Rastreia o elemento ativo
+            
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
                 setTimeout(() => {
                     if (target.value !== '') {
@@ -757,6 +801,10 @@
         }, true);
 
         tableBody.addEventListener('blur', (event) => {
+            if (event.target === activeElement) {
+                activeElement = null; // Limpa o elemento ativo
+            }
+            
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
                 formatCurrency(event.target);
                 comparePrices(event.target);
@@ -793,7 +841,7 @@
                 itemNameInput.focus();
                 return;
             }
-            buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true); 
+            buildItemRow({ name: itemName, priceShibata: '', priceNagumo: '', purchased: false }, true); 
             createAddItemRow(true);
             saveList(); 
         }
@@ -819,12 +867,60 @@
         }
 
         function redrawTable(items, shouldFocusNewItem = true) {
+            
+            // NOVO: Salva o elemento ativo antes de redesenhar
+            const currentActiveElement = document.activeElement;
+            let currentActiveItemName = null;
+            let currentActiveInputIndex = -1; // 1: nome, 2: Shibata, 3: Nagumo
+
+            if (currentActiveElement && tableBody.contains(currentActiveElement) && currentActiveElement.closest('tr:not(.add-item-row)')) {
+                const activeRow = currentActiveElement.closest('tr');
+                currentActiveItemName = activeRow.cells[1].querySelector('textarea').value.trim();
+                
+                if (currentActiveElement.tagName.toLowerCase() === 'textarea') {
+                    currentActiveInputIndex = 1;
+                } else if (currentActiveElement.tagName.toLowerCase() === 'input') {
+                    currentActiveInputIndex = Array.from(activeRow.cells).findIndex(cell => cell.contains(currentActiveElement));
+                }
+            }
+            
             tableBody.innerHTML = '';
             if (items && items.length > 0) {
                 items.forEach(item => buildItemRow(item, false));
-                sortAndGroup();
+                // A ordenação será feita após o redesenho, mas garantimos que comparePrices seja chamado para formatar
             }
-            createAddItemRow(shouldFocusNewItem);
+            createAddItemRow(shouldFocusNewItem && currentActiveInputIndex === -1);
+            
+            // NOVO: Tenta restaurar o foco
+            if (currentActiveItemName && currentActiveInputIndex !== -1) {
+                const newRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
+                const targetRow = newRows.find(row => row.cells[1].querySelector('textarea').value.trim() === currentActiveItemName);
+                
+                if (targetRow) {
+                    let newActiveElement = null;
+                    if (currentActiveInputIndex === 1) {
+                        newActiveElement = targetRow.cells[1].querySelector('textarea');
+                    } else if (currentActiveInputIndex === 2) {
+                        newActiveElement = targetRow.cells[2].querySelector('input');
+                    } else if (currentActiveInputIndex === 3) {
+                        newActiveElement = targetRow.cells[3].querySelector('input');
+                    }
+
+                    if (newActiveElement) {
+                         // Só dá foco se não for o mesmo elemento ativo que já estava antes do redesenho
+                         if (newActiveElement !== currentActiveElement) {
+                            newActiveElement.focus();
+                            // Se era um input de texto, move o cursor para o final (não é 100% garantido, mas é melhor que nada)
+                            if (newActiveElement.type === 'text' || newActiveElement.tagName.toLowerCase() === 'textarea') {
+                                const len = newActiveElement.value.length;
+                                newActiveElement.setSelectionRange(len, len);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            sortAndGroup(); // Reordena a lista após a reconstrução
         }
 
         function removeItem(button) {
@@ -895,7 +991,7 @@
                 else { shibataInput.classList.add('equal-price'); nagumoInput.classList.add('equal-price'); }
             } else if (validShibata) { shibataInput.classList.add('cheapest-price');
             } else if (validNagumo) { nagumoInput.classList.add('cheapest-price'); }
-            // Não chama sortAndGroup aqui para evitar reordenação durante a digitação.
+            sortAndGroup();
         }
 
         function sortAndGroup() {
@@ -915,7 +1011,34 @@
                 return getMin(a) - getMin(b);
             };
             shibata.sort(sortByMin); equal.sort(sortByMin); nagumo.sort(sortByMin);
-            [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
+            
+            // NOVO: Mantém o item ativo temporariamente fora da ordenação se estiver sendo editado
+            const activeRow = activeElement?.closest('tr:not(.add-item-row)');
+            let tempActiveRow = null;
+            if (activeRow) {
+                 tempActiveRow = activeRow;
+                 // Remove a linha ativa da ordenação se ela estiver em alguma lista de ordenação
+                 [unpriced, shibata, equal, nagumo].forEach(list => {
+                    const index = list.indexOf(tempActiveRow);
+                    if (index > -1) list.splice(index, 1);
+                 });
+            }
+            
+            const sortedRows = [...unpriced, ...shibata, ...equal, ...nagumo];
+            
+            // Re-insere as linhas na ordem correta, exceto a linha de 'Adicionar Novo Item'
+            sortedRows.forEach(row => tableBody.appendChild(row));
+            
+            // NOVO: Garante que a linha ativa volte para o DOM (embora a linha já esteja no DOM, isso garante a ordem)
+            if (tempActiveRow && !tableBody.contains(tempActiveRow)) {
+                tableBody.appendChild(tempActiveRow);
+            }
+            
+            // Garante que a linha de adição esteja sempre no topo
+            const addItemRow = document.querySelector('.add-item-row');
+            if (addItemRow) {
+                tableBody.prepend(addItemRow);
+            }
         }
 
         // --- Funções Auxiliares (Streamlit, Teclado Virtual) ---
@@ -932,19 +1055,25 @@
             iframeWrapper.prepend(newIframe);
         }
 
+        // NOVO: Ajuste para NÃO fechar o teclado virtual
         function setupVirtualKeyboardListener() {
             if (!window.visualViewport) return;
+            // A lógica de fechar o teclado ao redimensionar (blur) foi removida
+            // para permitir que o usuário use o teclado virtual normalmente sem interrupções.
+            // O código original que fazia o blur era:
+            /*
             const isLikelyKeyboardOpen = () => window.innerHeight - window.visualViewport.height > 150;
             let keyboardWasOpen = isLikelyKeyboardOpen();
             window.visualViewport.addEventListener('resize', () => {
                 const keyboardIsOpen = isLikelyKeyboardOpen();
                 if (keyboardWasOpen && !keyboardIsOpen) {
                     if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-                         document.activeElement.blur();
+                         document.activeElement.blur(); // REMOVIDO
                     }
                 }
                 keyboardWasOpen = keyboardIsOpen;
             });
+            */
         }
 
         // --- INICIALIZAÇÃO DA APLICAÇÃO ---
