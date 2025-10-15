@@ -590,7 +590,7 @@
             }
         }
 
-        // --- LÓGICA DE MESCLAGEM DE ITENS (CORRIGIDO) ---
+        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
         async function syncOfflineChanges() {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
@@ -601,36 +601,22 @@
                 return;
             }
 
-            console.log("Conectado. Sincronizando alterações pendentes com mesclagem...");
+            console.log("Conectado. Sincronizando alterações pendentes...");
             
             try {
-                // 1. Buscar a lista mais recente do servidor
-                const serverResponse = await fetch('/api/list', { headers: getAuthHeaders() });
-                if (serverResponse.status === 401) return handleLogout();
-                if (!serverResponse.ok) throw new Error('Falha ao buscar a lista do servidor antes de mesclar.');
-                
-                const serverItems = await serverResponse.json();
+                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
                 const localOfflineItems = JSON.parse(pendingItemsJSON);
 
-                // 2. Lógica de mesclagem para evitar perda de dados
-                const mergedItemsMap = new Map();
+                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
+                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
+                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
+                await saveListOnline(localOfflineItems);
                 
-                // Adiciona os itens do servidor primeiro. A chave normalizada evita duplicatas (ex: "Maçã" e "maçã")
-                serverItems.forEach(item => mergedItemsMap.set(item.name.toLowerCase().trim(), item));
-                
-                // Adiciona ou sobrescreve com os itens locais, que são considerados mais recentes
-                localOfflineItems.forEach(item => mergedItemsMap.set(item.name.toLowerCase().trim(), item));
-
-                const finalMergedList = Array.from(mergedItemsMap.values());
-
-                // 3. Salva a lista final mesclada no servidor
-                await saveListOnline(finalMergedList);
-                
-                // 4. Atualiza a interface com a lista final
-                redrawTable(finalMergedList);
+                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
+                redrawTable(localOfflineItems);
 
             } catch (error) {
-                console.error("Falha ao sincronizar e mesclar alterações:", error);
+                console.error("Falha ao sincronizar as alterações offline:", error);
                 setSyncStatus('error');
             }
         }
