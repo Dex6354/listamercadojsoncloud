@@ -501,13 +501,13 @@
 
         function startPolling() {
             stopPolling(); // Garante que não haja múltiplos intervalos rodando
-            pollingIntervalId = setInterval(pollForChanges, 3000); // Verifica por mudanças a cada 7 segundos
+            pollingIntervalId = setInterval(pollForChanges, 1500); // Intervalo rápido para atualizações quase instantâneas.
         }
         
         async function pollForChanges() {
-            // Não faz polling se estiver offline, com a aba inativa ou se o usuário estiver digitando na lista
-            const activeEl = document.activeElement;
-            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
+            // Não faz polling se a aba estiver inativa ou se o dispositivo estiver offline.
+            // A verificação que impedia a atualização durante a digitação foi REMOVIDA para garantir a sincronização instantânea.
+            if (!isOnline || document.hidden) {
                 return;
             }
 
@@ -521,7 +521,11 @@
 
                 // Compara a lista remota com a local. Se forem diferentes, atualiza a tela.
                 if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
-                    redrawTable(remoteItems, false); // Redesenha a tabela sem focar no campo de novo item
+                    // Mantém o foco se o usuário estiver digitando
+                    const activeElement = document.activeElement;
+                    const isTyping = activeElement && (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT');
+                    
+                    redrawTable(remoteItems, !isTyping); // Redesenha a tabela, focando no novo item apenas se o usuário não estiver digitando
                 }
             } catch (error) {
                 // Falha silenciosa para não poluir o console com erros de rede
