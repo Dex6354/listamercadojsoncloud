@@ -491,7 +491,7 @@
             }
         }
         
-        // --- LÓGICA DE POLLING (SINCRONIZAÇÃO CONTÍNUA) ---
+        // --- LÓGICA DE POLLING E SINCRONIZAÇÃO (AJUSTADO) ---
         function stopPolling() {
             if (pollingIntervalId) {
                 clearInterval(pollingIntervalId);
@@ -501,15 +501,53 @@
 
         function startPolling() {
             stopPolling(); // Garante que não haja múltiplos intervalos rodando
-            pollingIntervalId = setInterval(pollForChanges, 3000); // Verifica por mudanças a cada 7 segundos
+            pollingIntervalId = setInterval(pollForChanges, 3000); // Verifica por mudanças a cada 3 segundos
         }
         
+        /**
+         * Atualiza os campos de uma linha da tabela se os dados remotos forem diferentes,
+         * respeitando o campo que está atualmente em foco.
+         */
+        function updateRowIfNeeded(row, remoteItem, activeEl) {
+            const checkbox = row.cells[0].querySelector('input[type="checkbox"]');
+            const shibataInput = row.cells[2].querySelector('input');
+            const nagumoInput = row.cells[3].querySelector('input');
+
+            // Atualiza o status de "comprado" (checkbox)
+            const localPurchased = row.classList.contains('purchased');
+            if (localPurchased !== remoteItem.purchased && checkbox !== activeEl) {
+                checkbox.checked = remoteItem.purchased;
+                row.classList.toggle('purchased', remoteItem.purchased);
+            }
+
+            // O nome do item é a nossa chave de identificação, então não o atualizamos aqui
+            // para evitar conflitos. Uma mudança de nome é tratada como exclusão/adição.
+
+            // Atualiza o preço do Shibata
+            const remoteShibataPrice = (remoteItem.priceShibata && remoteItem.priceShibata.trim() !== 'R$ 0,00') ? remoteItem.priceShibata.trim() : '';
+            if (shibataInput.value.trim() !== remoteShibataPrice && shibataInput !== activeEl) {
+                shibataInput.value = remoteShibataPrice;
+                formatCurrency(shibataInput);
+            }
+            
+            // Atualiza o preço do Nagumo
+            const remoteNagumoPrice = (remoteItem.priceNagumo && remoteItem.priceNagumo.trim() !== 'R$ 0,00') ? remoteItem.priceNagumo.trim() : '';
+            if (nagumoInput.value.trim() !== remoteNagumoPrice && nagumoInput !== activeEl) {
+                nagumoInput.value = remoteNagumoPrice;
+                formatCurrency(nagumoInput);
+            }
+
+            // Re-executa a comparação de preços para garantir que os destaques de cor estejam corretos.
+            comparePrices(shibataInput);
+        }
+
         async function pollForChanges() {
-            // Não faz polling se estiver offline, com a aba inativa ou se o usuário estiver digitando na lista
-            const activeEl = document.activeElement;
-            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
+            // Pausa a verificação se a aba estiver inativa ou se o navegador estiver offline.
+            if (!isOnline || document.hidden) {
                 return;
             }
+
+            const activeEl = document.activeElement;
 
             try {
                 const response = await fetch('/api/list', { headers: getAuthHeaders() });
@@ -517,14 +555,51 @@
                 if (!response.ok) return;
 
                 const remoteItems = await response.json();
-                const localItems = getCurrentLocalItems();
 
-                // Compara a lista remota com a local. Se forem diferentes, atualiza a tela.
-                if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
-                    redrawTable(remoteItems, false); // Redesenha a tabela sem focar no campo de novo item
-                }
+                // Cria um mapa das linhas atuais da tabela (DOM), usando o nome do item como chave.
+                const localRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
+                const localItemsMap = new Map();
+                localRows.forEach(row => {
+                    const nameInput = row.cells[1].querySelector('textarea');
+                    if (nameInput && nameInput.value.trim()) {
+                        localItemsMap.set(nameInput.value.trim(), row);
+                    }
+                });
+
+                const remoteItemNames = new Set(remoteItems.map(item => item.name.trim()));
+
+                // --- LÓGICA DE SINCRONIZAÇÃO GRANULAR ---
+
+                // 1. Atualiza itens existentes e adiciona os novos.
+                remoteItems.forEach(remoteItem => {
+                    const itemName = remoteItem.name.trim();
+                    const existingRow = localItemsMap.get(itemName);
+
+                    if (existingRow) {
+                        // O item já existe localmente. Verifica se algum campo mudou e atualiza.
+                        updateRowIfNeeded(existingRow, remoteItem, activeEl);
+                    } else {
+                        // É um item novo, adicionado por outro dispositivo. Cria a linha na tabela.
+                        buildItemRow(remoteItem, false);
+                    }
+                });
+
+                // 2. Remove itens que foram deletados em outro dispositivo.
+                localItemsMap.forEach((row, itemName) => {
+                    if (!remoteItemNames.has(itemName)) {
+                        // O item existe localmente mas não remotamente. Remove-o,
+                        // a menos que o usuário esteja editando esta linha específica.
+                        if (!row.contains(activeEl)) {
+                            row.remove();
+                        }
+                    }
+                });
+                
+                // 3. Reordena a tabela para agrupar os itens corretamente após adições.
+                sortAndGroup();
+
             } catch (error) {
-                // Falha silenciosa para não poluir o console com erros de rede
+                // Falha silenciosa para não poluir o console com erros de rede.
             }
         }
 
@@ -590,33 +665,24 @@
             }
         }
 
-        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
         async function syncOfflineChanges() {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
             
             const pendingItemsJSON = localStorage.getItem(`offlineList_${username}`);
             if (!pendingItemsJSON) {
-                console.log("Nenhuma alteração offline para sincronizar.");
                 return;
             }
 
             console.log("Conectado. Sincronizando alterações pendentes...");
             
             try {
-                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
                 const localOfflineItems = JSON.parse(pendingItemsJSON);
-
-                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
-                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
-                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
+                // A lista offline é a "fonte da verdade". Envia ela inteira para o servidor.
                 await saveListOnline(localOfflineItems);
-                
-                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
                 redrawTable(localOfflineItems);
-
             } catch (error) {
-                console.error("Falha ao sincronizar as alterações offline:", error);
+                console.error("Falha ao sincronizar alterações offline:", error);
                 setSyncStatus('error');
             }
         }
@@ -829,7 +895,7 @@
                 else { shibataInput.classList.add('equal-price'); nagumoInput.classList.add('equal-price'); }
             } else if (validShibata) { shibataInput.classList.add('cheapest-price');
             } else if (validNagumo) { nagumoInput.classList.add('cheapest-price'); }
-            sortAndGroup();
+            // Não chama sortAndGroup aqui para evitar reordenação durante a digitação.
         }
 
         function sortAndGroup() {
