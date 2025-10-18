@@ -268,6 +268,7 @@
         <div id="side-menu" class="side-menu">
             <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
             <a href="#"><i class="fas fa-list-check"></i> Minha Lista</a>
+            <a href="items.html"><i class="fas fa-archive"></i> Meus Itens Salvos</a>
             <a href="#"><i class="fas fa-history"></i> Histórico</a>
             <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
             <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
@@ -312,6 +313,7 @@
                             </thead>
                             <tbody id="shopping-list-body"></tbody>
                         </table>
+                        <datalist id="saved-items-list"></datalist>
                     </div>
                 </div>
 
@@ -378,6 +380,7 @@
             }
 
             loadList();
+            loadSavedItemsNames(); // ** NOVO: Carrega os nomes dos itens salvos **
             startPolling(); // Inicia a verificação contínua por atualizações
         }
 
@@ -482,6 +485,7 @@
         let syncState = 'saved';
         let isOnline = navigator.onLine;
         let pollingIntervalId = null; // ID para o intervalo do polling
+        let savedItemsNames = []; // ** NOVO: Armazena a lista de nomes dos itens salvos **
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -527,6 +531,55 @@
                 // Falha silenciosa para não poluir o console com erros de rede
             }
         }
+
+        // ** NOVO: Função para carregar itens salvos **
+        async function loadSavedItemsNames() {
+            try {
+                const response = await fetch('/api/saved_items_names', { headers: getAuthHeaders() });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) throw new Error('Falha ao buscar itens salvos.');
+                
+                // O backend deve retornar uma lista de strings, ex: ["Banana R$5,00", "Maçã R$10,00"]
+                savedItemsNames = await response.json(); 
+                
+                const datalist = document.getElementById('saved-items-list');
+                datalist.innerHTML = '';
+                savedItemsNames.forEach(itemText => {
+                    const option = document.createElement('option');
+                    option.value = itemText;
+                    datalist.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar lista de itens salvos:', error);
+            }
+        }
+
+        // ** NOVO: Função para salvar item na lista de itens salvos (Se for novo) **
+        async function saveNewItemToSavedList(itemText) {
+            if (!itemText) return;
+            // Verifica se o item (ou um item similar pelo nome) já está na lista salva
+            // Uma verificação mais precisa deve ser feita no backend, mas aqui evitamos chamadas desnecessárias.
+            if (savedItemsNames.includes(itemText)) return; 
+            
+            try {
+                // Endpoint para adicionar um único item na lista de salvos
+                const response = await fetch('/api/saved_items/add_single', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ item_text: itemText })
+                });
+
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) throw new Error('Falha ao salvar o novo item salvo.');
+
+                // Recarrega a lista de sugestões após o salvamento
+                await loadSavedItemsNames();
+
+            } catch (error) {
+                console.error("Erro ao salvar novo item na lista de salvos:", error);
+            }
+        }
+
 
         function debounce(func, delay) {
             return function(...args) {
@@ -705,7 +758,9 @@
             newRow.classList.add('add-item-row');
             newRow.innerHTML = `
                 <td></td>
-                <td><textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1"></textarea></td>
+                <td>
+                    <textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1" list="saved-items-list"></textarea>
+                </td>
                 <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
                 <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
                 <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>
@@ -727,6 +782,10 @@
                 itemNameInput.focus();
                 return;
             }
+            
+            // ** NOVO: Salva na lista de itens salvos se for um novo item **
+            saveNewItemToSavedList(itemName); 
+
             buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true); 
             createAddItemRow(true);
             saveList(); 
@@ -786,6 +845,7 @@
             isOnline = true;
             await syncOfflineChanges();
             await loadList();
+            loadSavedItemsNames(); // ** NOVO: Recarrega a lista salva ao ficar online **
             startPolling(); // Reinicia o polling ao ficar online
         });
         window.addEventListener('offline', () => {
