@@ -198,6 +198,10 @@
         .equal-price { color: var(--primary-color) !important; font-weight: bold; }
         .shopping-list-table td input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
         .purchased .item-name-input, .purchased input[type="text"] { text-decoration: line-through; color: var(--secondary-text-color); }
+        /* Style para a tabela de itens salvos */
+        .items-table .item-text-input { width: 100%; background: var(--card-color); border: none; color: var(--text-color); font-size: 1rem; font-family: inherit; padding: 4px 0; border-radius: 4px; }
+        .items-table .item-text-input:focus { outline: none; background-color: var(--input-bg-color); }
+
 
         /* --- SEÇÃO DO EMBED --- */
         .iframe-container { position: relative; border-radius: var(--border-radius); overflow: hidden; padding-top: 200%; }
@@ -380,7 +384,7 @@
             }
 
             loadList();
-            loadSavedItemsNames(); // ** NOVO: Carrega os nomes dos itens salvos **
+            loadSavedItemsNames(); // ** Carrega os nomes dos itens salvos **
             startPolling(); // Inicia a verificação contínua por atualizações
         }
 
@@ -485,7 +489,7 @@
         let syncState = 'saved';
         let isOnline = navigator.onLine;
         let pollingIntervalId = null; // ID para o intervalo do polling
-        let savedItemsNames = []; // ** NOVO: Armazena a lista de nomes dos itens salvos **
+        let savedItemsNames = []; // ** Armazena a lista de nomes dos itens salvos **
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -532,7 +536,7 @@
             }
         }
 
-        // ** NOVO: Função para carregar itens salvos **
+        // ** Função para carregar nomes dos itens salvos (para a lista suspensa) **
         async function loadSavedItemsNames() {
             try {
                 const response = await fetch('/api/saved_items_names', { headers: getAuthHeaders() });
@@ -544,6 +548,7 @@
                 
                 const datalist = document.getElementById('saved-items-list');
                 datalist.innerHTML = '';
+                // Popula o datalist com os itens salvos
                 savedItemsNames.forEach(itemText => {
                     const option = document.createElement('option');
                     option.value = itemText;
@@ -554,23 +559,27 @@
             }
         }
 
-        // ** NOVO: Função para salvar item na lista de itens salvos (Se for novo) **
+        // ** Função para salvar item na lista de itens salvos (Se for novo) **
         async function saveNewItemToSavedList(itemText) {
             if (!itemText) return;
-            // Verifica se o item (ou um item similar pelo nome) já está na lista salva
-            // Uma verificação mais precisa deve ser feita no backend, mas aqui evitamos chamadas desnecessárias.
-            if (savedItemsNames.includes(itemText)) return; 
+            
+            // O backend deve lidar com a checagem de duplicidade usando a coluna 'name' e ignorar itens repetidos.
             
             try {
                 // Endpoint para adicionar um único item na lista de salvos
                 const response = await fetch('/api/saved_items/add_single', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({ item_text: itemText })
+                    // Envia o texto digitado. O backend deve extrair o nome e salvar.
+                    body: JSON.stringify({ item_text: itemText }) 
                 });
 
                 if (response.status === 401) return handleLogout();
-                if (!response.ok) throw new Error('Falha ao salvar o novo item salvo.');
+                if (!response.ok) {
+                    // Se houver um erro, como a validação de unicidade do backend, apenas logamos.
+                    console.warn("Item não salvo (provavelmente duplicado ou erro de parsing):", itemText);
+                    return;
+                }
 
                 // Recarrega a lista de sugestões após o salvamento
                 await loadSavedItemsNames();
@@ -643,7 +652,7 @@
             }
         }
 
-        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
+        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE ---
         async function syncOfflineChanges() {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
@@ -657,15 +666,8 @@
             console.log("Conectado. Sincronizando alterações pendentes...");
             
             try {
-                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
                 const localOfflineItems = JSON.parse(pendingItemsJSON);
-
-                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
-                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
-                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
                 await saveListOnline(localOfflineItems);
-                
-                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
                 redrawTable(localOfflineItems);
 
             } catch (error) {
@@ -777,16 +779,34 @@
 
         function commitItem() {
             const itemNameInput = document.getElementById('newItemName');
+            const row = itemNameInput.closest('tr');
+            
+            // Obter os valores dos campos de preço da linha de adição
+            const priceShibataInput = row.cells[2].querySelector('input');
+            const priceNagumoInput = row.cells[3].querySelector('input');
+
             const itemName = itemNameInput.value.trim();
+
             if (itemName === '') {
                 itemNameInput.focus();
                 return;
             }
             
-            // ** NOVO: Salva na lista de itens salvos se for um novo item **
+            // 1. Salva na lista de itens salvos (no formato 'Nome' ou 'Nome R$Preço' se o usuário digitou assim)
             saveNewItemToSavedList(itemName); 
 
-            buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true); 
+            // 2. Adiciona o item à lista de compras principal (com os preços digitados)
+            buildItemRow({ 
+                name: itemName, 
+                priceShibata: priceShibataInput.value, 
+                priceNagumo: priceNagumoInput.value, 
+                purchased: false 
+            }, true); 
+
+            // 3. Limpa os campos para um novo item
+            priceShibataInput.value = '';
+            priceNagumoInput.value = '';
+
             createAddItemRow(true);
             saveList(); 
         }
@@ -845,7 +865,7 @@
             isOnline = true;
             await syncOfflineChanges();
             await loadList();
-            loadSavedItemsNames(); // ** NOVO: Recarrega a lista salva ao ficar online **
+            loadSavedItemsNames(); // ** Recarrega a lista salva ao ficar online **
             startPolling(); // Reinicia o polling ao ficar online
         });
         window.addEventListener('offline', () => {
