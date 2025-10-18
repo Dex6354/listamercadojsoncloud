@@ -349,9 +349,10 @@
         setSyncStatus('syncing');
 
         try {
+            // GET /api/saved_items: O endpoint que deve se conectar ao DB e retornar os itens.
             const response = await fetch('/api/saved_items', { headers: getAuthHeaders() });
             if (response.status === 401) return handleLogout();
-            if (!response.ok) throw new Error('Falha ao buscar itens salvos.');
+            if (!response.ok) throw new Error('Falha ao buscar itens salvos. Verifique a conexão do seu backend com o DB.');
             
             const items = await response.json();
             redrawTable(items);
@@ -360,7 +361,8 @@
         } catch (error) {
             console.error('Erro ao carregar lista de itens salvos:', error);
             setSyncStatus('error');
-            alert('Não foi possível carregar os itens salvos. Tente novamente mais tarde.');
+            // Alerta que o usuário vê:
+            alert('Não foi possível carregar os itens salvos. Verifique os logs do seu servidor e a conexão com o banco de dados.');
         }
     }
 
