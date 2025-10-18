@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meus Itens Salvos - Meu Mercado</title>
+    <title>Meu Mercado</title>
+
+    <meta property="og:title" content="Meu Mercado" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Sua lista de compras inteligente com comparador de preços e otimização." />
+    <meta property="og:image" content="https://meumercado.pages.dev/01.png" />
+
+
     <link rel="icon" href="01.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
     <style>
-        /* Copie e cole aqui TODO o CSS (<style>...</style>) do seu arquivo index.html */
-        /* Para manter a consistência visual, é melhor usar o mesmo CSS. */
-        /* ... */
         :root {
             --bg-color: #212121;
             --card-color: #2c2c2c;
@@ -18,6 +23,7 @@
             --primary-color: #ffc107;
             --green-highlight: #4CAF50;
             --danger-color: #f44336;
+            --yellow-sync-color: #ffc107;
             --border-radius: 12px;
             --input-bg-color: #383838;
             --menu-width: 250px;
@@ -32,190 +38,872 @@
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
         }
-        
-        /* Adicione estilos específicos se necessário */
-        .items-table { width: 100%; border-collapse: collapse; }
-        .items-table th, .items-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--input-bg-color); }
-        .items-table th { color: var(--secondary-text-color); }
-        .item-text-input { width: 100%; background: none; border: none; color: var(--text-color); font-size: 1rem; padding: 5px; border-radius: 4px; }
-        .item-text-input:focus { background-color: var(--input-bg-color); outline: none; }
-        .action-btn { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 1.2rem; }
-        .action-btn.add { color: var(--green-highlight); }
 
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--input-bg-color); position: sticky; top: 0; z-index: 10; background-color: var(--bg-color); }
-        .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; }
-        .header .title img { height: 30px; margin-right: 10px; }
-        .container { padding: 16px; }
-        .section { background-color: var(--card-color); padding: 20px 16px; border-radius: var(--border-radius); margin-bottom: 24px; }
-        .section-header { margin-bottom: 16px; }
+        /* --- TELA DE LOGIN --- */
+        #auth-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .auth-box {
+            background-color: var(--card-color);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .auth-box h2 {
+            color: var(--primary-color);
+            margin-bottom: 25px;
+        }
+        .auth-input {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--input-bg-color);
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: var(--text-color);
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+        .password-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        .password-container .auth-input {
+            margin-bottom: 0;
+            padding-right: 40px; /* Espaço para o ícone */
+        }
+        #togglePassword {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: var(--secondary-text-color);
+        }
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .auth-buttons .custom-btn {
+            flex-grow: 1;
+        }
+        #auth-message {
+            color: var(--danger-color);
+            min-height: 20px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        /* Ocultar app-container por padrão */
+        #app-container {
+            display: none;
+        }
+
+        /* --- HEADER --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--input-bg-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: var(--bg-color);
+        }
+        .header .title img {
+            height: 30px;
+            width: auto;
+            margin-right: 10px;
+            border-radius: 5px;
+        }
+        .header .menu-icon { font-size: 1.5rem; cursor: pointer; color: var(--primary-color); padding: 5px; }
+        .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
+        .header .title i { margin-right: 8px; color: var(--primary-color); }
+
+        /* --- SIDE MENU & OVERLAY --- */
+        .side-menu { height: 100%; width: 0; position: fixed; z-index: 1001; top: 0; left: 0; background-color: var(--card-color); overflow-x: hidden; transition: 0.3s; padding-top: 60px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
+        .side-menu.open { width: var(--menu-width); }
+        .side-menu .close-btn { position: absolute; top: 15px; right: 25px; font-size: 2rem; color: var(--primary-color); cursor: pointer; line-height: 1; }
+        .side-menu a { padding: 15px 20px; text-decoration: none; font-size: 1.1rem; color: var(--text-color); display: block; transition: 0.3s; border-bottom: 1px solid var(--input-bg-color); }
+        .side-menu a:hover { background-color: #575757; color: var(--primary-color); }
+        .side-menu a i { color: var(--primary-color); width: 20px; text-align: center; margin-right: 10px; }
+        #page-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; display: none; transition: opacity 0.3s; }
+        #page-overlay.show { display: block; }
+
+        /* --- CONTEÚDO PRINCIPAL --- */
+        .container {
+            padding: 0;
+            max-width: 100%;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .section {
+            background-color: var(--card-color);
+            padding: 20px 16px;
+            border-radius: var(--border-radius);
+            margin: 0 0 24px 0;
+        }
+
+        .shopping-list-section {
+            padding: 0;
+            border-radius: 0;
+        }
+
+        .shopping-list-section .section-header { padding: 20px 16px 16px 16px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .section-header h2 { margin: 0; font-size: 1.5rem; color: var(--primary-color); }
-        .custom-btn { background-color: var(--primary-color); color: var(--bg-color); border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 10px 15px; text-decoration: none; }
+        .section-header .clear-btn { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 1.2rem; transition: color 0.3s; padding: 5px; }
+        .section-header .clear-btn:hover { color: #ff7961; }
 
+        /* --- BOTÕES --- */
+        .custom-btn { background-color: var(--primary-color); color: var(--bg-color); border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 10px 15px; transition: background-color 0.3s; }
+        .custom-btn:hover { background-color: #ffd54f; }
+        .custom-btn.secondary { background-color: var(--input-bg-color); color: var(--text-color); }
+        .custom-btn.secondary:hover { background-color: #555; }
+        .button-group { display: flex; gap: 10px; }
+        .button-group .custom-btn, .button-group a { border-radius: 8px; }
+
+        /* --- TABELA E PREÇOS --- */
+        .table-scroll-wrapper { overflow-x: auto; width: 100%; }
+        .shopping-list-table { width: auto; min-width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .shopping-list-table th, .shopping-list-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--input-bg-color); vertical-align: middle; }
+        .shopping-list-table th { font-size: 0.8rem; color: var(--secondary-text-color); text-transform: uppercase; }
+        .shopping-list-table th:first-child, .shopping-list-table td:first-child { padding-left: 16px; }
+        .shopping-list-table th:last-child, .shopping-list-table td:last-child { padding-right: 16px; }
+        .price-cell { padding: 0 !important; width: 80px; text-align: right; }
+        .price-cell input { width: 100%; padding: 12px 8px; text-align: right; background-color: var(--card-color); color: var(--text-color); border: none; border-radius: 0 !important; }
+        .price-cell input.default-price { color: var(--secondary-text-color) !important; }
+        .price-cell:first-of-type { border-right: 1px solid var(--input-bg-color); }
+        .item-name-input { width: 100%; background: none; border: none; color: var(--text-color); font-size: 1rem; font-family: inherit; padding: 4px 0; border-radius: 4px; resize: none; overflow-y: hidden; line-height: 1.4; transition: all 0.2s ease-in-out; }
+        .item-name-input:focus { outline: none; background-color: var(--input-bg-color); }
+        .shopping-list-table .action-btn { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 1.2rem; transition: color 0.3s; padding: 0; }
+        .shopping-list-table .action-btn:hover { color: #ff7961; }
+        .shopping-list-table .action-btn.add { color: var(--green-highlight); }
+        .shopping-list-table .action-btn.add:hover { color: #81c784; }
+        .cheapest-price { color: var(--green-highlight) !important; font-weight: bold; }
+        .cheapest-price::before { content: "✔ "; }
+        .equal-price { color: var(--primary-color) !important; font-weight: bold; }
+        .shopping-list-table td input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        .purchased .item-name-input, .purchased input[type="text"] { text-decoration: line-through; color: var(--secondary-text-color); }
+
+        /* --- SEÇÃO DO EMBED --- */
+        .iframe-container { position: relative; border-radius: var(--border-radius); overflow: hidden; padding-top: 200%; }
+        .iframe-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        #iframe-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; flex-direction: column; gap: 15px; z-index: 5; color: var(--text-color); text-align: center; }
+        .loader { border: 4px solid var(--input-bg-color); border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #comparator-section { padding-top: 0; padding-bottom: 0; margin-bottom: 24px; }
+        .collapsible-header { cursor: pointer; padding: 20px 16px; display: flex; justify-content: space-between; align-items: center; }
+        .collapsible-header h2 { margin: 0; font-size: 1.5rem; color: var(--primary-color); }
+        .collapsible-header .fas.fa-chevron-down { transition: transform 0.3s ease; color: var(--secondary-text-color); }
+        .collapsible-header.active .fas.fa-chevron-down { transform: rotate(180deg); }
+        .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; padding: 0 16px; }
+        .collapsible-content.expanded { max-height: 100vh; padding-bottom: 20px; }
+        .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
+
+        #sync-status-indicator { 
+            width: 12px; 
+            height: 12px; 
+            border-radius: 50%; 
+            background-color: var(--green-highlight); 
+            z-index: 11; 
+            transition: background-color 0.5s ease; 
+            flex-shrink: 0;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        #username-display {
+            color: var(--secondary-text-color);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
+        #sync-status-indicator.status-error { background-color: var(--danger-color); }
+        #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
+        #sync-status-indicator.status-offline { background-color: #7986cb; }
+
+        @media (min-width: 768px) { .shopping-list-table colgroup col:nth-child(2) { width: 450px; } }
+        @media (min-width: 1024px) { .shopping-list-table colgroup col:nth-child(2) { width: 550px; } }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <span class="title">
-            <img src="01.png" alt="Ícone">
-            Meus Itens Salvos
-        </span>
-        <a href="index.html" class="custom-btn"><i class="fas fa-arrow-left"></i> Voltar para a Lista</a>
-    </div>
-
-    <div class="container">
-        <div class="section">
-            <div class="section-header">
-                <h2>Gerenciar Itens</h2>
+    <div id="auth-container">
+        <div class="auth-box">
+            <h2><i class="fas fa-lock"></i> Acesso Seguro</h2>
+            <input type="text" id="username" class="auth-input" placeholder="Nome de usuário" autocomplete="username">
+            <div class="password-container">
+                <input type="password" id="password" class="auth-input" placeholder="Senha" autocomplete="current-password">
+                <i class="fas fa-eye" id="togglePassword"></i>
             </div>
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th>Nome e Preço (Ex: Banana R$5,00)</th>
-                        <th style="width: 50px;">Ação</th>
-                    </tr>
-                </thead>
-                <tbody id="items-list-body">
-                    </tbody>
-                <tfoot>
-                    <tr id="add-item-row">
-                        <td><input type="text" id="newItemText" class="item-text-input" placeholder="Novo item e preço..."></td>
-                        <td><button class="action-btn add" onclick="addItem()"><i class="fas fa-plus"></i></button></td>
-                    </tr>
-                </tfoot>
-            </table>
+            <div class="auth-buttons">
+                <button class="custom-btn" onclick="handleLogin()">Entrar</button>
+                <button class="custom-btn secondary" onclick="handleRegister()">Cadastrar</button>
+            </div>
+            <p id="auth-message"></p>
         </div>
     </div>
 
-<script>
-    const itemsTableBody = document.getElementById('items-list-body');
-    const newItemInput = document.getElementById('newItemText');
-    let saveTimeout;
+    <div id="app-container">
+        <div id="side-menu" class="side-menu">
+            <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
+            <a href="#"><i class="fas fa-list-check"></i> Minha Lista</a>
+            <a href="#"><i class="fas fa-history"></i> Histórico</a>
+            <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
+            <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
+        </div>
+        <div id="page-overlay" onclick="closeNav()"></div>
 
-    // Função para obter os headers de autenticação
-    function getAuthHeaders() {
-        const token = localStorage.getItem('authToken');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    }
+        <div id="main-content-wrapper">
+            <div class="header">
+                <span class="menu-icon" onclick="openNav()">&#9776;</span>
+                <span class="title">
+                    <img src="01.png" alt="Ícone">
+                    Meu Mercado
+                </span>
 
-    // Debounce para não salvar a cada tecla pressionada
-    function debounce(func, delay) {
-        return function(...args) {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => func.apply(this, args), delay);
-        };
-    }
+                <div class="header-right">
+                    <span id="username-display"></span>
+                    <div id="sync-status-indicator"></div>
+                </div>
+                </div>
 
-    // Carrega os itens do backend
-    async function loadItems() {
-        // Verifica se está logado
-        if (!localStorage.getItem('authToken')) {
-            window.location.href = 'index.html'; // Redireciona para login
-            return;
-        }
-        try {
-            // **IMPORTANTE: Você precisará criar este endpoint no seu backend**
-            const response = await fetch('/api/saved_items', { headers: getAuthHeaders() });
-            if (!response.ok) {
-                throw new Error('Falha ao buscar itens.');
-            }
-            const items = await response.json();
-            redrawTable(items);
-        } catch (error) {
-            console.error('Erro ao carregar itens:', error);
-            alert('Não foi possível carregar seus itens salvos.');
-        }
-    }
+            <div class="container">
+                <div class="section shopping-list-section">
+                    <div class="section-header">
+                        <h2>Meus Itens</h2>
+                        <button class="clear-btn" onclick="clearList()" title="Limpar toda a lista">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
 
-    // Salva a lista inteira no backend
-    async function saveItems() {
-        const items = [];
-        document.querySelectorAll('#items-list-body tr').forEach(row => {
-            const id = row.dataset.id;
-            const itemText = row.querySelector('.item-text-input').value.trim();
-            if (itemText) {
-                items.push({ id: id, item_text: itemText });
+                    <div class="table-scroll-wrapper">
+                        <table class="shopping-list-table">
+                            <colgroup>
+                                <col style="width: 40px;"> <col style="width: 250px;"> <col style="width: 80px;"> <col style="width: 80px;"> <col style="width: 45px;"> </colgroup>
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-check"></i></th>
+                                    <th>Item</th>
+                                    <th>Shibata</th>
+                                    <th>Nagumo</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="shopping-list-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section" id="comparator-section">
+                    <div class="section-header collapsible-header" onclick="toggleComparator()">
+                        <h2>Comparador de Preços</h2>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="comparator-content" class="collapsible-content">
+                        <div id="iframe-wrapper" class="iframe-container">
+                            <div id="iframe-overlay">
+                                <div class="loader"></div>
+                                <span>Acordando o comparador...</span>
+                            </div>
+                            <iframe id="streamlit-app" src="https://precosmercados.streamlit.app/?embed=true&minimal=true"></iframe>
+                        </div>
+                        <div class="button-group" style="margin-top: 16px;">
+                            <button class="custom-btn" onclick="wakeUpApp()" style="flex-grow: 1;">
+                                <i class="fas fa-sync-alt"></i> Ativar / Atualizar
+                            </button>
+                            <a href="https://precosmercados.streamlit.app/" target="_blank" rel="noopener noreferrer" class="custom-btn secondary" style="flex-grow: 1; text-align: center; text-decoration: none; line-height: 1.8;">
+                                <i class="fas fa-external-link-alt"></i> Abrir em Nova Guia
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="footer">
+                Feito para facilitar suas compras. 🛒💡
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        // --- GERENCIAMENTO DE AUTENTICAÇÃO ---
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const authMessage = document.getElementById('auth-message');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('click', function () {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye-slash');
+        });
+        
+        passwordInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleLogin();
             }
         });
 
-        try {
-            // **IMPORTANTE: Você precisará criar este endpoint no seu backend**
-            const response = await fetch('/api/saved_items', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(items)
-            });
-            if (!response.ok) {
-                throw new Error('Falha ao salvar a lista.');
+        function showApp() {
+            authContainer.style.display = 'none';
+            appContainer.style.display = 'block';
+
+            const username = localStorage.getItem('currentUser');
+            const usernameDisplay = document.getElementById('username-display');
+            if (username && usernameDisplay) {
+                usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
             }
-            console.log('Lista salva com sucesso!');
-        } catch (error) {
-            console.error('Erro ao salvar:', error);
-            alert('Ocorreu um erro ao salvar suas alterações.');
+
+            loadList();
+            startPolling(); // Inicia a verificação contínua por atualizações
         }
-    }
 
-    const debouncedSave = debounce(saveItems, 1500);
-
-    // Redesenha a tabela com os itens
-    function redrawTable(items) {
-        itemsTableBody.innerHTML = '';
-        items.forEach(item => buildItemRow(item));
-    }
-
-    // Constrói uma linha da tabela para um item
-    function buildItemRow(item) {
-        const row = document.createElement('tr');
-        row.dataset.id = item.id; // Armazena o ID do item
-        
-        row.innerHTML = `
-            <td><input type="text" class="item-text-input" value="${item.item_text}"></td>
-            <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
-        `;
-        
-        const input = row.querySelector('.item-text-input');
-        input.addEventListener('input', debouncedSave); // Salva ao editar
-
-        itemsTableBody.appendChild(row);
-    }
-    
-    // Adiciona um novo item (ainda não salvo, será salvo no próximo saveItems)
-    function addItem() {
-        const itemText = newItemInput.value.trim();
-        if (!itemText) return;
-
-        // Adiciona na UI otimisticamente
-        buildItemRow({ id: 'new_' + Date.now(), item_text: itemText });
-        newItemInput.value = '';
-        newItemInput.focus();
-        
-        // Salva a lista inteira
-        saveItems();
-    }
-
-    // Remove um item
-    function removeItem(button) {
-        if (confirm('Tem certeza que deseja remover este item permanentemente?')) {
-            button.closest('tr').remove();
-            saveItems();
+        function showAuth(message = '', isError = false) {
+            authContainer.style.display = 'flex';
+            appContainer.style.display = 'none';
+            authMessage.textContent = message;
+            authMessage.style.color = isError ? 'var(--danger-color)' : 'var(--green-highlight)';
         }
-    }
 
-    // Event listener para adicionar com "Enter"
-    newItemInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            addItem();
+        async function handleLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            if (!username || !password) {
+                showAuth('Por favor, preencha usuário e senha.', true);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Erro ao fazer login.');
+                }
+
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('currentUser', username); 
+                showApp();
+            } catch (error) {
+                showAuth(error.message, true);
+            }
         }
-    });
 
-    // Carrega os itens quando a página é aberta
-    document.addEventListener('DOMContentLoaded', loadItems);
+        async function handleRegister() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            if (!username || !password) {
+                showAuth('Por favor, preencha usuário e senha para cadastrar.', true);
+                return;
+            }
 
-</script>
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                 if (!response.ok) {
+                    throw new Error(data.message || 'Erro ao cadastrar.');
+                }
+                showAuth(data.message, false);
+            } catch (error) {
+                 showAuth(error.message, true);
+            }
+        }
+
+        async function handleLogout() {
+            stopPolling(); // Para a verificação contínua ao sair
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                try {
+                    await fetch('/api/logout', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                } catch (error) {
+                    console.error("Logout failed, but proceeding.", error);
+                }
+            }
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            location.reload();
+        }
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('authToken');
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
+        function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
+        document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
+
+        function toggleComparator() {
+            document.querySelector('.collapsible-header').classList.toggle('active');
+            document.getElementById('comparator-content').classList.toggle('expanded');
+        }
+
+        // --- Variáveis de Sincronização e Estado ---
+        const tableBody = document.getElementById('shopping-list-body');
+        const statusIndicator = document.getElementById('sync-status-indicator');
+        let saveTimeout;
+        let syncState = 'saved';
+        let isOnline = navigator.onLine;
+        let pollingIntervalId = null; // ID para o intervalo do polling
+
+        function setSyncStatus(newState) {
+            syncState = newState;
+            statusIndicator.className = `status-${newState}`;
+            if (newState === 'error') {
+                setTimeout(() => { if (syncState === 'error') setSyncStatus('offline'); }, 3000);
+            }
+        }
+        
+        // --- LÓGICA DE POLLING (SINCRONIZAÇÃO CONTÍNUA) ---
+        function stopPolling() {
+            if (pollingIntervalId) {
+                clearInterval(pollingIntervalId);
+                pollingIntervalId = null;
+            }
+        }
+
+        function startPolling() {
+            stopPolling(); // Garante que não haja múltiplos intervalos rodando
+            pollingIntervalId = setInterval(pollForChanges, 4000); // Verifica por mudanças a cada 4 segundos
+        }
+        
+        async function pollForChanges() {
+            // Não faz polling se estiver offline, com a aba inativa ou se o usuário estiver digitando na lista
+            const activeEl = document.activeElement;
+            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/list', { headers: getAuthHeaders() });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) return;
+
+                const remoteItems = await response.json();
+                const localItems = getCurrentLocalItems();
+
+                // Compara a lista remota com a local. Se forem diferentes, atualiza a tela.
+                if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
+                    redrawTable(remoteItems, false); // Redesenha a tabela sem focar no campo de novo item
+                }
+            } catch (error) {
+                // Falha silenciosa para não poluir o console com erros de rede
+            }
+        }
+
+        function debounce(func, delay) {
+            return function(...args) {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+
+        function getCurrentLocalItems() {
+            const items = [];
+            document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
+                const name = row.cells[1].querySelector('textarea').value.trim();
+                if (name) {
+                    items.push({
+                        name: name,
+                        priceShibata: row.cells[2].querySelector('input').value || 'R$ 0,00',
+                        priceNagumo: row.cells[3].querySelector('input').value || 'R$ 0,00',
+                        purchased: row.classList.contains('purchased')
+                    });
+                }
+            });
+            return items;
+        }
+
+        // --- LÓGICA DE SINCRONIZAÇÃO E CACHE OFFLINE ---
+        async function saveList() {
+            const items = getCurrentLocalItems();
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            if (!isOnline) {
+                setSyncStatus('offline');
+                console.log("Offline: Salvando alterações localmente.");
+                localStorage.setItem(`offlineList_${username}`, JSON.stringify(items));
+                return;
+            }
+            await saveListOnline(items);
+        }
+
+        async function saveListOnline(items) {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            setSyncStatus('syncing');
+            try {
+                const response = await fetch('/api/list', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(items)
+                });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) throw new Error('Falha ao salvar no servidor.');
+                
+                setSyncStatus('saved');
+                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
+                localStorage.removeItem(`offlineList_${username}`);
+
+            } catch (error) {
+                setSyncStatus('error');
+                console.error("Erro ao salvar online:", error);
+            }
+        }
+
+        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
+        async function syncOfflineChanges() {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+            
+            const pendingItemsJSON = localStorage.getItem(`offlineList_${username}`);
+            if (!pendingItemsJSON) {
+                console.log("Nenhuma alteração offline para sincronizar.");
+                return;
+            }
+
+            console.log("Conectado. Sincronizando alterações pendentes...");
+            
+            try {
+                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
+                const localOfflineItems = JSON.parse(pendingItemsJSON);
+
+                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
+                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
+                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
+                await saveListOnline(localOfflineItems);
+                
+                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
+                redrawTable(localOfflineItems);
+
+            } catch (error) {
+                console.error("Falha ao sincronizar as alterações offline:", error);
+                setSyncStatus('error');
+            }
+        }
+
+        async function loadList() {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            const offlineKey = `offlineList_${username}`;
+            const cacheKey = `shoppingList_${username}`;
+            const pendingOfflineItems = JSON.parse(localStorage.getItem(offlineKey));
+
+            if (pendingOfflineItems) {
+                console.log("Carregando lista com alterações offline pendentes.");
+                redrawTable(pendingOfflineItems);
+                setSyncStatus('offline');
+                return;
+            }
+
+            if (!isOnline) {
+                console.log("Offline. Carregando lista do cache.");
+                setSyncStatus('offline');
+                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+                redrawTable(cachedItems);
+                return;
+            }
+            
+            setSyncStatus('syncing');
+            try {
+                const response = await fetch('/api/list', { headers: getAuthHeaders() });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) throw new Error('Falha ao buscar dados.');
+
+                const remoteItems = await response.json();
+                localStorage.setItem(cacheKey, JSON.stringify(remoteItems));
+                redrawTable(remoteItems, true);
+                setSyncStatus('saved');
+            } catch (error) {
+                console.error('Erro ao buscar lista online, usando cache como fallback:', error);
+                setSyncStatus('offline'); 
+                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+                redrawTable(cachedItems);
+            }
+        }
+
+        const debouncedSave = debounce(saveList, 1500);
+
+        // --- Funções de UI ---
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+
+        tableBody.addEventListener('input', (event) => {
+            if (event.target.tagName.toLowerCase() === 'textarea') autoResizeTextarea(event.target);
+            if (['textarea', 'input'].includes(event.target.tagName.toLowerCase())) {
+                setSyncStatus('syncing');
+                debouncedSave();
+            }
+        });
+        
+        tableBody.addEventListener('focus', (event) => {
+            const target = event.target;
+            if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
+                setTimeout(() => {
+                    if (target.value !== '') {
+                        const valueLength = target.value.length;
+                        target.setSelectionRange(valueLength, valueLength);
+                    }
+                }, 1);
+            }
+        }, true);
+
+        tableBody.addEventListener('blur', (event) => {
+            if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
+                formatCurrency(event.target);
+                comparePrices(event.target);
+                setSyncStatus('syncing');
+                debouncedSave();
+            }
+        }, true);
+        
+        function createAddItemRow(shouldFocus = false) {
+            document.querySelector('.add-item-row')?.remove();
+            const newRow = tableBody.insertRow(0);
+            newRow.classList.add('add-item-row');
+            newRow.innerHTML = `
+                <td></td>
+                <td><textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1"></textarea></td>
+                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
+                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
+                <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>
+            `;
+            const newItemInput = document.getElementById('newItemName');
+            newItemInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    commitItem();
+                }
+            });
+            if (shouldFocus) newItemInput.focus();
+        }
+
+        function commitItem() {
+            const itemNameInput = document.getElementById('newItemName');
+            const itemName = itemNameInput.value.trim();
+            if (itemName === '') {
+                itemNameInput.focus();
+                return;
+            }
+            buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true); 
+            createAddItemRow(true);
+            saveList(); 
+        }
+        
+        function buildItemRow(itemData, isNew = false) {
+            const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
+            if (itemData.purchased) newRow.classList.add('purchased');
+
+            const getPriceInputHTML = (price) => {
+                const hasValue = price && price.trim() !== 'R$ 0,00';
+                return `<input type="text" ${hasValue ? `value="${price}"` : ''} placeholder="R$ 0,00">`;
+            };
+
+            newRow.innerHTML = `
+                <td><input type="checkbox" onchange="togglePurchased(this)" ${itemData.purchased ? 'checked' : ''}></td>
+                <td><textarea class="item-name-input" rows="1">${itemData.name}</textarea></td>
+                <td class="price-cell">${getPriceInputHTML(itemData.priceShibata)}</td>
+                <td class="price-cell">${getPriceInputHTML(itemData.priceNagumo)}</td>
+                <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
+            `;
+            autoResizeTextarea(newRow.cells[1].querySelector('textarea'));
+            comparePrices(newRow.cells[2].querySelector('input'));
+        }
+
+        function redrawTable(items, shouldFocusNewItem = true) {
+            tableBody.innerHTML = '';
+            if (items && items.length > 0) {
+                items.forEach(item => buildItemRow(item, false));
+                sortAndGroup();
+            }
+            createAddItemRow(shouldFocusNewItem);
+        }
+
+        function removeItem(button) {
+            if (confirm('Tem certeza de que deseja remover este item?')) {
+                button.closest('tr').remove();
+                saveList(); 
+            }
+        }
+
+        function togglePurchased(checkbox) {
+            checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
+            saveList();
+        }
+
+        function clearList() {
+            if (confirm('Tem certeza que deseja limpar toda a lista?')) {
+                tableBody.innerHTML = '';
+                saveList();
+                createAddItemRow(true); 
+            }
+        }
+        
+        // --- Eventos de Conexão ---
+        window.addEventListener('online', async () => {
+            isOnline = true;
+            await syncOfflineChanges();
+            await loadList();
+            startPolling(); // Reinicia o polling ao ficar online
+        });
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            stopPolling(); // Para o polling ao ficar offline
+            setSyncStatus('offline');
+        });
+
+        // --- Funções de Formatação e Comparação de Preços ---
+        function formatCurrency(input) {
+            const value = input.value.trim();
+            const number = parseValueToFloat(value);
+            if (isNaN(number) || number === 0) {
+                input.value = '';
+                input.placeholder = 'R$ 0,00';
+            } else {
+                input.value = number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                input.placeholder = 'R$ 0,00';
+            }
+        }
+
+        function parseValueToFloat(value) {
+            if (!value) return NaN;
+            return parseFloat(value.replace('R$', '').trim().replace('.', '').replace(',', '.'));
+        }
+
+        function comparePrices(input) {
+            const row = input.closest('tr');
+            if (!row || row.classList.contains('add-item-row')) return;
+            const shibataInput = row.cells[2].querySelector('input');
+            const nagumoInput = row.cells[3].querySelector('input');
+            shibataInput.classList.remove('cheapest-price', 'equal-price');
+            nagumoInput.classList.remove('cheapest-price', 'equal-price');
+            const shibataPrice = parseValueToFloat(shibataInput.value);
+            const nagumoPrice = parseValueToFloat(nagumoInput.value);
+            const validShibata = !isNaN(shibataPrice) && shibataPrice > 0;
+            const validNagumo = !isNaN(nagumoPrice) && nagumoPrice > 0;
+            if (validShibata && validNagumo) {
+                if (shibataPrice < nagumoPrice) shibataInput.classList.add('cheapest-price');
+                else if (nagumoPrice < shibataPrice) nagumoInput.classList.add('cheapest-price');
+                else { shibataInput.classList.add('equal-price'); nagumoInput.classList.add('equal-price'); }
+            } else if (validShibata) { shibataInput.classList.add('cheapest-price');
+            } else if (validNagumo) { nagumoInput.classList.add('cheapest-price'); }
+            sortAndGroup();
+        }
+
+        function sortAndGroup() {
+            const allRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
+            const unpriced = [], shibata = [], equal = [], nagumo = [];
+            allRows.forEach(row => {
+                const pS = parseValueToFloat(row.cells[2].querySelector('input').value);
+                const pN = parseValueToFloat(row.cells[3].querySelector('input').value);
+                const vS = !isNaN(pS) && pS > 0, vN = !isNaN(pN) && pN > 0;
+                if (!vS && !vN) unpriced.push(row);
+                else if (vS && vN && pS === pN) equal.push(row);
+                else if (vS && (!vN || pS < pN)) shibata.push(row);
+                else nagumo.push(row);
+            });
+            const sortByMin = (a, b) => {
+                const getMin = r => Math.min(parseValueToFloat(r.cells[2].querySelector('input').value) || Infinity, parseValueToFloat(r.cells[3].querySelector('input').value) || Infinity);
+                return getMin(a) - getMin(b);
+            };
+            shibata.sort(sortByMin); equal.sort(sortByMin); nagumo.sort(sortByMin);
+            [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
+        }
+
+        // --- Funções Auxiliares (Streamlit, Teclado Virtual) ---
+        function wakeUpApp() {
+            const iframeWrapper = document.getElementById('iframe-wrapper');
+            const iframeOverlay = document.getElementById('iframe-overlay');
+            iframeOverlay.style.display = 'flex';
+            let streamlitIframe = document.getElementById('streamlit-app');
+            if (streamlitIframe) streamlitIframe.remove();
+            const newIframe = document.createElement('iframe');
+            newIframe.id = 'streamlit-app';
+            newIframe.src = `https://precosmercados.streamlit.app/?embed=true&minimal=true&t=${new Date().getTime()}`;
+            newIframe.onload = () => { iframeOverlay.style.display = 'none'; };
+            iframeWrapper.prepend(newIframe);
+        }
+
+        function setupVirtualKeyboardListener() {
+            if (!window.visualViewport) return;
+            const isLikelyKeyboardOpen = () => window.innerHeight - window.visualViewport.height > 150;
+            let keyboardWasOpen = isLikelyKeyboardOpen();
+            window.visualViewport.addEventListener('resize', () => {
+                const keyboardIsOpen = isLikelyKeyboardOpen();
+                if (keyboardWasOpen && !keyboardIsOpen) {
+                    if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                         document.activeElement.blur();
+                    }
+                }
+                keyboardWasOpen = keyboardIsOpen;
+            });
+        }
+
+        // --- INICIALIZAÇÃO DA APLICAÇÃO ---
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('authToken')) {
+                showApp();
+            } else {
+                showAuth();
+            }
+            setupVirtualKeyboardListener();
+            setSyncStatus(isOnline ? 'saved' : 'offline');
+        });
+        
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(registration => {
+                console.log('ServiceWorker registrado com sucesso: ', registration.scope);
+                })
+                .catch(error => {
+                console.log('Falha ao registrar o ServiceWorker: ', error);
+                });
+            });
+        }
+    </script>
 </body>
 </html>
