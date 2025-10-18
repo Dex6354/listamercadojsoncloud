@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Itens Salvos - Meu Mercado</title>
+    <link rel="icon" href="01.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Copie e cole aqui TODO o CSS (<style>...</style>) do seu arquivo index.html */
+        /* Para manter a consistência visual, é melhor usar o mesmo CSS. */
+        /* ... */
+        :root {
+            --bg-color: #212121;
+            --card-color: #2c2c2c;
+            --text-color: #f0f0f0;
+            --secondary-text-color: #a0a0a0;
+            --primary-color: #ffc107;
+            --green-highlight: #4CAF50;
+            --danger-color: #f44336;
+            --border-radius: 12px;
+            --input-bg-color: #383838;
+            --menu-width: 250px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        
+        /* Adicione estilos específicos se necessário */
+        .items-table { width: 100%; border-collapse: collapse; }
+        .items-table th, .items-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--input-bg-color); }
+        .items-table th { color: var(--secondary-text-color); }
+        .item-text-input { width: 100%; background: none; border: none; color: var(--text-color); font-size: 1rem; padding: 5px; border-radius: 4px; }
+        .item-text-input:focus { background-color: var(--input-bg-color); outline: none; }
+        .action-btn { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 1.2rem; }
+        .action-btn.add { color: var(--green-highlight); }
+
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--input-bg-color); position: sticky; top: 0; z-index: 10; background-color: var(--bg-color); }
+        .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; }
+        .header .title img { height: 30px; margin-right: 10px; }
+        .container { padding: 16px; }
+        .section { background-color: var(--card-color); padding: 20px 16px; border-radius: var(--border-radius); margin-bottom: 24px; }
+        .section-header { margin-bottom: 16px; }
+        .section-header h2 { margin: 0; font-size: 1.5rem; color: var(--primary-color); }
+        .custom-btn { background-color: var(--primary-color); color: var(--bg-color); border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 10px 15px; text-decoration: none; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <span class="title">
+            <img src="01.png" alt="Ícone">
+            Meus Itens Salvos
+        </span>
+        <a href="index.html" class="custom-btn"><i class="fas fa-arrow-left"></i> Voltar para a Lista</a>
+    </div>
+
+    <div class="container">
+        <div class="section">
+            <div class="section-header">
+                <h2>Gerenciar Itens</h2>
+            </div>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Nome e Preço (Ex: Banana R$5,00)</th>
+                        <th style="width: 50px;">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="items-list-body">
+                    </tbody>
+                <tfoot>
+                    <tr id="add-item-row">
+                        <td><input type="text" id="newItemText" class="item-text-input" placeholder="Novo item e preço..."></td>
+                        <td><button class="action-btn add" onclick="addItem()"><i class="fas fa-plus"></i></button></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+<script>
+    const itemsTableBody = document.getElementById('items-list-body');
+    const newItemInput = document.getElementById('newItemText');
+    let saveTimeout;
+
+    // Função para obter os headers de autenticação
+    function getAuthHeaders() {
+        const token = localStorage.getItem('authToken');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    }
+
+    // Debounce para não salvar a cada tecla pressionada
+    function debounce(func, delay) {
+        return function(...args) {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    // Carrega os itens do backend
+    async function loadItems() {
+        // Verifica se está logado
+        if (!localStorage.getItem('authToken')) {
+            window.location.href = 'index.html'; // Redireciona para login
+            return;
+        }
+        try {
+            // **IMPORTANTE: Você precisará criar este endpoint no seu backend**
+            const response = await fetch('/api/saved_items', { headers: getAuthHeaders() });
+            if (!response.ok) {
+                throw new Error('Falha ao buscar itens.');
+            }
+            const items = await response.json();
+            redrawTable(items);
+        } catch (error) {
+            console.error('Erro ao carregar itens:', error);
+            alert('Não foi possível carregar seus itens salvos.');
+        }
+    }
+
+    // Salva a lista inteira no backend
+    async function saveItems() {
+        const items = [];
+        document.querySelectorAll('#items-list-body tr').forEach(row => {
+            const id = row.dataset.id;
+            const itemText = row.querySelector('.item-text-input').value.trim();
+            if (itemText) {
+                items.push({ id: id, item_text: itemText });
+            }
+        });
+
+        try {
+            // **IMPORTANTE: Você precisará criar este endpoint no seu backend**
+            const response = await fetch('/api/saved_items', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(items)
+            });
+            if (!response.ok) {
+                throw new Error('Falha ao salvar a lista.');
+            }
+            console.log('Lista salva com sucesso!');
+        } catch (error) {
+            console.error('Erro ao salvar:', error);
+            alert('Ocorreu um erro ao salvar suas alterações.');
+        }
+    }
+
+    const debouncedSave = debounce(saveItems, 1500);
+
+    // Redesenha a tabela com os itens
+    function redrawTable(items) {
+        itemsTableBody.innerHTML = '';
+        items.forEach(item => buildItemRow(item));
+    }
+
+    // Constrói uma linha da tabela para um item
+    function buildItemRow(item) {
+        const row = document.createElement('tr');
+        row.dataset.id = item.id; // Armazena o ID do item
+        
+        row.innerHTML = `
+            <td><input type="text" class="item-text-input" value="${item.item_text}"></td>
+            <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
+        `;
+        
+        const input = row.querySelector('.item-text-input');
+        input.addEventListener('input', debouncedSave); // Salva ao editar
+
+        itemsTableBody.appendChild(row);
+    }
+    
+    // Adiciona um novo item (ainda não salvo, será salvo no próximo saveItems)
+    function addItem() {
+        const itemText = newItemInput.value.trim();
+        if (!itemText) return;
+
+        // Adiciona na UI otimisticamente
+        buildItemRow({ id: 'new_' + Date.now(), item_text: itemText });
+        newItemInput.value = '';
+        newItemInput.focus();
+        
+        // Salva a lista inteira
+        saveItems();
+    }
+
+    // Remove um item
+    function removeItem(button) {
+        if (confirm('Tem certeza que deseja remover este item permanentemente?')) {
+            button.closest('tr').remove();
+            saveItems();
+        }
+    }
+
+    // Event listener para adicionar com "Enter"
+    newItemInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addItem();
+        }
+    });
+
+    // Carrega os itens quando a página é aberta
+    document.addEventListener('DOMContentLoaded', loadItems);
+
+</script>
+</body>
+</html>
