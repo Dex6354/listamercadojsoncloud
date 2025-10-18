@@ -6,10 +6,8 @@
     <title>Meus Itens Salvos - Meu Mercado</title>
     <link rel="icon" href="01.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
     <style>
-        /* Copie e cole aqui TODO o CSS (<style>...</style>) do seu arquivo index.html */
-        /* Para manter a consistência visual, é melhor usar o mesmo CSS. */
-        /* ... */
         :root {
             --bg-color: #212121;
             --card-color: #2c2c2c;
@@ -18,6 +16,7 @@
             --primary-color: #ffc107;
             --green-highlight: #4CAF50;
             --danger-color: #f44336;
+            --yellow-sync-color: #ffc107;
             --border-radius: 12px;
             --input-bg-color: #383838;
             --menu-width: 250px;
@@ -32,68 +31,216 @@
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
         }
         
-        /* Adicione estilos específicos se necessário */
-        .items-table { width: 100%; border-collapse: collapse; }
-        .items-table th, .items-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--input-bg-color); }
-        .items-table th { color: var(--secondary-text-color); }
-        .item-text-input { width: 100%; background: none; border: none; color: var(--text-color); font-size: 1rem; padding: 5px; border-radius: 4px; }
-        .item-text-input:focus { background-color: var(--input-bg-color); outline: none; }
-        .action-btn { background: none; border: none; color: var(--danger-color); cursor: pointer; font-size: 1.2rem; }
-        .action-btn.add { color: var(--green-highlight); }
+        /* Ocultar auth-container por padrão neste arquivo */
+        #auth-container { display: none; }
+        
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            flex-grow: 1;
+        }
 
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--input-bg-color); position: sticky; top: 0; z-index: 10; background-color: var(--bg-color); }
-        .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; }
-        .header .title img { height: 30px; margin-right: 10px; }
-        .container { padding: 16px; }
-        .section { background-color: var(--card-color); padding: 20px 16px; border-radius: var(--border-radius); margin-bottom: 24px; }
-        .section-header { margin-bottom: 16px; }
+        /* --- HEADER --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--input-bg-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: var(--bg-color);
+        }
+        .header .title img {
+            height: 30px;
+            width: auto;
+            margin-right: 10px;
+            border-radius: 5px;
+        }
+        .header .menu-icon { font-size: 1.5rem; cursor: pointer; color: var(--primary-color); padding: 5px; }
+        .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
+        .header .title i { margin-right: 8px; color: var(--primary-color); }
+
+        /* --- SIDE MENU & OVERLAY --- */
+        .side-menu { height: 100%; width: 0; position: fixed; z-index: 1001; top: 0; left: 0; background-color: var(--card-color); overflow-x: hidden; transition: 0.3s; padding-top: 60px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
+        .side-menu.open { width: var(--menu-width); }
+        .side-menu .close-btn { position: absolute; top: 15px; right: 25px; font-size: 2rem; color: var(--primary-color); cursor: pointer; line-height: 1; }
+        .side-menu a { padding: 15px 20px; text-decoration: none; font-size: 1.1rem; color: var(--text-color); display: block; transition: 0.3s; border-bottom: 1px solid var(--input-bg-color); }
+        .side-menu a:hover { background-color: #575757; color: var(--primary-color); }
+        .side-menu a i { color: var(--primary-color); width: 20px; text-align: center; margin-right: 10px; }
+        #page-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; display: none; transition: opacity 0.3s; }
+        #page-overlay.show { display: block; }
+
+        /* --- CONTEÚDO PRINCIPAL --- */
+        .container {
+            padding: 20px 16px;
+            max-width: 100%;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .section {
+            background-color: var(--card-color);
+            padding: 20px 16px;
+            border-radius: var(--border-radius);
+            margin: 0 0 24px 0;
+        }
+        
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .section-header h2 { margin: 0; font-size: 1.5rem; color: var(--primary-color); }
-        .custom-btn { background-color: var(--primary-color); color: var(--bg-color); border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 10px 15px; text-decoration: none; }
 
+        /* --- BOTÕES --- */
+        .custom-btn { background-color: var(--primary-color); color: var(--bg-color); border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 10px 15px; transition: background-color 0.3s; }
+        .custom-btn:hover { background-color: #ffd54f; }
+        .custom-btn.secondary { background-color: var(--input-bg-color); color: var(--text-color); }
+        .custom-btn.secondary:hover { background-color: #555; }
+
+        /* --- TABELA DE ITENS SALVOS --- */
+        .table-scroll-wrapper { overflow-x: auto; width: 100%; }
+        .items-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .items-table th, .items-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--input-bg-color); vertical-align: middle; }
+        .items-table th { font-size: 0.8rem; color: var(--secondary-text-color); text-transform: uppercase; }
+        .items-table th:first-child, .items-table td:first-child { padding-left: 0; }
+        .items-table th:last-child, .items-table td:last-child { padding-right: 0; }
+        
+        .items-table .item-text-input { 
+            width: 100%; 
+            background: none; 
+            border: none; 
+            color: var(--text-color); 
+            font-size: 1rem; 
+            font-family: inherit; 
+            padding: 4px 0; 
+            border-radius: 4px;
+            /* Garante que o input ocupa toda a célula e é editável */
+        }
+        .items-table .item-text-input:focus { outline: none; background-color: var(--input-bg-color); }
+
+        .items-table .action-btn { 
+            background: none; 
+            border: none; 
+            color: var(--danger-color); 
+            cursor: pointer; 
+            font-size: 1.2rem; 
+            transition: color 0.3s; 
+            padding: 0;
+            width: 20px; 
+        }
+        .items-table .action-btn:hover { color: #ff7961; }
+        .items-table .action-btn.add { color: var(--green-highlight); }
+        .items-table .action-btn.add:hover { color: #81c784; }
+
+        #sync-status-indicator { 
+            width: 12px; 
+            height: 12px; 
+            border-radius: 50%; 
+            background-color: var(--green-highlight); 
+            z-index: 11; 
+            transition: background-color 0.5s ease; 
+            flex-shrink: 0;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        #username-display {
+            color: var(--secondary-text-color);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
+        #sync-status-indicator.status-error { background-color: var(--danger-color); }
+        #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
+        #sync-status-indicator.status-offline { background-color: #7986cb; }
+
+        .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
+        
     </style>
+
 </head>
 <body>
+    
+    <div id="app-container">
+        <div id="side-menu" class="side-menu">
+            <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
+            <a href="index.html"><i class="fas fa-list-check"></i> Minha Lista</a>
+            <a href="#"><i class="fas fa-archive"></i> Meus Itens Salvos</a>
+            <a href="#"><i class="fas fa-history"></i> Histórico</a>
+            <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
+            <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
+        </div>
+        <div id="page-overlay" onclick="closeNav()"></div>
 
-    <div class="header">
-        <span class="title">
-            <img src="01.png" alt="Ícone">
-            Meus Itens Salvos
-        </span>
-        <a href="index.html" class="custom-btn"><i class="fas fa-arrow-left"></i> Voltar para a Lista</a>
-    </div>
+        <div id="main-content-wrapper">
+            <div class="header">
+                <span class="menu-icon" onclick="openNav()">&#9776;</span>
+                <span class="title">
+                    <img src="01.png" alt="Ícone">
+                    Itens Salvos
+                </span>
 
-    <div class="container">
-        <div class="section">
-            <div class="section-header">
-                <h2>Gerenciar Itens</h2>
+                <div class="header-right">
+                    <span id="username-display"></span>
+                    <div id="sync-status-indicator"></div>
+                </div>
             </div>
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th>Nome e Preço (Ex: Banana R$5,00)</th>
-                        <th style="width: 50px;">Ação</th>
-                    </tr>
-                </thead>
-                <tbody id="items-list-body">
-                    </tbody>
-                <tfoot>
-                    <tr id="add-item-row">
-                        <td><input type="text" id="newItemText" class="item-text-input" placeholder="Novo item e preço..."></td>
-                        <td><button class="action-btn add" onclick="addItem()"><i class="fas fa-plus"></i></button></td>
-                    </tr>
-                </tfoot>
-            </table>
+
+            <div class="container">
+                <div class="section">
+                    <div class="section-header">
+                        <h2>Lista de Itens (Nome e Preço)</h2>
+                    </div>
+
+                    <div class="table-scroll-wrapper">
+                        <table class="items-table">
+                            <thead>
+                                <tr>
+                                    <th>Item (ex: Banana R$5,00)</th>
+                                    <th style="width: 40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="items-table-body">
+                                <tr class="add-item-row">
+                                    <td>
+                                        <input type="text" id="newItemInput" class="item-text-input" placeholder="Adicionar novo item e preço (ex: Maçã R$10,00)">
+                                    </td>
+                                    <td>
+                                        <button class="action-btn add" onclick="addItem()"><i class="fas fa-plus"></i></button>
+                                    </td>
+                                </tr>
+                                </tbody>
+                        </table>
+                    </div>
+                    
+                </div>
+            </div>
+
+            <footer class="footer">
+                Gerencie seus itens pre-salvos para a lista de compras.
+            </footer>
         </div>
     </div>
 
 <script>
-    const itemsTableBody = document.getElementById('items-list-body');
-    const newItemInput = document.getElementById('newItemText');
+    // --- LÓGICA DE AUTENTICAÇÃO E UTILS ---
+    const itemsTableBody = document.getElementById('items-table-body');
+    const newItemInput = document.getElementById('newItemInput');
+    const statusIndicator = document.getElementById('sync-status-indicator');
     let saveTimeout;
+    let syncState = 'saved';
 
-    // Função para obter os headers de autenticação
     function getAuthHeaders() {
         const token = localStorage.getItem('authToken');
         return {
@@ -102,7 +249,35 @@
         };
     }
 
-    // Debounce para não salvar a cada tecla pressionada
+    async function handleLogout() {
+        // Redireciona para a página principal para logout
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        window.location.href = 'index.html'; 
+    }
+
+    function checkAuth() {
+        if (!localStorage.getItem('authToken')) {
+            handleLogout();
+            return false;
+        }
+        // Exibe o nome de usuário
+        const usernameDisplay = document.getElementById('username-display');
+        const username = localStorage.getItem('currentUser');
+        if (username) {
+            usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
+        }
+        return true;
+    }
+    
+    function setSyncStatus(newState) {
+        syncState = newState;
+        statusIndicator.className = `status-${newState}`;
+        if (newState === 'error') {
+            setTimeout(() => { if (syncState === 'error') setSyncStatus('saved'); }, 3000);
+        }
+    }
+
     function debounce(func, delay) {
         return function(...args) {
             clearTimeout(saveTimeout);
@@ -110,90 +285,134 @@
         };
     }
 
-    // Carrega os itens do backend
-    async function loadItems() {
-        // Verifica se está logado
-        if (!localStorage.getItem('authToken')) {
-            window.location.href = 'index.html'; // Redireciona para login
-            return;
-        }
-        try {
-            // **IMPORTANTE: Você precisará criar este endpoint no seu backend**
-            const response = await fetch('/api/saved_items', { headers: getAuthHeaders() });
-            if (!response.ok) {
-                throw new Error('Falha ao buscar itens.');
-            }
-            const items = await response.json();
-            redrawTable(items);
-        } catch (error) {
-            console.error('Erro ao carregar itens:', error);
-            alert('Não foi possível carregar seus itens salvos.');
-        }
-    }
+    function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
+    function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
+    document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
 
-    // Salva a lista inteira no backend
-    async function saveItems() {
+
+    // --- LÓGICA DE ITENS SALVOS ---
+    
+    // Pega a lista atualizada dos itens na UI (incluindo novos e editados)
+    function getCurrentLocalItems() {
         const items = [];
-        document.querySelectorAll('#items-list-body tr').forEach(row => {
-            const id = row.dataset.id;
-            const itemText = row.querySelector('.item-text-input').value.trim();
-            if (itemText) {
-                items.push({ id: id, item_text: itemText });
+        // Seleciona todas as linhas exceto a de adição (que tem a classe add-item-row)
+        document.querySelectorAll('#items-table-body tr:not(.add-item-row)').forEach(row => {
+            const id = row.dataset.itemId;
+            const item_text = row.querySelector('.item-text-input').value.trim();
+            if (item_text) {
+                // Se o ID começar com 'new_', envia 'null' para o backend saber que é um novo registro
+                items.push({ 
+                    id: id.startsWith('new_') ? null : parseInt(id), 
+                    item_text: item_text 
+                });
             }
         });
+        return items;
+    }
+
+    // Salva a lista inteira (o backend deve sincronizar, fazendo UPSERT e DELETE)
+    async function saveItems() {
+        const items = getCurrentLocalItems();
+        if (items.length === 0 && !confirm("Você está prestes a apagar todos os seus itens salvos. Continuar?")) {
+             loadItems(); // Recarrega a lista do servidor
+             return;
+        }
+        
+        setSyncStatus('syncing');
 
         try {
-            // **IMPORTANTE: Você precisará criar este endpoint no seu backend**
+            // PUT /api/saved_items: Envia a lista completa, o backend deve recriar/sincronizar.
             const response = await fetch('/api/saved_items', {
-                method: 'POST',
+                method: 'PUT',
                 headers: getAuthHeaders(),
                 body: JSON.stringify(items)
             });
-            if (!response.ok) {
-                throw new Error('Falha ao salvar a lista.');
-            }
-            console.log('Lista salva com sucesso!');
+
+            if (response.status === 401) return handleLogout();
+            if (!response.ok) throw new Error('Falha ao salvar itens.');
+
+            const savedItems = await response.json();
+            // Após salvar, recarregamos para pegar os IDs definitivos do backend
+            redrawTable(savedItems); 
+            setSyncStatus('saved');
+
         } catch (error) {
-            console.error('Erro ao salvar:', error);
-            alert('Ocorreu um erro ao salvar suas alterações.');
+            console.error("Erro ao salvar itens:", error);
+            setSyncStatus('error');
+            alert('Falha ao salvar os itens: ' + error.message);
+        }
+    }
+
+    // Carrega os itens salvos do servidor
+    async function loadItems() {
+        if (!checkAuth()) return;
+        setSyncStatus('syncing');
+
+        try {
+            const response = await fetch('/api/saved_items', { headers: getAuthHeaders() });
+            if (response.status === 401) return handleLogout();
+            if (!response.ok) throw new Error('Falha ao buscar itens salvos.');
+            
+            const items = await response.json();
+            redrawTable(items);
+            setSyncStatus('saved');
+
+        } catch (error) {
+            console.error('Erro ao carregar lista de itens salvos:', error);
+            setSyncStatus('error');
+            alert('Não foi possível carregar os itens salvos. Tente novamente mais tarde.');
         }
     }
 
     const debouncedSave = debounce(saveItems, 1500);
 
-    // Redesenha a tabela com os itens
-    function redrawTable(items) {
-        itemsTableBody.innerHTML = '';
-        items.forEach(item => buildItemRow(item));
-    }
+    // Constrói uma linha da tabela
+    function buildItemRow(item, isNew = false) {
+        // Encontra a linha de adição para inserir o novo item acima dela
+        const addItemRow = document.querySelector('.add-item-row');
+        const newRow = itemsTableBody.insertBefore(document.createElement('tr'), addItemRow.nextSibling);
 
-    // Constrói uma linha da tabela para um item
-    function buildItemRow(item) {
-        const row = document.createElement('tr');
-        row.dataset.id = item.id; // Armazena o ID do item
+        // ** ESSENCIAL: Armazena o ID no dataset da linha **
+        newRow.dataset.itemId = item.id; 
         
-        row.innerHTML = `
-            <td><input type="text" class="item-text-input" value="${item.item_text}"></td>
-            <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
+        newRow.innerHTML = `
+            <td>
+                <input type="text" class="item-text-input" value="${item.item_text}">
+            </td>
+            <td>
+                <button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button>
+            </td>
         `;
         
-        const input = row.querySelector('.item-text-input');
+        const input = newRow.querySelector('.item-text-input');
         input.addEventListener('input', debouncedSave); // Salva ao editar
 
-        itemsTableBody.appendChild(row);
     }
     
+    // Redesenha a tabela inteira (usado após load ou save)
+    function redrawTable(items) {
+        // Remove todos os itens, exceto a linha de adição
+        document.querySelectorAll('#items-table-body tr:not(.add-item-row)').forEach(row => row.remove());
+        
+        // Insere os itens carregados/salvos
+        items.forEach(item => buildItemRow(item, false));
+    }
+
+
     // Adiciona um novo item (ainda não salvo, será salvo no próximo saveItems)
     function addItem() {
         const itemText = newItemInput.value.trim();
-        if (!itemText) return;
+        if (!itemText) {
+            newItemInput.focus();
+            return;
+        }
 
-        // Adiciona na UI otimisticamente
+        // Adiciona na UI otimisticamente com um ID temporário
         buildItemRow({ id: 'new_' + Date.now(), item_text: itemText });
         newItemInput.value = '';
         newItemInput.focus();
         
-        // Salva a lista inteira
+        // Salva a lista inteira (sincroniza com o backend)
         saveItems();
     }
 
@@ -201,11 +420,12 @@
     function removeItem(button) {
         if (confirm('Tem certeza que deseja remover este item permanentemente?')) {
             button.closest('tr').remove();
-            saveItems();
+            // Salva a lista inteira (o backend processará a exclusão)
+            saveItems(); 
         }
     }
 
-    // Event listener para adicionar com "Enter"
+    // Event listener para adicionar com "Enter" na linha de novo item
     newItemInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             event.preventDefault();
