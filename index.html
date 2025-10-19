@@ -303,11 +303,11 @@
             <a href="#"><i class="fas fa-history"></i> Histórico</a>
             <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
             
-            <!-- ITEM 1: Instalar como App (PWA) - Dispara o prompt PWA nativo -->
-            <a href="javascript:void(0)" id="install-pwa-link" onclick="promptInstallation()"><i class="fas fa-mobile-screen-button"></i> Instalar App (PWA)</a>
+            <!-- ITEM 1: Atalho no Navegador (Prioridade do usuário) -->
+            <a href="javascript:void(0)" onclick="showShortcutInstructions()"><i class="fas fa-link"></i> Atalho Simples (Navegador)</a>
             
-            <!-- ITEM 2: Atalho no Navegador - Fornece instruções para o atalho via browser -->
-            <a href="javascript:void(0)" onclick="showShortcutInstructions()"><i class="fas fa-link"></i> Atalho no Navegador</a>
+            <!-- ITEM 2: Instalar PWA (Secundário, instrução para usar o menu nativo) -->
+            <a href="javascript:void(0)" onclick="showPWAInstructions()"><i class="fas fa-mobile-screen-button"></i> Instalar App (PWA)</a>
             
             <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
         </div>
@@ -373,7 +373,7 @@
                             </button>
                             <a href="https://precosmercados.streamlit.app/" target="_blank" rel="noopener noreferrer" class="custom-btn secondary" style="flex-grow: 1; text-align: center; text-decoration: none; line-height: 1.8;">
                                 <i class="fas fa-external-link-alt"></i> Abrir em Nova Guia
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -517,42 +517,8 @@
         }
 
         // --- GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
-        let deferredPrompt;
-
-        // 1. Captura o evento PWA antes de ele ser mostrado
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            console.log('Evento beforeinstallprompt capturado. PWA está pronto para ser instalado.');
-        });
-
-        // 2. Função para disparar o prompt de instalação PWA (Item "Instalar App (PWA)")
-        async function promptInstallation() {
-            closeNav(); // Fecha o menu
-
-            if (deferredPrompt) {
-                // Mostra o prompt de instalação nativo do navegador
-                deferredPrompt.prompt();
-                // Espera pela resposta do usuário
-                const { outcome } = await deferredPrompt.userChoice;
-                
-                console.log(`User response to the install prompt: ${outcome}`);
-                
-                // O deferredPrompt não pode ser usado novamente
-                deferredPrompt = null;
-                
-                if (outcome === 'accepted') {
-                    alert('O aplicativo foi adicionado à sua tela inicial!');
-                } else {
-                    alert('Instalação cancelada. Se preferir um atalho que abra no navegador, use a opção "Atalho no Navegador" para as instruções.');
-                }
-            } else {
-                 // Caso o app já esteja instalado ou a opção PWA não esteja disponível
-                alert('A opção de instalação rápida não está disponível (o app pode já estar instalado). Por favor, use a opção "Atalho no Navegador" para as instruções de atalho manual.');
-            }
-        }
         
-        // 3. Função para exibir as instruções do atalho do navegador (Item "Atalho no Navegador")
+        // 1. Instrução para o Atalho Simples no Navegador (Prioridade do Usuário)
         function showShortcutInstructions() {
             closeNav();
             
@@ -563,24 +529,36 @@
             else if (ua.indexOf("SamsungBrowser") > -1) browser = "Samsung Internet";
             else if (ua.indexOf("Edg") > -1) browser = "Microsoft Edge";
             else if (ua.indexOf("Opera") > -1) browser = "Opera";
-            // Verifica se é iOS (Safari/Chrome no iOS)
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             
             let message = '';
             
             if (isIOS) {
-                message = `Para criar um atalho que abre no seu navegador Safari (apenas link):\n\n1. Toque no ícone **"Compartilhar"** (um quadrado com uma seta para cima) na barra inferior.\n2. Role para baixo e toque em **"Adicionar à Tela de Início"**.\n\n**Atenção:** No iOS, o resultado será um atalho que abre o Safari, mas sem a barra de endereço. Se quiser a experiência completa de App, use a opção 'Instalar App (PWA)' no Chrome ou outro navegador compatível.`;
+                // No iOS, a única forma de criar um atalho é via Safari Share/Add to Home Screen
+                message = `Para criar um atalho que **abre no seu navegador Safari como um link**:\n\n1. Toque no ícone **"Compartilhar"** (um quadrado com uma seta para cima) na barra inferior.\n2. Role para baixo e toque em **"Adicionar à Tela de Início"**.\n\nEste atalho abrirá a página como um link normal, **dentro do Safari**.`;
             } else {
-                 message = `Esta opção cria um atalho que **SEMPRE ABRE DENTRO DO ${browser}** (com a barra de endereço visível), diferente da opção 'Instalar App (PWA)' (que esconde a barra de endereço).\n\nSiga os passos no seu Android:\n\n1. Abra o menu do seu navegador (geralmente 3 pontos no canto superior/inferior).\n2. Procure pela opção **"Adicionar à tela inicial"** ou similar.\n3. Confirme o atalho.\n\n**IMPORTANTE:** Em navegadores que suportam PWA, o atalho criado pode ter o mesmo comportamento de "aplicativo". Se isso ocorrer, a única forma de forçar a abertura no navegador completo é abrindo o aplicativo do navegador diretamente e acessando o site.`;
+                 message = `Esta opção cria um atalho que **abre dentro do ${browser}** (com a barra de endereço visível), garantindo o atalho simples de link, sem o modo App.\n\nSiga os passos no seu Android:\n\n1. Abra o menu do seu navegador (geralmente 3 pontos no canto superior/inferior).\n2. Procure pela opção **"Adicionar à tela inicial"** ou similar.\n3. Confirme o atalho.\n\n**Observação:** Seu navegador pode preferir o modo App mesmo assim. Para ter certeza de que é um link simples, você deve abrir o app do navegador (Chrome, Edge etc.) e acessar o site.`;
             }
 
             alert(message);
         }
 
-        // 4. Garante que o deferredPrompt seja limpo após a instalação
-        window.addEventListener('appinstalled', () => {
-            deferredPrompt = null;
-        });
+        // 2. Instrução para a Instalação PWA (Modo App)
+        function showPWAInstructions() {
+            closeNav();
+            
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+            let message = '';
+
+            if (isIOS) {
+                message = `A experiência PWA (modo App sem barra de endereço) é melhor suportada no **Chrome** no Android ou em alguns navegadores iOS de terceiros. Para tentar instalar o PWA:\n\n1. Acesse o site pelo navegador **Chrome**.\n2. Abra o menu (3 pontos) e procure a opção **"Instalar App"**.\n\nSe a opção não aparecer, o navegador pode já ter instalado o PWA automaticamente.`;
+            } else {
+                message = `Para instalar o App na sua tela inicial, garantindo a experiência de aplicativo (sem a barra de endereço):\n\n1. Abra o menu do seu navegador (geralmente 3 pontos no canto superior).\n2. Procure a opção **"Instalar aplicativo"** ou **"Adicionar à tela inicial"**.\n\nSe o seu navegador estiver impedindo o atalho simples em favor do PWA, esta é a forma de forçar a experiência de aplicativo.`;
+            }
+
+            alert(message);
+        }
         
         // --- FIM GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
 
@@ -1016,6 +994,7 @@
         }
 
         function removeItem(button) {
+            // Em ambientes de produção, use um modal personalizado em vez de 'confirm'
             if (confirm('Tem certeza de que deseja remover este item?')) {
                 button.closest('tr').remove();
                 saveList(); 
@@ -1028,6 +1007,7 @@
         }
 
         function clearList() {
+            // Em ambientes de produção, use um modal personalizado em vez de 'confirm'
             if (confirm('Tem certeza que deseja limpar toda a lista?')) {
                 tableBody.innerHTML = '';
                 saveList();
