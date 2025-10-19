@@ -715,8 +715,9 @@
             const target = event.target;
             if (target.tagName.toLowerCase() === 'textarea') {
                 autoResizeTextarea(target);
-                if (target.id === 'newItemName') { // Apenas para o campo de novo item
-                    debouncedHandleAutocomplete(event); // ATIVA O AUTOCOMPLETE
+                // AQUI: Chama o autocomplete para QUALQUER campo de nome de item.
+                if (target.classList.contains('item-name-input')) { 
+                    debouncedHandleAutocomplete(event); 
                 }
             }
             if (['textarea', 'input'].includes(target.tagName.toLowerCase())) {
@@ -735,12 +736,12 @@
                     }
                 }, 1);
             }
-            if (target.tagName.toLowerCase() === 'textarea' && target.id === 'newItemName') { // APENAS para o campo de novo item
-                currentActiveInput = target; // Rastreia o input ativo
-                // Chama o autocomplete imediatamente ao focar, caso já haja texto.
+            // AQUI: Define o currentActiveInput e chama o autocomplete para QUALQUER campo de nome de item.
+            if (target.tagName.toLowerCase() === 'textarea' && target.classList.contains('item-name-input')) { 
+                currentActiveInput = target; 
                 handleAutocompleteInput(event); 
             } else if (target.tagName.toLowerCase() === 'textarea') {
-                 // Para outros textareas (itens já existentes), limpa o autocomplete
+                 // Para outros textareas (apenas por segurança), limpa o autocomplete
                  closeAutocomplete();
             }
         }, true);
@@ -752,7 +753,8 @@
                 setSyncStatus('syncing');
                 debouncedSave();
             }
-            if (event.target.tagName.toLowerCase() === 'textarea' && event.target.id === 'newItemName') { // APENAS para o campo de novo item
+            // AQUI: Aplica a lógica de fechar para QUALQUER campo de nome de item.
+            if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
                 // Atraso para permitir o clique na sugestão
                 setTimeout(() => {
                     // Só feche se o mouse não estiver sobre as sugestões
@@ -821,12 +823,11 @@
                 // Disparar manualmente a função de redimensionar
                 autoResizeTextarea(currentActiveInput);
                 
-                // *** ALTERAÇÃO APLICADA AQUI ***
-                // Chamar commitItem() para adicionar o item imediatamente à lista
+                // Se for o campo de NOVO item, comita para adicionar. Se for EDICÃO, apenas salva.
                 if (currentActiveInput.id === 'newItemName') {
                     commitItem(); 
                 } else {
-                    // Para o caso de Autocomplete ser usado em outro lugar, apenas salva
+                    // Item existente: apenas salva a lista atualizada
                     setSyncStatus('syncing');
                     debouncedSave();
                 }
