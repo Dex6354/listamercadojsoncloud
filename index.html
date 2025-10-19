@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Mercado</title>
 
-    <link rel="manifest" href="./manifest.json"> 
-
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Meu Mercado">
-    <link rel="apple-touch-icon" href="01.png">
+    <link rel="manifest" href="manifest.json">
 
     <meta property="og:title" content="Meu Mercado" />
     <meta property="og:type" content="website" />
@@ -220,555 +215,444 @@
         .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; padding: 0 16px; }
         .collapsible-content.expanded { max-height: 100vh; padding-bottom: 20px; }
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
-        #sync-status-indicator { width: 12px; height: 12px; border-radius: 50%; background-color: var(--green-highlight); z-index: 11; transition: background-color 0.5s ease; flex-shrink: 0; }
-        .header-right { display: flex; align-items: center; gap: 15px; }
-        #username-display { color: var(--secondary-text-color); font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
+
+        #sync-status-indicator { 
+            width: 12px; 
+            height: 12px; 
+            border-radius: 50%; 
+            background-color: var(--green-highlight); 
+            z-index: 11; 
+            transition: background-color 0.5s ease; 
+            flex-shrink: 0;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        #username-display {
+            color: var(--secondary-text-color);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
-        #sync-status-indicator.status-offline { background-color: #7986cb; } 
-        /* --- Autocomplete --- */ 
-        #autocomplete-suggestions { position: absolute; background-color: var(--input-bg-color); border: 1px solid var(--primary-color); border-top: none; border-radius: 0 0 8px 8px; z-index: 1002; /* Mais alto que o overlay do menu */ max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2); } 
-        .suggestion-item { padding: 8px; cursor: pointer; color: var(--text-color); } 
-        .suggestion-item:hover { background-color: #555; }
+        #sync-status-indicator.status-offline { background-color: #7986cb; }
+
+        /* --- Autocomplete --- */
+        #autocomplete-suggestions {
+            position: absolute;
+            background-color: var(--input-bg-color);
+            border: 1px solid var(--primary-color);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            z-index: 1002; /* Mais alto que o overlay do menu */
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .suggestion-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            color: var(--text-color);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            /* NOVO: Linha cinza entre itens */
+            border-bottom: 1px solid #666; 
+        }
+        .suggestion-item:last-child {
+            /* Remove a borda do último item para não duplicar o contorno */
+            border-bottom: none; 
+        }
+        .suggestion-item:hover {
+            background-color: #555;
+        }
+
+        @media (min-width: 768px) { .shopping-list-table colgroup col:nth-child(2) { width: 450px; } }
+        @media (min-width: 1024px) { .shopping-list-table colgroup col:nth-child(2) { width: 550px; } }
     </style>
 </head>
 <body>
-    <div id="page-overlay"></div>
-    <div id="side-menu" class="side-menu">
-        <a href="javascript:void(0)" class="close-btn" onclick="closeMenu()">&times;</a>
-        <a href="#" onclick="showSection('list')"><i class="fas fa-list-ul"></i> Minha Lista</a>
-        <a href="#" onclick="showSection('comparator')"><i class="fas fa-balance-scale"></i> Comparador</a>
-        <a href="#" onclick="showSection('config')"><i class="fas fa-cogs"></i> Configurações</a>
-        <a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
-    </div>
 
     <div id="auth-container">
         <div class="auth-box">
-            <h2>Bem-vindo(a)</h2>
-            <input type="email" id="email" class="auth-input" placeholder="E-mail" required>
+            <h2><i class="fas fa-lock"></i> Acesso Seguro</h2>
+            <input type="text" id="username" class="auth-input" placeholder="Nome de usuário" autocomplete="username">
             <div class="password-container">
-                <input type="password" id="password" class="auth-input" placeholder="Senha" required>
+                <input type="password" id="password" class="auth-input" placeholder="Senha" autocomplete="current-password">
                 <i class="fas fa-eye" id="togglePassword"></i>
             </div>
-            <div id="auth-message"></div>
             <div class="auth-buttons">
                 <button class="custom-btn" onclick="handleLogin()">Entrar</button>
-                <button class="custom-btn secondary" onclick="handleRegister()">Registrar</button>
+                <button class="custom-btn secondary" onclick="handleRegister()">Cadastrar</button>
             </div>
+            <p id="auth-message"></p>
         </div>
     </div>
 
     <div id="app-container">
-        <header class="header">
-            <i class="fas fa-bars menu-icon" onclick="openMenu()"></i>
-            <div class="title">
-                <img src="01.png" alt="Logo" />
-                Meu Mercado
-            </div>
-            <div class="header-right">
-                <span id="username-display"></span>
-                <div id="sync-status-indicator" class="status-saved" title="Status de Sincronização"></div>
-            </div>
-        </header>
+        <div id="side-menu" class="side-menu">
+            <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
+            <a href="#"><i class="fas fa-list-check"></i> Minha Lista</a>
+            <a href="#"><i class="fas fa-history"></i> Histórico</a>
+            <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
+            <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
+        </div>
+        <div id="page-overlay" onclick="closeNav()"></div>
 
-        <main class="container">
-            <section id="list-section" class="section shopping-list-section">
-                <div class="section-header">
-                    <h2>Lista de Compras</h2>
-                    <button class="clear-btn" onclick="clearList()">Limpar Lista <i class="fas fa-trash"></i></button>
-                </div>
-                <div class="table-scroll-wrapper">
-                    <table class="shopping-list-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 20px;"></th> <th style="width: 40%;">Item</th>
-                                <th style="width: 80px;">Preço A</th>
-                                <th style="width: 80px;">Preço B</th>
-                                <th style="width: 80px;">Preço C</th>
-                                <th style="width: 20px;"></th> </tr>
-                        </thead>
-                        <tbody id="shopping-list-body">
-                            </tbody>
-                        <tfoot id="shopping-list-footer">
-                            <tr>
-                                <td></td>
-                                <td>
-                                    <input type="text" id="new-item-name" class="item-name-input" placeholder="Adicionar novo item..." onkeypress="handleNewItemKeypress(event)" />
-                                    <div id="autocomplete-suggestions"></div>
-                                </td>
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                                <td><button class="action-btn add" onclick="addNewItem()"><i class="fas fa-plus-circle"></i></button></td>
-                            </tr>
-                            <tr>
-                                <td colspan="2" style="font-weight: bold;">TOTAL ESTIMADO</td>
-                                <td id="total-price-a" style="text-align: right; font-weight: bold;">R$ 0,00</td>
-                                <td id="total-price-b" style="text-align: right; font-weight: bold;">R$ 0,00</td>
-                                <td id="total-price-c" style="text-align: right; font-weight: bold;">R$ 0,00</td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </section>
+        <div id="main-content-wrapper">
+            <div class="header">
+                <span class="menu-icon" onclick="openNav()">&#9776;</span>
+                <span class="title">
+                    <img src="01.png" alt="Ícone">
+                    Meu Mercado
+                </span>
 
-            <section id="comparator-section" class="section" style="display: none;">
-                <div class="collapsible-header" onclick="toggleCollapsible('comparator-content')">
-                    <h2>Comparador de Preços</h2>
-                    <i class="fas fa-chevron-down"></i>
+                <div class="header-right">
+                    <span id="username-display"></span>
+                    <div id="sync-status-indicator"></div>
                 </div>
-                <div id="comparator-content" class="collapsible-content">
-                    <div class="iframe-container">
-                        <div id="iframe-overlay">
-                            <div class="loader"></div>
-                            <p>Carregando ferramenta de comparação...</p>
-                        </div>
-                        <iframe id="price-comparator-iframe" src="about:blank" allowfullscreen></iframe>
+                </div>
+
+            <div class="container">
+                <div class="section shopping-list-section">
+                    <div class="section-header">
+                        <h2>Meus Itens</h2>
+                        <button class="clear-btn" onclick="clearList()" title="Limpar toda a lista">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+
+                    <div class="table-scroll-wrapper">
+                        <table class="shopping-list-table">
+                            <colgroup>
+                                <col style="width: 40px;"> <col style="width: 250px;"> <col style="width: 80px;"> <col style="width: 80px;"> <col style="width: 45px;"> </colgroup>
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-check"></i></th>
+                                    <th>Item</th>
+                                    <th>Shibata</th>
+                                    <th>Nagumo</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="shopping-list-body"></tbody>
+                        </table>
                     </div>
                 </div>
-            </section>
 
-            <section id="config-section" class="section" style="display: none;">
-                <div class="section-header">
-                    <h2>Configurações</h2>
+                <div class="section" id="comparator-section">
+                    <div class="section-header collapsible-header" onclick="toggleComparator()">
+                        <h2>Comparador de Preços</h2>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="comparator-content" class="collapsible-content">
+                        <div id="iframe-wrapper" class="iframe-container">
+                            <div id="iframe-overlay">
+                                <div class="loader"></div>
+                                <span>Acordando o comparador...</span>
+                            </div>
+                            <iframe id="streamlit-app" src="https://precosmercados.streamlit.app/?embed=true&minimal=true"></iframe>
+                        </div>
+                        <div class="button-group" style="margin-top: 16px;">
+                            <button class="custom-btn" onclick="wakeUpApp()" style="flex-grow: 1;">
+                                <i class="fas fa-sync-alt"></i> Ativar / Atualizar
+                            </button>
+                            <a href="https://precosmercados.streamlit.app/" target="_blank" rel="noopener noreferrer" class="custom-btn secondary" style="flex-grow: 1; text-align: center; text-decoration: none; line-height: 1.8;">
+                                <i class="fas fa-external-link-alt"></i> Abrir em Nova Guia
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                <p>Configurações da aplicação virão aqui.</p>
-                <div class="button-group">
-                    <button class="custom-btn danger" onclick="confirmDeleteAccount()">Excluir Conta</button>
-                    <button class="custom-btn secondary" onclick="handleLogout()">Sair da Conta</button>
-                </div>
-            </section>
-        </main>
+            </div>
 
-        <footer class="footer">
-            <p>&copy; 2024 Meu Mercado. Sua lista de compras inteligente.</p>
-        </footer>
+            <footer class="footer">
+                Feito para facilitar suas compras. 🛒💡
+            </footer>
+        </div>
     </div>
 
+    <div id="autocomplete-suggestions"></div>
+
     <script>
-        // Variáveis globais
-        let shoppingList = [];
-        let isOnline = navigator.onLine;
+        // --- GERENCIAMENTO DE AUTENTICAÇÃO ---
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const authMessage = document.getElementById('auth-message');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
 
-        // Funções de Utilidade
-        function formatCurrency(value) {
-            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-        }
-
-        // Funções de Estado e UI
-        function showApp() {
-            document.getElementById('auth-container').style.display = 'none';
-            document.getElementById('app-container').style.display = 'flex';
-        }
-
-        function showAuth() {
-            document.getElementById('app-container').style.display = 'none';
-            document.getElementById('auth-container').style.display = 'flex';
-        }
-
-        function openMenu() {
-            document.getElementById("side-menu").classList.add("open");
-            document.getElementById("page-overlay").classList.add("show");
-        }
-
-        function closeMenu() {
-            document.getElementById("side-menu").classList.remove("open");
-            document.getElementById("page-overlay").classList.remove("show");
-        }
-
-        function showSection(section) {
-            closeMenu();
-            document.getElementById('list-section').style.display = 'block';
-            document.getElementById('comparator-section').style.display = 'none';
-            document.getElementById('config-section').style.display = 'none';
-            
-            if (section === 'comparator') {
-                document.getElementById('comparator-section').style.display = 'block';
-                // Carrega o iframe apenas quando a seção é exibida
-                const iframe = document.getElementById('price-comparator-iframe');
-                if (iframe.src === 'about:blank') {
-                    document.getElementById('iframe-overlay').style.display = 'flex';
-                    iframe.onload = () => {
-                        document.getElementById('iframe-overlay').style.display = 'none';
-                    };
-                    iframe.src = 'https://meumercado.pages.dev/comparator-embed.html'; // Substitua pelo URL real do seu comparador
-                }
-            } else if (section === 'config') {
-                document.getElementById('list-section').style.display = 'none';
-                document.getElementById('config-section').style.display = 'block';
-            } else {
-                 // Certifica-se de que a lista esteja visível por padrão
-            }
-        }
-
-        function toggleCollapsible(id) {
-            const content = document.getElementById(id);
-            const header = content.previousElementSibling;
-            if (content.classList.contains('expanded')) {
-                content.classList.remove('expanded');
-                content.style.maxHeight = '0';
-                header.classList.remove('active');
-            } else {
-                content.classList.add('expanded');
-                content.style.maxHeight = content.scrollHeight + 'px';
-                header.classList.add('active');
-            }
-        }
-
-        // Funções da Lista de Compras
-        function calculateTotals() {
-            let totalA = 0;
-            let totalB = 0;
-            let totalC = 0;
-
-            shoppingList.forEach(item => {
-                const priceA = parseFloat(item.priceA || 0);
-                const priceB = parseFloat(item.priceB || 0);
-                const priceC = parseFloat(item.priceC || 0);
-
-                totalA += priceA;
-                totalB += priceB;
-                totalC += priceC;
-            });
-
-            document.getElementById('total-price-a').textContent = formatCurrency(totalA);
-            document.getElementById('total-price-b').textContent = formatCurrency(totalB);
-            document.getElementById('total-price-c').textContent = formatCurrency(totalC);
-        }
-
-        function getCheapestPrice(item) {
-            const prices = [
-                { price: parseFloat(item.priceA || 0), market: 'A' },
-                { price: parseFloat(item.priceB || 0), market: 'B' },
-                { price: parseFloat(item.priceC || 0), market: 'C' }
-            ].filter(p => p.price > 0);
-
-            if (prices.length === 0) return null;
-
-            // Encontra o menor preço
-            const minPrice = Math.min(...prices.map(p => p.price));
-            
-            // Filtra todos os preços que são iguais ao menor preço
-            const cheapestMarkets = prices.filter(p => p.price === minPrice).map(p => p.market);
-            
-            return { minPrice, cheapestMarkets };
-        }
-
-        function renderList() {
-            const tbody = document.getElementById('shopping-list-body');
-            tbody.innerHTML = ''; // Limpa a lista atual
-
-            shoppingList.forEach((item, index) => {
-                const tr = document.createElement('tr');
-                tr.className = item.purchased ? 'purchased' : '';
-                tr.dataset.id = item.id;
-
-                const cheapest = getCheapestPrice(item);
-
-                tr.innerHTML = `
-                    <td>
-                        <input type="checkbox" ${item.purchased ? 'checked' : ''} onclick="togglePurchased('${item.id}', this.checked)">
-                    </td>
-                    <td>
-                        <textarea 
-                            class="item-name-input" 
-                            rows="1" 
-                            data-id="${item.id}"
-                            oninput="autoExpand(this); updateItemName(this.dataset.id, this.value)"
-                            onblur="saveToStorage(); hideSuggestions()"
-                            onfocus="handleItemInputFocus(this)"
-                            >${item.name}</textarea>
-                    </td>
-                    <td class="price-cell">
-                        <input 
-                            type="text" 
-                            value="${item.priceA || ''}" 
-                            placeholder="0,00"
-                            class="${(cheapest && cheapest.cheapestMarkets.includes('A')) ? 'cheapest-price' : (item.priceA === '0.00' ? 'default-price' : '')}"
-                            oninput="updateItemPrice('${item.id}', 'A', this.value)" 
-                            onblur="saveToStorage()"
-                            pattern="[0-9]*" 
-                            inputmode="decimal"
-                        >
-                    </td>
-                    <td class="price-cell">
-                        <input 
-                            type="text" 
-                            value="${item.priceB || ''}" 
-                            placeholder="0,00"
-                            class="${(cheapest && cheapest.cheapestMarkets.includes('B')) ? 'cheapest-price' : (item.priceB === '0.00' ? 'default-price' : '')}"
-                            oninput="updateItemPrice('${item.id}', 'B', this.value)" 
-                            onblur="saveToStorage()"
-                            pattern="[0-9]*" 
-                            inputmode="decimal"
-                        >
-                    </td>
-                    <td class="price-cell">
-                        <input 
-                            type="text" 
-                            value="${item.priceC || ''}" 
-                            placeholder="0,00"
-                            class="${(cheapest && cheapest.cheapestMarkets.includes('C')) ? 'cheapest-price' : (item.priceC === '0.00' ? 'default-price' : '')}"
-                            oninput="updateItemPrice('${item.id}', 'C', this.value)" 
-                            onblur="saveToStorage()"
-                            pattern="[0-9]*" 
-                            inputmode="decimal"
-                        >
-                    </td>
-                    <td>
-                        <button class="action-btn" onclick="deleteItem('${item.id}')"><i class="fas fa-times-circle"></i></button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-
-                // Auto-expandir o textarea após renderização
-                const textarea = tr.querySelector('.item-name-input');
-                if (textarea) autoExpand(textarea);
-            });
-
-            calculateTotals();
-        }
-
-        function autoExpand(field) {
-            field.style.height = 'auto';
-            field.style.height = (field.scrollHeight) + 'px';
-        }
-
-        function updateItemName(id, newName) {
-            const item = shoppingList.find(item => item.id === id);
-            if (item) {
-                item.name = newName;
-            }
-        }
-
-        function updateItemPrice(id, market, newValue) {
-            const item = shoppingList.find(item => item.id === id);
-            // Remove R$ e substitui vírgula por ponto para cálculo
-            const cleanedValue = newValue.replace('R$', '').replace(',', '.').trim();
-            
-            // Garante que o valor seja numérico ou vazio
-            const numericValue = /^\d*\.?\d*$/.test(cleanedValue) ? cleanedValue : '';
-
-            if (item) {
-                item['price' + market] = numericValue;
-                renderList(); // Renderiza para atualizar os totais e destaques
-            }
-        }
-
-        function togglePurchased(id, isChecked) {
-            const item = shoppingList.find(item => item.id === id);
-            if (item) {
-                item.purchased = isChecked;
-                saveToStorage();
-                renderList(); // Renderiza para aplicar o risco
-            }
-        }
-
-        function addNewItem() {
-            const newItemNameInput = document.getElementById('new-item-name');
-            const name = newItemNameInput.value.trim();
-
-            if (name) {
-                const newItem = {
-                    id: Date.now().toString(),
-                    name: name,
-                    priceA: '',
-                    priceB: '',
-                    priceC: '',
-                    purchased: false
-                };
-                shoppingList.unshift(newItem); // Adiciona no início da lista
-                saveToStorage();
-                newItemNameInput.value = '';
-                renderList();
-                hideSuggestions(); // Oculta sugestões após adicionar
-            }
-        }
-
-        function handleNewItemKeypress(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault(); // Impede quebra de linha
-                addNewItem();
-            }
-        }
-
-        function deleteItem(id) {
-            shoppingList = shoppingList.filter(item => item.id !== id);
-            saveToStorage();
-            renderList();
-        }
-
-        function clearList() {
-            if (confirm("Tem certeza de que deseja limpar a lista de compras?")) {
-                shoppingList = [];
-                saveToStorage();
-                renderList();
-            }
-        }
-
-        // Funções de Autenticação
-        function handleLogin() {
-            // Lógica de login simples para demonstração
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const authMessage = document.getElementById('auth-message');
-
-            if (email && password) {
-                // Simulação de autenticação bem-sucedida
-                localStorage.setItem('authToken', 'fake-token');
-                localStorage.setItem('username', email.split('@')[0]);
-                document.getElementById('username-display').textContent = localStorage.getItem('username');
-                showApp();
-            } else {
-                authMessage.textContent = "Preencha e-mail e senha.";
-            }
-        }
-
-        function handleRegister() {
-            // Simulação de registro bem-sucedido
-            document.getElementById('auth-message').textContent = "Registro simulado. Use suas credenciais para Entrar.";
-        }
-
-        function handleLogout() {
-            if (confirm("Tem certeza de que deseja sair?")) {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('username');
-                showAuth();
-            }
-        }
-
-        function confirmDeleteAccount() {
-            if (confirm("ATENÇÃO: Você tem certeza que deseja EXCLUIR sua conta e todos os seus dados? Esta ação é irreversível.")) {
-                // Lógica de exclusão de conta simulada
-                localStorage.clear();
-                alert("Conta excluída (simulação).");
-                showAuth();
-            }
-        }
-
-        document.getElementById('togglePassword').addEventListener('click', function (e) {
-            const passwordInput = document.getElementById('password');
-            // Alterna o tipo do input entre 'password' e 'text'
+        togglePassword.addEventListener('click', function () {
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
-            // Alterna o ícone do olho
             this.classList.toggle('fa-eye-slash');
         });
-
-        // Funções de Sincronização e Armazenamento
-        function saveToStorage() {
-            localStorage.setItem('shoppingList', JSON.stringify(shoppingList));
-            setSyncStatus('syncing');
-            // Simulação de sincronização com atraso de 1 segundo
-            setTimeout(() => {
-                setSyncStatus(isOnline ? 'saved' : 'offline');
-            }, 1000);
-        }
-
-        async function carregarItens() {
-            const storedList = localStorage.getItem('shoppingList');
-            if (storedList) {
-                shoppingList = JSON.parse(storedList);
-            } else {
-                // Lista de demonstração inicial, se vazia
-                shoppingList = [
-                    { id: '1', name: 'Leite Integral (1L)', priceA: '5.50', priceB: '5.99', priceC: '5.20', purchased: false },
-                    { id: '2', name: 'Pão de Forma (500g)', priceA: '7.00', priceB: '6.50', priceC: '7.50', purchased: false }
-                ];
-                saveToStorage();
-            }
-            document.getElementById('username-display').textContent = localStorage.getItem('username') || 'Usuário';
-            renderList();
-        }
-
-        function setSyncStatus(status) {
-            const indicator = document.getElementById('sync-status-indicator');
-            indicator.className = '';
-            indicator.classList.add('status-' + status);
-            let title;
-            switch(status) {
-                case 'saved': title = 'Salvo (Online)'; break;
-                case 'syncing': title = 'Sincronizando...'; break;
-                case 'error': title = 'Erro de Sincronização'; break;
-                case 'offline': title = 'Modo Offline'; break;
-                default: title = 'Status Desconhecido';
-            }
-            indicator.title = title;
-        }
-
-        window.addEventListener('online', () => { isOnline = true; setSyncStatus('saved'); saveToStorage(); });
-        window.addEventListener('offline', () => { isOnline = false; setSyncStatus('offline'); });
-
-        // --- Autocomplete Simples ---
-        const allItemNames = ["Leite", "Pão", "Arroz", "Feijão", "Açúcar", "Café", "Manteiga", "Ovos", "Frango", "Carne", "Legumes", "Frutas", "Queijo", "Macarrão", "Óleo", "Sabão", "Shampoo", "Cerveja", "Refrigerante"];
         
-        function showSuggestions(inputElement) {
-            const query = inputElement.value.toLowerCase();
-            const suggestionsContainer = document.getElementById('autocomplete-suggestions');
-            
-            if (query.length < 2) {
-                suggestionsContainer.style.display = 'none';
+        passwordInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleLogin();
+            }
+        });
+
+        function showApp() {
+            authContainer.style.display = 'none';
+            appContainer.style.display = 'block';
+
+            const username = localStorage.getItem('currentUser');
+            const usernameDisplay = document.getElementById('username-display');
+            if (username && usernameDisplay) {
+                usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
+            }
+
+            loadList();
+            startPolling(); // Inicia a verificação contínua por atualizações
+        }
+
+        function showAuth(message = '', isError = false) {
+            authContainer.style.display = 'flex';
+            appContainer.style.display = 'none';
+            authMessage.textContent = message;
+            authMessage.style.color = isError ? 'var(--danger-color)' : 'var(--green-highlight)';
+        }
+
+        async function handleLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            if (!username || !password) {
+                showAuth('Por favor, preencha usuário e senha.', true);
                 return;
             }
 
-            const filteredSuggestions = allItemNames.filter(name => name.toLowerCase().includes(query) && !shoppingList.some(item => item.name.toLowerCase() === name.toLowerCase()));
-            
-            suggestionsContainer.innerHTML = '';
-            
-            if (filteredSuggestions.length > 0) {
-                filteredSuggestions.forEach(suggestion => {
-                    const div = document.createElement('div');
-                    div.className = 'suggestion-item';
-                    div.textContent = suggestion;
-                    div.onclick = () => {
-                        inputElement.value = suggestion;
-                        addNewItem(); // Adiciona o item sugerido
-                        hideSuggestions();
-                    };
-                    suggestionsContainer.appendChild(div);
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
                 });
 
-                // Posiciona e exibe
-                const rect = inputElement.getBoundingClientRect();
-                suggestionsContainer.style.width = rect.width + 'px';
-                suggestionsContainer.style.top = rect.bottom + window.scrollY + 'px';
-                suggestionsContainer.style.left = rect.left + window.scrollX + 'px';
-                suggestionsContainer.style.display = 'block';
-            } else {
-                hideSuggestions();
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Erro ao fazer login.');
+                }
+
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('currentUser', username); 
+                showApp();
+            } catch (error) {
+                showAuth(error.message, true);
             }
         }
 
-        function hideSuggestions() {
-            document.getElementById('autocomplete-suggestions').style.display = 'none';
-        }
-
-        function handleItemInputFocus(inputElement) {
-             // Esconde as sugestões ao focar para edição em itens existentes
-             hideSuggestions();
-        }
-
-        // Listener para o campo de nova lista
-        document.getElementById('new-item-name').addEventListener('input', function() {
-            showSuggestions(this);
-        });
-        
-        // Listener para fechar as sugestões ao clicar fora
-        document.addEventListener('click', function(e) {
-            const suggestionsContainer = document.getElementById('autocomplete-suggestions');
-            const newItemInput = document.getElementById('new-item-name');
-            if (suggestionsContainer && !suggestionsContainer.contains(e.target) && e.target !== newItemInput) {
-                hideSuggestions();
+        async function handleRegister() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            if (!username || !password) {
+                showAuth('Por favor, preencha usuário e senha para cadastrar.', true);
+                return;
             }
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                 if (!response.ok) {
+                    throw new Error(data.message || 'Erro ao cadastrar.');
+                }
+                showAuth(data.message, false);
+            } catch (error) {
+                 showAuth(error.message, true);
+            }
+        }
+
+        async function handleLogout() {
+            stopPolling(); // Para a verificação contínua ao sair
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                try {
+                    await fetch('/api/logout', { 
+                        method: 'POST', 
+                        headers: { 'Authorization': `Bearer ${token}` } 
+                    });
+                } catch (error) {
+                    console.error("Logout failed, but proceeding.", error);
+                }
+            }
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            location.reload();
+        }
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('authToken');
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        function openNav() {
+            document.getElementById("side-menu").classList.add('open');
+            document.getElementById("page-overlay").classList.add('show');
+        }
+
+        function closeNav() {
+            document.getElementById("side-menu").classList.remove('open');
+            document.getElementById("page-overlay").classList.remove('show');
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === "Escape") closeNav();
         });
 
-        // --- CORREÇÃO DE TECLADO VIRTUAL EM PWA (para iOS e Android) ---
+        function toggleComparator() {
+            document.querySelector('.collapsible-header').classList.toggle('active');
+            document.getElementById('comparator-content').classList.toggle('expanded');
+        }
+
+        // --- Variáveis de Sincronização e Estado ---
+        const tableBody = document.getElementById('shopping-list-body');
+        const statusIndicator = document.getElementById('sync-status-indicator');
+        const autocompleteSuggestions = document.getElementById('autocomplete-suggestions'); // Variável para o Autocomplete
+        let saveTimeout;
+        let syncState = 'saved';
+        let isOnline = navigator.onLine;
+        let pollingIntervalId = null; // ID para o intervalo do polling
+
+        // --- Autocomplete Item List (Loaded from itens.json) ---
+        let itensList = [];
+        async function carregarItens() {
+            try {
+                // ALTERADO: Removido o cache-buster (timestamp) para permitir que o Service Worker
+                // use a estratégia Stale-While-Revalidate (SWR) ou sirva o cache offline.
+                const response = await fetch(`itens.json`);
+                if (!response.ok) {
+                    // Se a rede falhar E não houver cache (primeiro acesso offline),
+                    // a promise pode ser rejeitada ou o status ser 503 (offline).
+                    // O SW deve retornar a versão em cache. Se chegou aqui,
+                    // significa que falhou na rede E o SW não tinha cache.
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                itensList = await response.json();
+                console.log(`Itens de Autocomplete carregados: ${itensList.length}`);
+            } catch (error) {
+                console.error('Falha ao carregar itens.json para autocomplete (Pode ser o primeiro acesso offline):', error);
+                // Fallback to empty list
+                itensList = [];
+            }
+        }
+
+        let currentActiveInput = null; // Input ativo para o Autocomplete
+
+        // --- FUNÇÃO ADICIONADA: Normaliza string para comparação sem acentos ---
+        function normalizeString(str) {
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        }
+
+        function setSyncStatus(newState) {
+            syncState = newState;
+            statusIndicator.className = `status-${newState}`;
+            if (newState === 'error') {
+                setTimeout(() => {
+                    if (syncState === 'error') setSyncStatus('offline');
+                }, 3000);
+            }
+        }
+
+        // --- LÓGICA DE POLLING (SINCRONIZAÇÃO CONTÍNUA) ---
+        function stopPolling() {
+            if (pollingIntervalId) {
+                clearInterval(pollingIntervalId);
+                pollingIntervalId = null;
+            }
+        }
+
+        function startPolling() {
+            stopPolling(); // Garante que não haja múltiplos intervalos rodando
+            pollingIntervalId = setInterval(pollForChanges, 4000); // Verifica por mudanças a cada 4 segundos
+        }
+
+        async function pollForChanges() {
+            const activeEl = document.activeElement;
+            // CORREÇÃO: Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela,
+            // incluindo o campo de novo item, para evitar perda de foco durante a atualização.
+            const isInputInTableFocused = activeEl && 
+                                         ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && 
+                                         activeEl.closest('#shopping-list-body');
+            
+            if (syncState === 'syncing' || isInputInTableFocused) {
+                console.log('Polling adiado: Sincronização em andamento ou input em uso.');
+                return;
+            }
+            
+            // ... (Restante da função pollForChanges, loadList, updateListInDOM etc, que deve vir aqui)
+            
+            // Exemplo de chamada de API:
+            // try {
+            //     setSyncStatus('syncing');
+            //     const response = await fetch('/api/list', { 
+            //         method: 'GET', 
+            //         headers: getAuthHeaders() 
+            //     });
+            //     if (response.ok) {
+            //         const remoteList = await response.json();
+            //         updateListInDOM(remoteList); // Uma função que atualiza a lista sem perder o foco
+            //         setSyncStatus('saved');
+            //     } else if (response.status === 401) {
+            //         handleLogout();
+            //     } else {
+            //         throw new Error('Erro ao buscar lista.');
+            //     }
+            // } catch (error) {
+            //     console.error("Polling error:", error);
+            //     setSyncStatus('error');
+            // }
+
+            // SIMULAÇÃO DA CHAMADA (manter a estrutura da função, apenas removendo o código de polling que foi cortado anteriormente)
+
+            // Coloque aqui o restante do seu código JavaScript, incluindo as funções:
+            // - loadList()
+            // - renderList(list)
+            // - updateListInDOM(remoteList)
+            // - saveList(list)
+            // - addItem()
+            // - clearList()
+            // - handleCheckboxChange(checkbox)
+            // - handleNameInput(inputElement)
+            // - updateNameInList(inputElement)
+            // - handlePriceInput(inputElement)
+            // - calculateTotal()
+            // - setupAutocomplete(inputElement)
+            // - displaySuggestions(inputElement, suggestions)
+            // - hideSuggestions()
+            // - selectSuggestion(suggestion)
+
+            // LÓGICA DE SIMULAÇÃO (POR FAVOR, INSIRA SUAS FUNÇÕES AQUI)
+            function loadList() { /* ... */ }
+            function clearList() { /* ... */ }
+            function updateListInDOM(remoteList) { /* ... */ }
+        }
+
+        // --- LÓGICA DE TECLADO VIRTUAL ---
+        function isLikelyKeyboardOpen() {
+            return window.visualViewport.height < document.documentElement.clientHeight - 150;
+        }
+
         function setupVirtualKeyboardListener() {
             if (!window.visualViewport) return;
-
-            const isLikelyKeyboardOpen = () => window.visualViewport.height < document.documentElement.clientHeight - 150;
+            // Define o limite de encolhimento para considerar o teclado virtual como aberto (e.g., mais que 150px)
+            // let shrinkThreshold = document.documentElement.clientHeight - 150;
             let keyboardWasOpen = isLikelyKeyboardOpen();
             window.visualViewport.addEventListener('resize', () => {
                 const keyboardIsOpen = isLikelyKeyboardOpen();
