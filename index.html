@@ -515,7 +515,10 @@
         // --- CORREÇÃO: Lista de itens embutida ---
         let itensList = [
             { "nome": "Banana R$5" },
-            { "nome": "Sorvete bombom R$25" }
+            { "nome": "Sorvete bombom R$25" },
+            { "nome": "Leite Integral" },
+            { "nome": "Pão de Forma" },
+            { "nome": "Maçã Fuji" } // Adicionado mais alguns para teste
         ];
         
         let currentActiveInput = null; // Input ativo para o Autocomplete
@@ -544,7 +547,7 @@
         async function pollForChanges() {
             // Não faz polling se estiver offline, com a aba inativa ou se o usuário estiver digitando na lista
             const activeEl = document.activeElement;
-            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
+            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl) && activeEl.id !== 'newItemName')) {
                 return;
             }
 
@@ -566,9 +569,10 @@
         }
 
         function debounce(func, delay) {
+            let timeout;
             return function(...args) {
-                clearTimeout(saveTimeout);
-                saveTimeout = setTimeout(() => func.apply(this, args), delay);
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
             };
         }
 
@@ -708,11 +712,14 @@
         }
 
         tableBody.addEventListener('input', (event) => {
-            if (event.target.tagName.toLowerCase() === 'textarea') {
-                autoResizeTextarea(event.target);
-                debouncedHandleAutocomplete(event); // ATIVA O AUTOCOMPLETE
+            const target = event.target;
+            if (target.tagName.toLowerCase() === 'textarea') {
+                autoResizeTextarea(target);
+                if (target.id === 'newItemName') { // Apenas para o campo de novo item
+                    debouncedHandleAutocomplete(event); // ATIVA O AUTOCOMPLETE
+                }
             }
-            if (['textarea', 'input'].includes(event.target.tagName.toLowerCase())) {
+            if (['textarea', 'input'].includes(target.tagName.toLowerCase())) {
                 setSyncStatus('syncing');
                 debouncedSave();
             }
@@ -728,10 +735,13 @@
                     }
                 }, 1);
             }
-            if (target.tagName.toLowerCase() === 'textarea') { // ADICIONADO
+            if (target.tagName.toLowerCase() === 'textarea' && target.id === 'newItemName') { // APENAS para o campo de novo item
                 currentActiveInput = target; // Rastreia o input ativo
-                // Opcional: reabrir o autocomplete se houver texto
-                // debouncedHandleAutocomplete(event); 
+                // Chama o autocomplete imediatamente ao focar, caso já haja texto.
+                handleAutocompleteInput(event); 
+            } else if (target.tagName.toLowerCase() === 'textarea') {
+                 // Para outros textareas (itens já existentes), limpa o autocomplete
+                 closeAutocomplete();
             }
         }, true);
 
@@ -742,7 +752,7 @@
                 setSyncStatus('syncing');
                 debouncedSave();
             }
-            if (event.target.tagName.toLowerCase() === 'textarea') { // ADICIONADO
+            if (event.target.tagName.toLowerCase() === 'textarea' && event.target.id === 'newItemName') { // APENAS para o campo de novo item
                 // Atraso para permitir o clique na sugestão
                 setTimeout(() => {
                     // Só feche se o mouse não estiver sobre as sugestões
@@ -755,15 +765,13 @@
         
         // --- Funções do Autocomplete ---
         
-        // --- REMOVIDA: function carregarItens() ---
-        // A lista de itens agora está embutida na variável 'itensList'
-
         function updateAutocompletePosition() {
             if (currentActiveInput && autocompleteSuggestions.style.display === 'block') {
                 const rect = currentActiveInput.getBoundingClientRect();
                 autocompleteSuggestions.style.top = `${rect.bottom + window.scrollY}px`;
                 autocompleteSuggestions.style.left = `${rect.left + window.scrollX}px`;
-                autocompleteSuggestions.style.width = `${rect.width}px`;
+                // Garante que a largura seja igual à do campo de texto
+                autocompleteSuggestions.style.width = `${rect.width + 16}px`; // Adiciona padding horizontal
             }
         }
         window.addEventListener('scroll', updateAutocompletePosition, true);
@@ -774,7 +782,7 @@
         }
 
         const handleAutocompleteInput = (event) => {
-            const inputText = event.target.value.toLowerCase();
+            const inputText = (event.target.value || '').toLowerCase();
             currentActiveInput = event.target; // Garante que temos o input
             updateAutocompletePosition();
 
@@ -820,7 +828,8 @@
                     const row = currentActiveInput.closest('tr');
                     const shibataInput = row.cells[2].querySelector('input');
                     if (shibataInput) {
-                        shibataInput.focus();
+                        // Tenta mover o foco para o próximo campo
+                        setTimeout(() => shibataInput.focus(), 50); 
                     }
                 }
             }
@@ -841,7 +850,8 @@
             `;
             const newItemInput = document.getElementById('newItemName');
             newItemInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
+                // Apenas comitar/mover se o autocomplete não estiver aberto e a tecla for Enter
+                if (event.key === 'Enter' && !event.shiftKey && autocompleteSuggestions.style.display !== 'block') {
                     event.preventDefault();
                     commitItem();
                 }
@@ -856,6 +866,8 @@
                 itemNameInput.focus();
                 return;
             }
+            
+            closeAutocomplete(); // Garante que fecha ao comitar
             
             const row = itemNameInput.closest('tr');
             const priceShibata = row.cells[2].querySelector('input').value || 'R$ 0,00';
