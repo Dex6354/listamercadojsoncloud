@@ -818,19 +818,17 @@
                 
                 closeAutocomplete();
                 
-                // Disparar manualmente as funções de redimensionar e salvar
+                // Disparar manualmente a função de redimensionar
                 autoResizeTextarea(currentActiveInput);
-                setSyncStatus('syncing');
-                debouncedSave();
                 
-                // Mover o foco para o próximo input (preço Shibata) se for a linha de "novo item"
+                // *** ALTERAÇÃO APLICADA AQUI ***
+                // Chamar commitItem() para adicionar o item imediatamente à lista
                 if (currentActiveInput.id === 'newItemName') {
-                    const row = currentActiveInput.closest('tr');
-                    const shibataInput = row.cells[2].querySelector('input');
-                    if (shibataInput) {
-                        // Tenta mover o foco para o próximo campo
-                        setTimeout(() => shibataInput.focus(), 50); 
-                    }
+                    commitItem(); 
+                } else {
+                    // Para o caso de Autocomplete ser usado em outro lugar, apenas salva
+                    setSyncStatus('syncing');
+                    debouncedSave();
                 }
             }
         });
