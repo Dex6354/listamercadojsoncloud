@@ -523,16 +523,20 @@
         
         async function carregarItens() {
             try {
-                // Adiciona um cache-buster (timestamp) para forçar o navegador a buscar a nova versão do JSON
-                const cacheBuster = new Date().getTime(); 
-                const response = await fetch(`itens.json?t=${cacheBuster}`);
+                // ALTERADO: Removido o cache-buster (timestamp) para permitir que o Service Worker
+                // use a estratégia Stale-While-Revalidate (SWR) ou sirva o cache offline.
+                const response = await fetch(`itens.json`); 
                 if (!response.ok) {
+                    // Se a rede falhar E não houver cache (primeiro acesso offline), 
+                    // a promise pode ser rejeitada ou o status ser 503 (offline).
+                    // O SW deve retornar a versão em cache. Se chegou aqui, 
+                    // significa que falhou na rede E o SW não tinha cache.
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 itensList = await response.json();
                 console.log(`Itens de Autocomplete carregados: ${itensList.length}`);
             } catch (error) {
-                console.error('Falha ao carregar itens.json para autocomplete:', error);
+                console.error('Falha ao carregar itens.json para autocomplete (Pode ser o primeiro acesso offline):', error);
                 // Fallback to empty list
                 itensList = [];
             }
