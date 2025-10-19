@@ -2,7 +2,7 @@
   "name": "Meu Mercado - Lista de Compras",
   "short_name": "Meu Mercado",
   "start_url": ".",
-  "display": "standalone",
+  "display": "minimal-ui",
   "background_color": "#2c2c2c",
   "theme_color": "#ffc107",
   "description": "Sua lista de compras inteligente com comparador de preços e otimização.",
