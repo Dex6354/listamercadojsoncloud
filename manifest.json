@@ -1,32 +1,19 @@
 {
-  "name": "Meu Mercado - Lista Inteligente",
+  "name": "Meu Mercado - Lista de Compras",
   "short_name": "Meu Mercado",
-  "description": "Sua lista de compras inteligente com comparador de preços.",
-  "start_url": "./index.html",
-  "scope": "./",
-  
-  // O valor principal que será usado por padrão
+  "start_url": ".",
   "display": "standalone",
-  
-  // Propriedade para navegadores que suportam (como Chrome),
-  // que define uma ordem de preferência que o navegador usará ANTES de 'display'.
-  // Isso pode influenciar a forma como a UI do navegador se comporta e,
-  // consequentemente, as opções que ele oferece no menu.
-  "display_override": [
-    "minimal-ui", 
-    "standalone"
-  ],
-  
-  "background_color": "#212121",
+  "background_color": "#2c2c2c",
   "theme_color": "#ffc107",
+  "description": "Sua lista de compras inteligente com comparador de preços e otimização.",
   "icons": [
     {
-      "src": "01-192.png",
+      "src": "01.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "01-512.png",
+      "src": "01.png",
       "sizes": "512x512",
       "type": "image/png"
     }
