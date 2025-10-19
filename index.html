@@ -263,7 +263,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            /* NOVO: Linha cinza entre itens */
+            /* Linha cinza entre itens */
             border-bottom: 1px solid #666; 
         }
         .suggestion-item:last-child {
@@ -303,8 +303,10 @@
             <a href="#"><i class="fas fa-history"></i> Histórico</a>
             <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
             
-            <a href="javascript:void(0)" id="install-pwa-link" style="display:none;" onclick="promptInstallation()"><i class="fas fa-mobile-screen-button"></i> Instalar App (PWA)</a>
+            <!-- ITEM 1: Instalar como App (PWA) - Agora sempre visível -->
+            <a href="javascript:void(0)" id="install-pwa-link" onclick="promptInstallation()"><i class="fas fa-mobile-screen-button"></i> Instalar App (PWA)</a>
             
+            <!-- ITEM 2: Atalho no Navegador (Guia de instrução manual) - Sempre visível -->
             <a href="javascript:void(0)" onclick="showShortcutInstructions()"><i class="fas fa-link"></i> Atalho no Navegador</a>
             
             <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
@@ -514,23 +516,18 @@
             document.getElementById('comparator-content').classList.toggle('expanded');
         }
 
-        // --- NOVO: GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
+        // --- GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
         let deferredPrompt;
 
         // 1. Captura o evento PWA antes de ele ser mostrado
         window.addEventListener('beforeinstallprompt', (e) => {
-            // Previne que o mini-infobar padrão do Chrome apareça
             e.preventDefault();
-            // Guarda o evento para que o botão personalizado possa acioná-lo depois
             deferredPrompt = e;
-            // Mostra o botão de instalação no menu lateral
-            const installLink = document.getElementById('install-pwa-link');
-            if (installLink) {
-                installLink.style.display = 'block';
-            }
+            // Não precisa mais mostrar/esconder o botão, ele está sempre visível
+            console.log('Evento beforeinstallprompt capturado. PWA está pronto para ser instalado.');
         });
 
-        // 2. Função para disparar o prompt de instalação PWA (Item "como se fosse instalado")
+        // 2. Função para disparar o prompt de instalação PWA (Item "Instalar App (PWA)")
         async function promptInstallation() {
             closeNav(); // Fecha o menu
 
@@ -542,22 +539,21 @@
                 
                 console.log(`User response to the install prompt: ${outcome}`);
                 
-                // O deferredPrompt não pode ser usado novamente, então limpamos e escondemos o botão
+                // O deferredPrompt não pode ser usado novamente
                 deferredPrompt = null;
-                document.getElementById('install-pwa-link').style.display = 'none';
-
+                
                 if (outcome === 'accepted') {
                     alert('O aplicativo foi adicionado à sua tela inicial!');
                 } else {
-                    alert('Instalação cancelada. Você ainda pode criar um atalho manual no navegador, use a opção "Atalho no Navegador" no menu para ver as instruções.');
+                    alert('Instalação cancelada. Use o atalho "Atalho no Navegador" para as instruções de atalho manual.');
                 }
             } else {
                  // Caso o app já esteja instalado ou a opção PWA não esteja disponível
-                alert('A opção de instalação PWA não está disponível no momento (talvez o app já esteja instalado ou a opção foi recusada). Por favor, use a opção "Atalho no Navegador" para as instruções de atalho manual.');
+                alert('A opção de instalação rápida não está disponível (o app pode já estar instalado). Por favor, use a opção "Atalho no Navegador" para as instruções de atalho manual.');
             }
         }
         
-        // 3. Função para exibir as instruções do atalho do navegador (Item "dentro do navegador")
+        // 3. Função para exibir as instruções do atalho do navegador (Item "Atalho no Navegador")
         function showShortcutInstructions() {
             closeNav();
             
@@ -575,16 +571,12 @@
             alert(message);
         }
 
-        // 4. Garante que o botão de instalação suma após a instalação
+        // 4. Garante que o deferredPrompt seja limpo após a instalação
         window.addEventListener('appinstalled', () => {
-            const installLink = document.getElementById('install-pwa-link');
-            if (installLink) {
-                installLink.style.display = 'none';
-            }
             deferredPrompt = null;
         });
         
-        // --- FIM NOVO: GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
+        // --- FIM GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
 
 
         // --- Variáveis de Sincronização e Estado ---
@@ -601,14 +593,9 @@
         
         async function carregarItens() {
             try {
-                // ALTERADO: Removido o cache-buster (timestamp) para permitir que o Service Worker
-                // use a estratégia Stale-While-Revalidate (SWR) ou sirva o cache offline.
+                // Removido o cache-buster (timestamp)
                 const response = await fetch(`itens.json`); 
                 if (!response.ok) {
-                    // Se a rede falhar E não houver cache (primeiro acesso offline), 
-                    // a promise pode ser rejeitada ou o status ser 503 (offline).
-                    // O SW deve retornar a versão em cache. Se chegou aqui, 
-                    // significa que falhou na rede E o SW não tinha cache.
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 itensList = await response.json();
@@ -650,8 +637,7 @@
         
         async function pollForChanges() {
             const activeEl = document.activeElement;
-            // CORREÇÃO: Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela, 
-            // incluindo o campo de novo item, para evitar perda de foco durante a digitação.
+            // Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela
             if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
                 return;
             }
@@ -754,8 +740,6 @@
                 const localOfflineItems = JSON.parse(pendingItemsJSON);
 
                 // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
-                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
-                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
                 await saveListOnline(localOfflineItems);
                 
                 // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
@@ -822,7 +806,7 @@
                 autoResizeTextarea(target);
                 
                 if (target.classList.contains('item-name-input')) { 
-                    // FIX 1: Define a posição imediatamente para evitar o salto para o topo
+                    // Define a posição imediatamente para evitar o salto para o topo
                     currentActiveInput = target; 
                     updateAutocompletePosition(); 
                     
@@ -864,7 +848,7 @@
             }
             // Aplica a lógica de fechar para QUALQUER campo de nome de item.
             if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
-                // FIX: Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
+                // Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
                 setTimeout(() => {
                     // Só feche se o mouse não estiver sobre as sugestões
                     if (!autocompleteSuggestions.matches(':hover')) {
@@ -902,10 +886,10 @@
                 return;
             }
 
-            // NOVO: Normaliza o texto de entrada para comparação sem acentos
+            // Normaliza o texto de entrada para comparação sem acentos
             const normalizedInput = normalizeString(inputText);
 
-            // NOVO: Filtra usando a string normalizada
+            // Filtra usando a string normalizada
             const filteredItens = itensList.filter(item => 
                 normalizeString(item.nome).includes(normalizedInput)
             );
@@ -1051,6 +1035,7 @@
             await syncOfflineChanges();
             await loadList();
             startPolling(); // Reinicia o polling ao ficar online
+            setSyncStatus('saved'); // Status "salvo" após sincronização
         });
         window.addEventListener('offline', () => {
             isOnline = false;
