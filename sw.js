@@ -5,7 +5,7 @@ const CACHE_NAME = 'meu-mercado-cache-v3';
 const urlsToCache = [
   '/', 
   'index.html',
-  // REMOVIDO: 'itens.json' foi removido daqui. Ele será gerenciado com SWR na função fetch.
+  'itens.json',
   '01.png',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/webfonts/fa-brands-400.woff2',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/webfonts/fa-solid-900.woff2', 
