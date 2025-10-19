@@ -724,8 +724,12 @@
             const target = event.target;
             if (target.tagName.toLowerCase() === 'textarea') {
                 autoResizeTextarea(target);
-                // Chama o autocomplete para QUALQUER campo de nome de item.
+                
                 if (target.classList.contains('item-name-input')) { 
+                    // FIX 1: Define a posição imediatamente para evitar o salto para o topo
+                    currentActiveInput = target; 
+                    updateAutocompletePosition(); 
+                    
                     debouncedHandleAutocomplete(event); 
                 }
             }
@@ -764,20 +768,20 @@
             }
             // Aplica a lógica de fechar para QUALQUER campo de nome de item.
             if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
-                // Atraso para permitir o clique na sugestão
+                // FIX 3: Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
                 setTimeout(() => {
                     // Só feche se o mouse não estiver sobre as sugestões
                     if (!autocompleteSuggestions.matches(':hover')) {
                         closeAutocomplete();
                     }
-                }, 200);
+                }, 50); 
             }
         }, true);
         
         // --- Funções do Autocomplete ---
         
         function updateAutocompletePosition() {
-            if (currentActiveInput && autocompleteSuggestions.style.display === 'block') {
+            if (currentActiveInput) { // Remove check for display: 'block' for immediate positioning
                 const rect = currentActiveInput.getBoundingClientRect();
                 autocompleteSuggestions.style.top = `${rect.bottom + window.scrollY}px`;
                 autocompleteSuggestions.style.left = `${rect.left + window.scrollX}px`;
@@ -794,8 +798,8 @@
 
         const handleAutocompleteInput = (event) => {
             const inputText = (event.target.value || '').toLowerCase();
-            currentActiveInput = event.target; // Garante que temos o input
-            updateAutocompletePosition();
+            currentActiveInput = event.target; 
+            updateAutocompletePosition(); // Repositioning again after debounce, but mostly for initial setting in debounce logic
 
             if (inputText.length < 1 || !itensList || itensList.length === 0) {
                 autocompleteSuggestions.style.display = 'none';
