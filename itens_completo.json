@@ -1,8 +1,7 @@
- [
- {
-    "nome": "Banana R$5"
-  },
-  {
-    "nome": "Sorvete bombom R$25"
-  }
+[
+ { "nome": "Banana R$5" },
+ { "nome": "Sorvete bombom R$25" },
+ { "nome": "Leite Integral" },
+ { "nome": "Pão de Forma" },
+ { "nome": "Feijão" }
 ]
