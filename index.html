@@ -263,6 +263,12 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            /* NOVO: Linha cinza entre itens */
+            border-bottom: 1px solid #444; 
+        }
+        .suggestion-item:last-child {
+            /* Remove a borda do último item para não duplicar o contorno */
+            border-bottom: none; 
         }
         .suggestion-item:hover {
             background-color: #555;
