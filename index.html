@@ -511,7 +511,13 @@
         let syncState = 'saved';
         let isOnline = navigator.onLine;
         let pollingIntervalId = null; // ID para o intervalo do polling
-        let itensList = []; // Lista para o Autocomplete
+        
+        // --- CORREÇÃO: Lista de itens embutida ---
+        let itensList = [
+            { "nome": "Banana R$5" },
+            { "nome": "Sorvete bombom R$25" }
+        ];
+        
         let currentActiveInput = null; // Input ativo para o Autocomplete
 
         function setSyncStatus(newState) {
@@ -724,6 +730,8 @@
             }
             if (target.tagName.toLowerCase() === 'textarea') { // ADICIONADO
                 currentActiveInput = target; // Rastreia o input ativo
+                // Opcional: reabrir o autocomplete se houver texto
+                // debouncedHandleAutocomplete(event); 
             }
         }, true);
 
@@ -737,23 +745,18 @@
             if (event.target.tagName.toLowerCase() === 'textarea') { // ADICIONADO
                 // Atraso para permitir o clique na sugestão
                 setTimeout(() => {
-                    closeAutocomplete();
+                    // Só feche se o mouse não estiver sobre as sugestões
+                    if (!autocompleteSuggestions.matches(':hover')) {
+                        closeAutocomplete();
+                    }
                 }, 200);
             }
         }, true);
         
         // --- Funções do Autocomplete ---
-        async function carregarItens() {
-            try {
-                const response = await fetch('itens_completo.json');
-                if (!response.ok) throw new Error('Falha ao carregar a lista de itens.');
-                itensList = await response.json();
-                console.log("Lista de itens carregada.");
-            } catch (error) {
-                console.error(error);
-                // Falha silenciosa, o autocomplete apenas não funcionará.
-            }
-        }
+        
+        // --- REMOVIDA: function carregarItens() ---
+        // A lista de itens agora está embutida na variável 'itensList'
 
         function updateAutocompletePosition() {
             if (currentActiveInput && autocompleteSuggestions.style.display === 'block') {
@@ -811,6 +814,15 @@
                 autoResizeTextarea(currentActiveInput);
                 setSyncStatus('syncing');
                 debouncedSave();
+                
+                // Mover o foco para o próximo input (preço Shibata) se for a linha de "novo item"
+                if (currentActiveInput.id === 'newItemName') {
+                    const row = currentActiveInput.closest('tr');
+                    const shibataInput = row.cells[2].querySelector('input');
+                    if (shibataInput) {
+                        shibataInput.focus();
+                    }
+                }
             }
         });
         // --- Fim das Funções do Autocomplete ---
@@ -844,7 +856,18 @@
                 itemNameInput.focus();
                 return;
             }
-            buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true); 
+            
+            const row = itemNameInput.closest('tr');
+            const priceShibata = row.cells[2].querySelector('input').value || 'R$ 0,00';
+            const priceNagumo = row.cells[3].querySelector('input').value || 'R$ 0,00';
+
+            buildItemRow({ 
+                name: itemName, 
+                priceShibata: priceShibata, 
+                priceNagumo: priceNagumo, 
+                purchased: false 
+            }, true); 
+            
             createAddItemRow(true);
             saveList(); 
         }
@@ -999,8 +1022,9 @@
         }
 
         // --- INICIALIZAÇÃO DA APLICAÇÃO ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            await carregarItens(); // Carrega a lista de itens primeiro
+        document.addEventListener('DOMContentLoaded', () => {
+            // REMOVIDO: await carregarItens(); (itensList já está definida)
+            
             if (localStorage.getItem('authToken')) {
                 showApp();
             } else {
