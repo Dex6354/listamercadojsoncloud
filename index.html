@@ -303,10 +303,10 @@
             <a href="#"><i class="fas fa-history"></i> Histórico</a>
             <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
             
-            <!-- ITEM 1: Instalar como App (PWA) - Agora sempre visível -->
+            <!-- ITEM 1: Instalar como App (PWA) - Dispara o prompt PWA nativo -->
             <a href="javascript:void(0)" id="install-pwa-link" onclick="promptInstallation()"><i class="fas fa-mobile-screen-button"></i> Instalar App (PWA)</a>
             
-            <!-- ITEM 2: Atalho no Navegador (Guia de instrução manual) - Sempre visível -->
+            <!-- ITEM 2: Atalho no Navegador - Fornece instruções para o atalho via browser -->
             <a href="javascript:void(0)" onclick="showShortcutInstructions()"><i class="fas fa-link"></i> Atalho no Navegador</a>
             
             <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
@@ -523,7 +523,6 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            // Não precisa mais mostrar/esconder o botão, ele está sempre visível
             console.log('Evento beforeinstallprompt capturado. PWA está pronto para ser instalado.');
         });
 
@@ -545,7 +544,7 @@
                 if (outcome === 'accepted') {
                     alert('O aplicativo foi adicionado à sua tela inicial!');
                 } else {
-                    alert('Instalação cancelada. Use o atalho "Atalho no Navegador" para as instruções de atalho manual.');
+                    alert('Instalação cancelada. Se preferir um atalho que abra no navegador, use a opção "Atalho no Navegador" para as instruções.');
                 }
             } else {
                  // Caso o app já esteja instalado ou a opção PWA não esteja disponível
@@ -557,7 +556,6 @@
         function showShortcutInstructions() {
             closeNav();
             
-            // Tenta identificar o navegador para instruções mais precisas
             const ua = navigator.userAgent;
             let browser = 'seu navegador';
             if (ua.indexOf("Chrome") > -1 && ua.indexOf("Edg") === -1) browser = "Google Chrome";
@@ -565,9 +563,17 @@
             else if (ua.indexOf("SamsungBrowser") > -1) browser = "Samsung Internet";
             else if (ua.indexOf("Edg") > -1) browser = "Microsoft Edge";
             else if (ua.indexOf("Opera") > -1) browser = "Opera";
+            // Verifica se é iOS (Safari/Chrome no iOS)
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            
+            let message = '';
+            
+            if (isIOS) {
+                message = `Para criar um atalho que abre no seu navegador Safari (apenas link):\n\n1. Toque no ícone **"Compartilhar"** (um quadrado com uma seta para cima) na barra inferior.\n2. Role para baixo e toque em **"Adicionar à Tela de Início"**.\n\n**Atenção:** No iOS, o resultado será um atalho que abre o Safari, mas sem a barra de endereço. Se quiser a experiência completa de App, use a opção 'Instalar App (PWA)' no Chrome ou outro navegador compatível.`;
+            } else {
+                 message = `Esta opção cria um atalho que **SEMPRE ABRE DENTRO DO ${browser}** (com a barra de endereço visível), diferente da opção 'Instalar App (PWA)' (que esconde a barra de endereço).\n\nSiga os passos no seu Android:\n\n1. Abra o menu do seu navegador (geralmente 3 pontos no canto superior/inferior).\n2. Procure pela opção **"Adicionar à tela inicial"** ou similar.\n3. Confirme o atalho.\n\n**IMPORTANTE:** Em navegadores que suportam PWA, o atalho criado pode ter o mesmo comportamento de "aplicativo". Se isso ocorrer, a única forma de forçar a abertura no navegador completo é abrindo o aplicativo do navegador diretamente e acessando o site.`;
+            }
 
-
-            let message = `Para criar um atalho que **sempre abre dentro do ${browser}** e não como um "aplicativo", siga os passos no seu Android:\n\n1. Abra o menu do seu navegador (geralmente 3 pontos ou um ícone no canto superior/inferior).\n2. Procure pela opção **"Adicionar à tela inicial"** ou similar.\n3. Confirme o nome do atalho e toque em **"Adicionar"**.\n\nNa maioria dos navegadores, isso criará um atalho na sua tela inicial que abrirá o site dentro da janela normal do navegador.`;
             alert(message);
         }
 
