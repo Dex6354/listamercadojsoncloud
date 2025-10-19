@@ -243,45 +243,43 @@
         #sync-status-indicator.status-offline { background-color: #7986cb; }
 
         /* --- Autocomplete --- */
-        #autocomplete-suggestions { 
-            position: absolute; 
-            background-color: var(--input-bg-color); 
-            border: 1px solid var(--primary-color); 
-            border-top: none; 
-            border-radius: 0 0 8px 8px; 
+        #autocomplete-suggestions {
+            position: absolute;
+            background-color: var(--input-bg-color);
+            border: 1px solid var(--primary-color);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
             z-index: 1002; /* Mais alto que o overlay do menu */
-            max-height: 200px; 
-            overflow-y: auto; 
-            display: none; 
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
-        .suggestion-item { 
-            padding: 8px 10px; 
-            cursor: pointer; 
-            color: var(--text-color); 
-            font-size: 0.875rem; 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
+        .suggestion-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            color: var(--text-color);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
             /* NOVO: Linha cinza entre itens */
-            border-bottom: 1px solid #666;
+            border-bottom: 1px solid #666; 
         }
         .suggestion-item:last-child {
             /* Remove a borda do último item para não duplicar o contorno */
-            border-bottom: none;
+            border-bottom: none; 
         }
-        .suggestion-item:hover { background-color: #555; }
+        .suggestion-item:hover {
+            background-color: #555;
+        }
 
-
-        @media (min-width: 768px) {
-            .shopping-list-table colgroup col:nth-child(2) { width: 450px; }
-        }
-        @media (min-width: 1024px) {
-            .shopping-list-table colgroup col:nth-child(2) { width: 550px; }
-        }
+        @media (min-width: 768px) { .shopping-list-table colgroup col:nth-child(2) { width: 450px; } }
+        @media (min-width: 1024px) { .shopping-list-table colgroup col:nth-child(2) { width: 550px; } }
     </style>
 </head>
 <body>
+
     <div id="auth-container">
         <div class="auth-box">
             <h2><i class="fas fa-lock"></i> Acesso Seguro</h2>
@@ -290,863 +288,782 @@
                 <input type="password" id="password" class="auth-input" placeholder="Senha" autocomplete="current-password">
                 <i class="fas fa-eye" id="togglePassword"></i>
             </div>
-            <p id="auth-message"></p>
             <div class="auth-buttons">
-                <button id="login-btn" class="custom-btn">Entrar</button>
-                <button id="register-btn" class="custom-btn secondary">Registrar</button>
+                <button class="custom-btn" onclick="handleLogin()">Entrar</button>
+                <button class="custom-btn secondary" onclick="handleRegister()">Cadastrar</button>
             </div>
+            <p id="auth-message"></p>
         </div>
     </div>
 
     <div id="app-container">
         <div id="side-menu" class="side-menu">
-            <a href="javascript:void(0)" class="close-btn" onclick="closeMenu()">&times;</a>
-            <a href="#" id="menu-my-list"><i class="fas fa-shopping-cart"></i> Minha Lista</a>
-            <a href="#" id="menu-optimize"><i class="fas fa-route"></i> Otimizar Rota</a>
-            <a href="#" id="menu-export"><i class="fas fa-file-export"></i> Exportar Lista</a>
-            <a href="#" id="menu-import"><i class="fas fa-file-import"></i> Importar Lista</a>
-            <a href="#" id="menu-clear-historic"><i class="fas fa-history"></i> Limpar Histórico</a>
-            <a href="#" id="logout-btn-menu"><i class="fas fa-sign-out-alt"></i> Sair</a>
+            <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
+            <a href="#"><i class="fas fa-list-check"></i> Minha Lista</a>
+            <a href="#"><i class="fas fa-history"></i> Histórico</a>
+            <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
+            <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
         </div>
+        <div id="page-overlay" onclick="closeNav()"></div>
 
-        <div id="page-overlay" onclick="closeMenu()"></div>
-        
-        <header class="header">
-            <i class="fas fa-bars menu-icon" onclick="openMenu()"></i>
-            <div class="title">
-                <img src="01.png" alt="Logo"> 
-                Meu Mercado
-            </div>
-            <div class="header-right">
-                <div id="username-display"></div>
-                <div id="sync-status-indicator" title="Status de Sincronização"></div>
-            </div>
-        </header>
+        <div id="main-content-wrapper">
+            <div class="header">
+                <span class="menu-icon" onclick="openNav()">&#9776;</span>
+                <span class="title">
+                    <img src="01.png" alt="Ícone">
+                    Meu Mercado
+                </span>
 
-        <main class="container">
-            <div id="comparator-section" class="section">
-                <div class="collapsible-header" id="collapsible-header-btn">
-                    <h2><i class="fas fa-balance-scale"></i> Comparador de Preços (Beta)</h2>
-                    <i class="fas fa-chevron-down"></i>
+                <div class="header-right">
+                    <span id="username-display"></span>
+                    <div id="sync-status-indicator"></div>
                 </div>
-                <div class="collapsible-content" id="collapsible-content">
-                    <div class="button-group" style="margin-bottom: 15px;">
-                        <button id="generate-comparison-btn" class="custom-btn" disabled><i class="fas fa-magic"></i> Gerar Comparação</button>
-                        <button id="reset-comparison-btn" class="custom-btn secondary" disabled><i class="fas fa-times-circle"></i> Limpar</button>
+                </div>
+
+            <div class="container">
+                <div class="section shopping-list-section">
+                    <div class="section-header">
+                        <h2>Meus Itens</h2>
+                        <button class="clear-btn" onclick="clearList()" title="Limpar toda a lista">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
                     </div>
-                    <div id="comparison-result">
-                        <p id="comparison-message"></p>
+
+                    <div class="table-scroll-wrapper">
+                        <table class="shopping-list-table">
+                            <colgroup>
+                                <col style="width: 40px;"> <col style="width: 250px;"> <col style="width: 80px;"> <col style="width: 80px;"> <col style="width: 45px;"> </colgroup>
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-check"></i></th>
+                                    <th>Item</th>
+                                    <th>Shibata</th>
+                                    <th>Nagumo</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="shopping-list-body"></tbody>
+                        </table>
                     </div>
-                    <div class="iframe-container">
-                        <div id="iframe-overlay">
-                            <div class="loader"></div>
-                            <p id="overlay-text">Carregando comparativo...</p>
-                            <button id="reload-iframe-btn" class="custom-btn secondary" style="display: none;">Recarregar</button>
+                </div>
+
+                <div class="section" id="comparator-section">
+                    <div class="section-header collapsible-header" onclick="toggleComparator()">
+                        <h2>Comparador de Preços</h2>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div id="comparator-content" class="collapsible-content">
+                        <div id="iframe-wrapper" class="iframe-container">
+                            <div id="iframe-overlay">
+                                <div class="loader"></div>
+                                <span>Acordando o comparador...</span>
+                            </div>
+                            <iframe id="streamlit-app" src="https://precosmercados.streamlit.app/?embed=true&minimal=true"></iframe>
                         </div>
-                        <iframe id="comparison-iframe" allow="geolocation" style="display: none;"></iframe>
+                        <div class="button-group" style="margin-top: 16px;">
+                            <button class="custom-btn" onclick="wakeUpApp()" style="flex-grow: 1;">
+                                <i class="fas fa-sync-alt"></i> Ativar / Atualizar
+                            </button>
+                            <a href="https://precosmercados.streamlit.app/" target="_blank" rel="noopener noreferrer" class="custom-btn secondary" style="flex-grow: 1; text-align: center; text-decoration: none; line-height: 1.8;">
+                                <i class="fas fa-external-link-alt"></i> Abrir em Nova Guia
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="shopping-list-section section">
-                <div class="section-header">
-                    <h2><i class="fas fa-list-ul"></i> Lista de Compras</h2>
-                    <button id="clear-list-btn" class="clear-btn" title="Limpar Itens Comprados"><i class="fas fa-eraser"></i></button>
-                </div>
-
-                <div class="table-scroll-wrapper">
-                    <table class="shopping-list-table">
-                        <colgroup>
-                            <col style="width: 40px;"> <col style="width: auto;"> <col style="width: 80px;"> <col style="width: 80px;"> <col style="width: 60px;"> </colgroup>
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>Item</th>
-                                <th id="price1-header" data-store="store1">Preço 1</th>
-                                <th id="price2-header" data-store="store2">Preço 2</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="shopping-list-body">
-                            </tbody>
-                        <tfoot id="shopping-list-footer">
-                            <tr>
-                                <td></td>
-                                <td><input type="text" id="new-item-input" class="item-name-input" placeholder="Novo item..." data-item-id="new">
-                                    <div id="autocomplete-suggestions"></div>
-                                </td>
-                                <td></td>
-                                <td></td>
-                                <td><button id="add-item-btn" class="action-btn add" title="Adicionar Item"><i class="fas fa-plus-circle"></i></button></td>
-                            </tr>
-                            <tr id="total-row">
-                                <td colspan="2" style="text-align: right; font-weight: bold;">Total Estimado:</td>
-                                <td id="total-price1" class="cheapest-price">R$ 0,00</td>
-                                <td id="total-price2">R$ 0,00</td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-                <p id="empty-list-message" style="text-align: center; color: var(--secondary-text-color); margin-top: 15px; display: none;">Sua lista está vazia. Adicione um item!</p>
-            </div>
-
-            <div id="settings-section" class="section">
-                <h2><i class="fas fa-cog"></i> Configurações</h2>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <input type="text" id="store1-name-input" class="auth-input" placeholder="Nome da Loja 1" style="margin-bottom: 0;">
-                    <input type="text" id="store2-name-input" class="auth-input" placeholder="Nome da Loja 2" style="margin-bottom: 0;">
-                </div>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <input type="text" id="iframe-url-input" class="auth-input" placeholder="URL do Comparador (Mapa/Embed)" style="margin-bottom: 0; flex-grow: 1;">
-                    <button id="save-settings-btn" class="custom-btn"><i class="fas fa-save"></i> Salvar</button>
-                </div>
-            </div>
-
-        </main>
-
-        <footer class="footer">
-            <p>&copy; 2024 Meu Mercado - Todos os direitos reservados.</p>
-        </footer>
+            <footer class="footer">
+                Feito para facilitar suas compras. 🛒💡
+            </footer>
+        </div>
     </div>
 
+    <div id="autocomplete-suggestions"></div>
 
     <script>
-        // --- VARIÁVEIS GLOBAIS ---
-        let shoppingList = [];
-        const STORAGE_KEY = 'shoppingList';
-        const SETTINGS_KEY = 'appSettings';
-        let isOnline = navigator.onLine;
+        // --- GERENCIAMENTO DE AUTENTICAÇÃO ---
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const authMessage = document.getElementById('auth-message');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
 
-
-        // --- UTILIDADES ---
-
-        // NOVO: Função para remover acentos de uma string, essencial para a busca insensível a acentos.
-        function removeDiacritics(str) {
-            if (!str) return str;
-            // Normaliza a string para a forma de decomposição (NFD), separando acentos das letras.
-            // O regex /[\u0300-\u036f]/g encontra e remove todos os diacríticos (acentos).
-            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        }
-
-        function formatCurrency(value) {
-            return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        }
-
-        function getUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-
-        function getActiveStoreNames() {
-            const settings = loadSettings();
-            return [settings.store1Name, settings.store2Name];
-        }
-
-        // --- MANEJO DE ESTADO E PERSISTÊNCIA ---
-
-        function setSyncStatus(status) {
-            const indicator = document.getElementById('sync-status-indicator');
-            indicator.className = '';
-            indicator.classList.add(`status-${status}`);
-            
-            let title = '';
-            switch (status) {
-                case 'saved': title = 'Salvo em Nuvem/Local'; break;
-                case 'syncing': title = 'Sincronizando...'; break;
-                case 'error': title = 'Erro de Sincronização'; break;
-                case 'offline': title = 'Modo Offline'; break;
-                default: title = 'Status Desconhecido';
+        togglePassword.addEventListener('click', function () {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye-slash');
+        });
+        
+        passwordInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleLogin();
             }
-            indicator.title = title;
-        }
+        });
 
-        // --- AUTENTICAÇÃO ---
+        function showApp() {
+            authContainer.style.display = 'none';
+            appContainer.style.display = 'block';
 
-        function setUsernameDisplay(username) {
-            const display = document.getElementById('username-display');
-            if (username) {
-                display.innerHTML = `<i class="fas fa-user-circle"></i> ${username}`;
-            } else {
-                display.innerHTML = '';
+            const username = localStorage.getItem('currentUser');
+            const usernameDisplay = document.getElementById('username-display');
+            if (username && usernameDisplay) {
+                usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
             }
+
+            loadList();
+            startPolling(); // Inicia a verificação contínua por atualizações
         }
 
-        function showAuth() {
-            document.getElementById('app-container').style.display = 'none';
-            document.getElementById('auth-container').style.display = 'flex';
-            document.getElementById('password').value = '';
-            document.getElementById('username').value = localStorage.getItem('lastUsername') || '';
+        function showAuth(message = '', isError = false) {
+            authContainer.style.display = 'flex';
+            appContainer.style.display = 'none';
+            authMessage.textContent = message;
+            authMessage.style.color = isError ? 'var(--danger-color)' : 'var(--green-highlight)';
         }
 
-        function showApp(username) {
-            document.getElementById('auth-container').style.display = 'none';
-            document.getElementById('app-container').style.display = 'flex';
-            if (username) {
-                setUsernameDisplay(username);
-            }
-        }
-
-        async function attemptAuth(type) {
-            // Placeholder para lógica real de API de autenticação
-            // Para o propósito deste código estático, simula o sucesso
+        async function handleLogin() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
-            const messageEl = document.getElementById('auth-message');
-
             if (!username || !password) {
-                messageEl.textContent = 'Preencha todos os campos.';
+                showAuth('Por favor, preencha usuário e senha.', true);
                 return;
             }
 
-            // Simulação de autenticação bem-sucedida
-            const success = true; 
-            
-            if (success) {
-                // Em um app real, o token seria retornado pela API
-                const authToken = 'simulated_auth_token_for_' + username; 
-                localStorage.setItem('authToken', authToken);
-                localStorage.setItem('lastUsername', username);
-                messageEl.textContent = '';
-                await carregarItens(); // Carrega lista e histórico após login
-                showApp(username);
-            } else {
-                messageEl.textContent = type === 'login' ? 'Usuário ou senha inválidos.' : 'Falha no registro. Tente outro nome de usuário.';
-            }
-        }
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
 
-        function logout() {
-            localStorage.removeItem('authToken');
-            // Mantém lastUsername para facilitar o próximo login
-            // localStorage.removeItem('lastUsername'); 
-            shoppingList = [];
-            historicItems = [];
-            document.getElementById('shopping-list-body').innerHTML = '';
-            updateTotal();
-            showAuth();
-        }
-
-        // --- SIDE MENU ---
-
-        function openMenu() {
-            document.getElementById("side-menu").classList.add('open');
-            document.getElementById("page-overlay").classList.add('show');
-        }
-
-        function closeMenu() {
-            document.getElementById("side-menu").classList.remove('open');
-            document.getElementById("page-overlay").classList.remove('show');
-        }
-
-        // --- CONFIGURAÇÕES ---
-
-        function loadSettings() {
-            const defaultSettings = {
-                store1Name: 'Loja 1',
-                store2Name: 'Loja 2',
-                iframeUrl: '' // Exemplo: URL de um mapa otimizado ou comparador externo
-            };
-            const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || defaultSettings;
-            
-            // Garante que o objeto retornado tenha todas as chaves padrão
-            return { ...defaultSettings, ...settings };
-        }
-
-        function saveSettings(settings) {
-            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-            applySettings(settings);
-            setSyncStatus('syncing'); // Simula sincronização
-            setTimeout(() => setSyncStatus(isOnline ? 'saved' : 'offline'), 500);
-        }
-
-        function applySettings(settings) {
-            document.getElementById('store1-name-input').value = settings.store1Name;
-            document.getElementById('store2-name-input').value = settings.store2Name;
-            document.getElementById('iframe-url-input').value = settings.iframeUrl;
-
-            document.getElementById('price1-header').textContent = settings.store1Name;
-            document.getElementById('price2-header').textContent = settings.store2Name;
-
-            const iframe = document.getElementById('comparison-iframe');
-            if (settings.iframeUrl) {
-                iframe.src = settings.iframeUrl;
-                iframe.style.display = 'block';
-                document.getElementById('reload-iframe-btn').style.display = 'block';
-                document.getElementById('overlay-text').textContent = 'Carregando comparativo...';
-                document.getElementById('iframe-overlay').style.display = 'flex';
-                
-                // Habilita botões de comparação
-                document.getElementById('generate-comparison-btn').disabled = false;
-                document.getElementById('reset-comparison-btn').disabled = false;
-
-            } else {
-                iframe.src = '';
-                iframe.style.display = 'none';
-                document.getElementById('reload-iframe-btn').style.display = 'none';
-                document.getElementById('overlay-text').textContent = 'Adicione uma URL do comparador nas Configurações para habilitar o recurso.';
-                document.getElementById('iframe-overlay').style.display = 'flex';
-
-                // Desabilita botões de comparação
-                document.getElementById('generate-comparison-btn').disabled = true;
-                document.getElementById('reset-comparison-btn').disabled = true;
-            }
-        }
-
-        // --- FUNÇÕES DE LISTA ---
-
-        // Lista de itens históricos (global/cache)
-        let historicItems = [];
-        const HISTORIC_ITEMS_KEY = 'historicItems';
-
-        function loadList() {
-            const list = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-            shoppingList = list.filter(item => item.name); // Garante que só itens válidos sejam carregados
-        }
-
-        function saveList() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(shoppingList));
-            setSyncStatus('syncing'); // Simula sincronização
-            // Simula um atraso de sincronização e depois salva o status
-            setTimeout(() => setSyncStatus(isOnline ? 'saved' : 'offline'), 500); 
-        }
-
-        function loadHistoricItems() {
-            const items = JSON.parse(localStorage.getItem(HISTORIC_ITEMS_KEY)) || [];
-            historicItems = Array.from(new Set(items)); // Remove duplicatas
-        }
-
-        function saveHistoricItem(name) {
-            if (name && !historicItems.includes(name)) {
-                historicItems.unshift(name); // Adiciona no início
-                // Limita o histórico para evitar crescimento excessivo
-                if (historicItems.length > 50) { 
-                    historicItems = historicItems.slice(0, 50);
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Erro ao fazer login.');
                 }
-                localStorage.setItem(HISTORIC_ITEMS_KEY, JSON.stringify(historicItems));
+
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('currentUser', username); 
+                showApp();
+            } catch (error) {
+                showAuth(error.message, true);
             }
         }
 
-        async function carregarItens() {
-            loadSettings();
-            applySettings(loadSettings());
-            loadList();
-            loadHistoricItems();
-            renderList();
-        }
+        async function handleRegister() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            if (!username || !password) {
+                showAuth('Por favor, preencha usuário e senha para cadastrar.', true);
+                return;
+            }
 
-        function generateListItemHTML(item) {
-            const [store1Name, store2Name] = getActiveStoreNames();
-            return `
-                <tr id="item-${item.id}" data-id="${item.id}" class="${item.purchased ? 'purchased' : ''}">
-                    <td><input type="checkbox" data-action="toggle-purchased" ${item.purchased ? 'checked' : ''}></td>
-                    <td>
-                        <textarea rows="1" class="item-name-input" data-action="edit-name" data-item-id="${item.id}" placeholder="Nome do item">${item.name}</textarea>
-                        <div id="suggestions-${item.id}" class="autocomplete-suggestions"></div>
-                    </td>
-                    <td class="price-cell">
-                        <input type="text" data-action="edit-price" data-store="price1" value="${item.price1 !== undefined ? item.price1.toFixed(2).replace('.', ',') : ''}" placeholder="${store1Name}" ${item.isCheapest === 'price1' ? 'class="cheapest-price"' : item.price1 === item.price2 && item.price1 !== undefined ? 'class="equal-price"' : ''}>
-                    </td>
-                    <td class="price-cell">
-                        <input type="text" data-action="edit-price" data-store="price2" value="${item.price2 !== undefined ? item.price2.toFixed(2).replace('.', ',') : ''}" placeholder="${store2Name}" ${item.isCheapest === 'price2' ? 'class="cheapest-price"' : item.price1 === item.price2 && item.price1 !== undefined ? 'class="equal-price"' : ''}>
-                    </td>
-                    <td>
-                        <button class="action-btn" data-action="remove-item"><i class="fas fa-trash-alt"></i></button>
-                    </td>
-                </tr>
-            `;
-        }
-
-        function renderList() {
-            const tbody = document.getElementById('shopping-list-body');
-            tbody.innerHTML = shoppingList.map(generateListItemHTML).join('');
-            updateTotal();
-            // Re-bind listeners after rendering
-            setupListListeners();
-            document.getElementById('empty-list-message').style.display = shoppingList.length === 0 ? 'block' : 'none';
-        }
-
-        function addItem(name = '', price1, price2) {
-            const newItem = {
-                id: getUUID(),
-                name: name.trim(),
-                price1: price1,
-                price2: price2,
-                purchased: false,
-                isCheapest: null
-            };
-            shoppingList.push(newItem);
-            saveHistoricItem(newItem.name);
-            saveList();
-            renderList();
-
-            // Rola a página para o novo item
-            setTimeout(() => {
-                const itemRow = document.getElementById(`item-${newItem.id}`);
-                if (itemRow) {
-                    itemRow.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                    // Foca e ajusta o tamanho do textarea se o nome estiver vazio
-                    const textarea = itemRow.querySelector('.item-name-input');
-                    if (textarea && !name) {
-                         textarea.focus();
-                         adjustTextareaHeight(textarea);
-                    }
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                 if (!response.ok) {
+                    throw new Error(data.message || 'Erro ao cadastrar.');
                 }
-            }, 0);
-        }
-
-        function removeItem(id) {
-            const initialLength = shoppingList.length;
-            shoppingList = shoppingList.filter(item => item.id !== id);
-            if (shoppingList.length !== initialLength) {
-                saveList();
-                renderList();
+                showAuth(data.message, false);
+            } catch (error) {
+                 showAuth(error.message, true);
             }
         }
 
-        function clearPurchasedItems() {
-            const initialLength = shoppingList.length;
-            shoppingList = shoppingList.filter(item => !item.purchased);
-            if (shoppingList.length !== initialLength) {
-                saveList();
-                renderList();
-            }
-        }
-
-        function togglePurchased(id) {
-            const item = shoppingList.find(i => i.id === id);
-            if (item) {
-                item.purchased = !item.purchased;
-                // Move itens comprados para o final da lista (ou mantém ordem e apenas re-renderiza)
-                // Vamos apenas re-renderizar para aplicar o estilo de riscado
-                saveList();
-                renderList();
-            }
-        }
-
-        function editItemName(id, newName) {
-            const item = shoppingList.find(i => i.id === id);
-            if (item && item.name !== newName.trim()) {
-                item.name = newName.trim();
-                saveHistoricItem(item.name); // Atualiza o histórico
-                saveList();
-            }
-        }
-
-        function editItemPrice(id, store, newPriceStr) {
-            const item = shoppingList.find(i => i.id === id);
-            
-            if (item) {
-                // Remove R$ e vírgula, e converte para número
-                const cleanedPriceStr = newPriceStr.replace('R$', '').replace('.', '').replace(',', '.').trim();
-                const newPrice = parseFloat(cleanedPriceStr);
-
-                if (isNaN(newPrice) || newPrice <= 0) {
-                    // Se o valor for inválido ou zero, define como undefined
-                    item[store] = undefined;
-                } else {
-                    item[store] = parseFloat(newPrice.toFixed(2));
-                }
-                
-                updateCheapest(item);
-                saveList();
-                updateTotal();
-                
-                // Re-renderiza apenas a linha para atualizar a cor do preço
-                const row = document.getElementById(`item-${id}`);
-                if (row) {
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = generateListItemHTML(item);
-                    row.replaceWith(tempDiv.firstChild);
-                    // Re-aplica listeners para a linha recém-renderizada
-                    setupRowListeners(document.getElementById(`item-${id}`));
-                }
-            }
-        }
-
-        function updateCheapest(item) {
-            const price1 = item.price1;
-            const price2 = item.price2;
-
-            if (price1 !== undefined && price2 !== undefined) {
-                if (price1 < price2) {
-                    item.isCheapest = 'price1';
-                } else if (price2 < price1) {
-                    item.isCheapest = 'price2';
-                } else {
-                    item.isCheapest = 'equal';
-                }
-            } else if (price1 !== undefined) {
-                item.isCheapest = 'price1';
-            } else if (price2 !== undefined) {
-                item.isCheapest = 'price2';
-            } else {
-                item.isCheapest = null;
-            }
-        }
-
-        function updateTotal() {
-            let total1 = 0;
-            let total2 = 0;
-
-            shoppingList.forEach(item => {
-                if (!item.purchased) {
-                    if (item.price1 !== undefined) {
-                        total1 += item.price1;
-                    }
-                    if (item.price2 !== undefined) {
-                        total2 += item.price2;
-                    }
-                }
-            });
-
-            document.getElementById('total-price1').textContent = formatCurrency(total1);
-            document.getElementById('total-price2').textContent = formatCurrency(total2);
-
-            const totalEl1 = document.getElementById('total-price1');
-            const totalEl2 = document.getElementById('total-price2');
-
-            // Remove classes para recalcular
-            totalEl1.classList.remove('cheapest-price', 'equal-price');
-            totalEl2.classList.remove('cheapest-price', 'equal-price');
-
-            if (total1 > 0 && total2 > 0) {
-                if (total1 < total2) {
-                    totalEl1.classList.add('cheapest-price');
-                    totalEl2.classList.remove('cheapest-price');
-                } else if (total2 < total1) {
-                    totalEl2.classList.add('cheapest-price');
-                    totalEl1.classList.remove('cheapest-price');
-                } else {
-                    totalEl1.classList.add('equal-price');
-                    totalEl2.classList.add('equal-price');
-                }
-            } else if (total1 > 0) {
-                totalEl1.classList.add('cheapest-price');
-            } else if (total2 > 0) {
-                totalEl2.classList.add('cheapest-price');
-            }
-        }
-
-        // --- AUTOCOMPLETE E SUGGESTIONS ---
-        
-        // A função removeDiacritics já foi adicionada acima.
-
-        function showSuggestions(query, container, inputElement) {
-            if (!historicItems || historicItems.length === 0) return;
-
-            // Filtra a lista de itens históricos para sugestões
-            // NOVO: A consulta do usuário é normalizada para comparação sem acentos.
-            const normalizedQueryForComparison = removeDiacritics(query).toLowerCase();
-            
-            // Item list is 'historicItems'
-
-            const suggestions = historicItems
-                // NOVO: O item da lista de histórico também é normalizado para comparação sem acentos
-                .filter(item => removeDiacritics(item).toLowerCase().includes(normalizedQueryForComparison))
-                .sort((a, b) => a.localeCompare(b, 'pt', { sensitivity: 'base' })) // Mantém a ordenação correta em português
-                .slice(0, 10);
-
-            container.innerHTML = '';
-            if (suggestions.length > 0) {
-                suggestions.forEach(item => {
-                    const div = document.createElement('div');
-                    div.classList.add('suggestion-item');
-                    div.textContent = item;
-                    div.addEventListener('click', () => {
-                        inputElement.value = item;
-                        inputElement.focus();
-                        hideSuggestions(container);
-
-                        // Se for um item da lista existente, salva a edição do nome
-                        const itemId = inputElement.dataset.itemId;
-                        if (itemId && itemId !== 'new') {
-                             editItemName(itemId, item);
-                        }
-                         adjustTextareaHeight(inputElement);
+        async function handleLogout() {
+            stopPolling(); // Para a verificação contínua ao sair
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                try {
+                    await fetch('/api/logout', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    container.appendChild(div);
-                });
-                // Posicionamento
-                const rect = inputElement.getBoundingClientRect();
-                container.style.width = `${inputElement.offsetWidth}px`;
-                container.style.top = `${rect.bottom + window.scrollY}px`;
-                container.style.left = `${rect.left + window.scrollX}px`;
-                container.style.display = 'block';
-            } else {
-                hideSuggestions(container);
-            }
-        }
-
-        function hideSuggestions(container) {
-            if (container && container.style.display !== 'none') {
-                container.style.display = 'none';
-                container.innerHTML = '';
-            }
-        }
-
-        function adjustTextareaHeight(textarea) {
-             textarea.style.height = 'auto';
-             textarea.style.height = (textarea.scrollHeight) + 'px';
-        }
-
-        // --- COMPARAÇÃO DE PREÇOS (Simulação) ---
-
-        function generateComparison() {
-            const listItems = shoppingList.map(item => ({
-                name: item.name,
-                price1: item.price1,
-                price2: item.price2,
-                cheapest: item.isCheapest
-            }));
-
-            // Simula a lógica de otimização/comparação
-            const total1 = shoppingList.reduce((acc, item) => acc + (item.price1 || 0), 0);
-            const total2 = shoppingList.reduce((acc, item) => acc + (item.price2 || 0), 0);
-
-            let message;
-            if (total1 > 0 && total2 > 0) {
-                if (total1 < total2) {
-                    message = `Loja ${getActiveStoreNames()[0]} é mais barata! Total: ${formatCurrency(total1)}`;
-                } else if (total2 < total1) {
-                    message = `Loja ${getActiveStoreNames()[1]} é mais barata! Total: ${formatCurrency(total2)}`;
-                } else {
-                    message = `Ambas as lojas têm o mesmo preço total: ${formatCurrency(total1)}`;
+                } catch (error) {
+                    console.error("Logout failed, but proceeding.", error);
                 }
-            } else if (total1 > 0) {
-                message = `Total na Loja ${getActiveStoreNames()[0]}: ${formatCurrency(total1)}`;
-            } else if (total2 > 0) {
-                message = `Total na Loja ${getActiveStoreNames()[1]}: ${formatCurrency(total2)}`;
-            } else {
-                 message = "Adicione preços aos itens para gerar a comparação.";
             }
-
-            document.getElementById('comparison-message').innerHTML = `<strong>Resultado da Otimização:</strong> ${message}`;
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            location.reload();
         }
 
-        function resetComparison() {
-            document.getElementById('comparison-message').textContent = '';
-            // Em uma implementação real, o iframe também poderia ser resetado
+        function getAuthHeaders() {
+            const token = localStorage.getItem('authToken');
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
         }
 
-        // --- LISTENERS ---
+        function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
+        function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
+        document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
 
-        function setupRowListeners(row) {
-            const id = row.dataset.id;
-            const removeBtn = row.querySelector('[data-action="remove-item"]');
-            const checkbox = row.querySelector('[data-action="toggle-purchased"]');
-            const nameInput = row.querySelector('[data-action="edit-name"]');
-            const priceInputs = row.querySelectorAll('[data-action="edit-price"]');
-            const suggestionContainer = row.querySelector('.autocomplete-suggestions');
-
-
-            // Remover Item
-            if (removeBtn) {
-                removeBtn.addEventListener('click', () => removeItem(id));
-            }
-
-            // Marcar/Desmarcar Compra
-            if (checkbox) {
-                checkbox.addEventListener('change', () => togglePurchased(id));
-            }
-
-            // Editar Nome (Textarea)
-            if (nameInput) {
-                nameInput.addEventListener('input', function() {
-                    editItemName(id, this.value);
-                    adjustTextareaHeight(this);
-                });
-
-                nameInput.addEventListener('focus', function() {
-                     adjustTextareaHeight(this);
-                });
-
-                // Auto-complete logic for existing items
-                nameInput.addEventListener('input', function() {
-                    const query = this.value.trim();
-                    if (query.length > 2) {
-                        showSuggestions(query, suggestionContainer, this);
-                    } else {
-                        hideSuggestions(suggestionContainer);
-                    }
-                });
-                
-                nameInput.addEventListener('blur', function() {
-                    // Pequeno atraso para permitir clique na sugestão
-                    setTimeout(() => hideSuggestions(suggestionContainer), 100);
-                });
-            }
-
-            // Editar Preço
-            priceInputs.forEach(input => {
-                const store = input.dataset.store;
-
-                input.addEventListener('focus', function() {
-                    // Seleciona todo o texto para facilitar a substituição
-                    this.select();
-                });
-
-                input.addEventListener('input', function() {
-                    // Remove tudo que não for dígito, vírgula ou ponto
-                    let value = this.value.replace(/[^0-9,.]/g, '');
-                    // Permite apenas um ponto ou vírgula, e o substitui por vírgula para manter o padrão brasileiro
-                    value = value.replace(/,/g, 'X').replace(/\./g, ',').replace(/X/g, ',').replace(/(.*),(.*),(.*)/g, '$1,$2$3');
-                    this.value = value;
-                });
-
-                input.addEventListener('blur', function() {
-                    let value = this.value.trim();
-                    editItemPrice(id, store, value);
-                });
-            });
+        function toggleComparator() {
+            document.querySelector('.collapsible-header').classList.toggle('active');
+            document.getElementById('comparator-content').classList.toggle('expanded');
         }
 
-        function setupItemInputListeners(inputElement) {
-            const suggestionContainer = inputElement.nextElementSibling;
-
-            // Focar no campo de nome (ajusta a altura)
-            inputElement.addEventListener('focus', function() {
-                 adjustTextareaHeight(this);
-            });
-
-            // Lógica de Auto-complete
-            inputElement.addEventListener('input', function() {
-                const query = this.value.trim();
-                if (query.length > 2) {
-                    showSuggestions(query, suggestionContainer, this);
-                } else {
-                    hideSuggestions(suggestionContainer);
+        // --- Variáveis de Sincronização e Estado ---
+        const tableBody = document.getElementById('shopping-list-body');
+        const statusIndicator = document.getElementById('sync-status-indicator');
+        const autocompleteSuggestions = document.getElementById('autocomplete-suggestions'); // Variável para o Autocomplete
+        let saveTimeout;
+        let syncState = 'saved';
+        let isOnline = navigator.onLine;
+        let pollingIntervalId = null; // ID para o intervalo do polling
+        
+        // --- Autocomplete Item List (Loaded from itens.json) ---
+        let itensList = [];
+        
+        async function carregarItens() {
+            try {
+                // ALTERADO: Removido o cache-buster (timestamp) para permitir que o Service Worker
+                // use a estratégia Stale-While-Revalidate (SWR) ou sirva o cache offline.
+                const response = await fetch(`itens.json`); 
+                if (!response.ok) {
+                    // Se a rede falhar E não houver cache (primeiro acesso offline), 
+                    // a promise pode ser rejeitada ou o status ser 503 (offline).
+                    // O SW deve retornar a versão em cache. Se chegou aqui, 
+                    // significa que falhou na rede E o SW não tinha cache.
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            });
-
-            // Adiciona o item ao pressionar 'Enter'
-            inputElement.addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault(); 
-                    if (this.value.trim()) {
-                        addItem(this.value);
-                        this.value = ''; // Limpa o campo
-                        adjustTextareaHeight(this); // Redefine a altura
-                    }
-                    hideSuggestions(suggestionContainer);
-                }
-            });
-
-            // Esconde sugestões ao perder o foco (com um pequeno atraso)
-            inputElement.addEventListener('blur', function() {
-                setTimeout(() => hideSuggestions(suggestionContainer), 100);
-            });
-
-        }
-
-        function setupListListeners() {
-            // Configura os listeners para cada linha existente
-            document.querySelectorAll('#shopping-list-body tr').forEach(setupRowListeners);
+                itensList = await response.json();
+                console.log(`Itens de Autocomplete carregados: ${itensList.length}`);
+            } catch (error) {
+                console.error('Falha ao carregar itens.json para autocomplete (Pode ser o primeiro acesso offline):', error);
+                // Fallback to empty list
+                itensList = [];
+            }
         }
         
-        // --- SETUP PRINCIPAL ---
+        let currentActiveInput = null; // Input ativo para o Autocomplete
+        
+        // --- FUNÇÃO ADICIONADA: Normaliza string para comparação sem acentos ---
+        function normalizeString(str) {
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        }
 
-        function setupGlobalListeners() {
-            // Login/Registro
-            document.getElementById('login-btn').addEventListener('click', () => attemptAuth('login'));
-            document.getElementById('register-btn').addEventListener('click', () => attemptAuth('register'));
-            document.getElementById('togglePassword').addEventListener('click', function() {
-                const passwordInput = document.getElementById('password');
-                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                passwordInput.setAttribute('type', type);
-                this.classList.toggle('fa-eye-slash');
-            });
-            document.getElementById('password').addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') {
-                    attemptAuth('login');
+        function setSyncStatus(newState) {
+            syncState = newState;
+            statusIndicator.className = `status-${newState}`;
+            if (newState === 'error') {
+                setTimeout(() => { if (syncState === 'error') setSyncStatus('offline'); }, 3000);
+            }
+        }
+        
+        // --- LÓGICA DE POLLING (SINCRONIZAÇÃO CONTÍNUA) ---
+        function stopPolling() {
+            if (pollingIntervalId) {
+                clearInterval(pollingIntervalId);
+                pollingIntervalId = null;
+            }
+        }
+
+        function startPolling() {
+            stopPolling(); // Garante que não haja múltiplos intervalos rodando
+            pollingIntervalId = setInterval(pollForChanges, 4000); // Verifica por mudanças a cada 4 segundos
+        }
+        
+        async function pollForChanges() {
+            const activeEl = document.activeElement;
+            // CORREÇÃO: Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela, 
+            // incluindo o campo de novo item, para evitar perda de foco durante a digitação.
+            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/list', { headers: getAuthHeaders() });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) return;
+
+                const remoteItems = await response.json();
+                const localItems = getCurrentLocalItems();
+
+                // Compara a lista remota com a local. Se forem diferentes, atualiza a tela.
+                if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
+                    redrawTable(remoteItems, false); // Redesenha a tabela sem focar no campo de novo item
+                }
+            } catch (error) {
+                // Falha silenciosa para não poluir o console com erros de rede
+            }
+        }
+
+        function debounce(func, delay) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+
+        function getCurrentLocalItems() {
+            const items = [];
+            document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
+                const name = row.cells[1].querySelector('textarea').value.trim();
+                if (name) {
+                    items.push({
+                        name: name,
+                        priceShibata: row.cells[2].querySelector('input').value || 'R$ 0,00',
+                        priceNagumo: row.cells[3].querySelector('input').value || 'R$ 0,00',
+                        purchased: row.classList.contains('purchased')
+                    });
                 }
             });
+            return items;
+        }
 
+        // --- LÓGICA DE SINCRONIZAÇÃO E CACHE OFFLINE ---
+        async function saveList() {
+            const items = getCurrentLocalItems();
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
 
-            // Menu
-            document.getElementById('logout-btn-menu').addEventListener('click', logout);
-            document.getElementById('menu-clear-historic').addEventListener('click', function() {
-                 if (confirm('Tem certeza que deseja limpar todo o histórico de itens (autocomplete)?')) {
-                    localStorage.removeItem(HISTORIC_ITEMS_KEY);
-                    historicItems = [];
-                    closeMenu();
+            if (!isOnline) {
+                setSyncStatus('offline');
+                console.log("Offline: Salvando alterações localmente.");
+                localStorage.setItem(`offlineList_${username}`, JSON.stringify(items));
+                return;
+            }
+            await saveListOnline(items);
+        }
+
+        async function saveListOnline(items) {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            setSyncStatus('syncing');
+            try {
+                const response = await fetch('/api/list', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(items)
+                });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) throw new Error('Falha ao salvar no servidor.');
+                
+                setSyncStatus('saved');
+                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
+                localStorage.removeItem(`offlineList_${username}`);
+
+            } catch (error) {
+                setSyncStatus('error');
+                console.error("Erro ao salvar online:", error);
+            }
+        }
+
+        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
+        async function syncOfflineChanges() {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+            
+            const pendingItemsJSON = localStorage.getItem(`offlineList_${username}`);
+            if (!pendingItemsJSON) {
+                console.log("Nenhuma alteração offline para sincronizar.");
+                return;
+            }
+
+            console.log("Conectado. Sincronizando alterações pendentes...");
+            
+            try {
+                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
+                const localOfflineItems = JSON.parse(pendingItemsJSON);
+
+                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
+                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
+                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
+                await saveListOnline(localOfflineItems);
+                
+                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
+                redrawTable(localOfflineItems);
+
+            } catch (error) {
+                console.error("Falha ao sincronizar as alterações offline:", error);
+                setSyncStatus('error');
+            }
+        }
+
+        async function loadList() {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            const offlineKey = `offlineList_${username}`;
+            const cacheKey = `shoppingList_${username}`;
+            const pendingOfflineItems = JSON.parse(localStorage.getItem(offlineKey));
+
+            if (pendingOfflineItems) {
+                console.log("Carregando lista com alterações offline pendentes.");
+                redrawTable(pendingOfflineItems);
+                setSyncStatus('offline');
+                return;
+            }
+
+            if (!isOnline) {
+                console.log("Offline. Carregando lista do cache.");
+                setSyncStatus('offline');
+                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+                redrawTable(cachedItems);
+                return;
+            }
+            
+            setSyncStatus('syncing');
+            try {
+                const response = await fetch('/api/list', { headers: getAuthHeaders() });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) throw new Error('Falha ao buscar dados.');
+
+                const remoteItems = await response.json();
+                localStorage.setItem(cacheKey, JSON.stringify(remoteItems));
+                redrawTable(remoteItems, true);
+                setSyncStatus('saved');
+            } catch (error) {
+                console.error('Erro ao buscar lista online, usando cache como fallback:', error);
+                setSyncStatus('offline'); 
+                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+                redrawTable(cachedItems);
+            }
+        }
+
+        const debouncedSave = debounce(saveList, 1500);
+
+        // --- Funções de UI ---
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+
+        tableBody.addEventListener('input', (event) => {
+            const target = event.target;
+            if (target.tagName.toLowerCase() === 'textarea') {
+                autoResizeTextarea(target);
+                
+                if (target.classList.contains('item-name-input')) { 
+                    // FIX 1: Define a posição imediatamente para evitar o salto para o topo
+                    currentActiveInput = target; 
+                    updateAutocompletePosition(); 
+                    
+                    debouncedHandleAutocomplete(event); 
                 }
-            });
-            // Adicione listeners para outros itens do menu conforme necessário
+            }
+            if (['textarea', 'input'].includes(target.tagName.toLowerCase())) {
+                setSyncStatus('syncing');
+                debouncedSave();
+            }
+        });
+        
+        tableBody.addEventListener('focus', (event) => {
+            const target = event.target;
+            if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
+                setTimeout(() => {
+                    if (target.value !== '') {
+                        const valueLength = target.value.length;
+                        target.setSelectionRange(valueLength, valueLength);
+                    }
+                }, 1);
+            }
+            // Define o currentActiveInput e chama o autocomplete para QUALQUER campo de nome de item.
+            if (target.tagName.toLowerCase() === 'textarea' && target.classList.contains('item-name-input')) { 
+                currentActiveInput = target; 
+                handleAutocompleteInput(event); 
+            } else if (target.tagName.toLowerCase() === 'textarea') {
+                 // Para outros textareas (apenas por segurança), limpa o autocomplete
+                 closeAutocomplete();
+            }
+        }, true);
 
-            // Lista de Compras (Botões)
-            document.getElementById('add-item-btn').addEventListener('click', function() {
-                const input = document.getElementById('new-item-input');
-                if (input.value.trim()) {
-                    addItem(input.value);
-                    input.value = '';
-                    adjustTextareaHeight(input);
-                }
-            });
+        tableBody.addEventListener('blur', (event) => {
+            if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
+                formatCurrency(event.target);
+                comparePrices(event.target);
+                setSyncStatus('syncing');
+                debouncedSave();
+            }
+            // Aplica a lógica de fechar para QUALQUER campo de nome de item.
+            if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
+                // FIX: Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
+                setTimeout(() => {
+                    // Só feche se o mouse não estiver sobre as sugestões
+                    if (!autocompleteSuggestions.matches(':hover')) {
+                        closeAutocomplete();
+                    }
+                }, 50); 
+            }
+        }, true);
+        
+        // --- Funções do Autocomplete ---
+        
+        function updateAutocompletePosition() {
+            if (currentActiveInput) { 
+                const rect = currentActiveInput.getBoundingClientRect();
+                autocompleteSuggestions.style.top = `${rect.bottom + window.scrollY}px`;
+                autocompleteSuggestions.style.left = `${rect.left + window.scrollX}px`;
+                // Garante que a largura seja igual à do campo de texto
+                autocompleteSuggestions.style.width = `${rect.width + 16}px`; // Adiciona padding horizontal
+            }
+        }
+        window.addEventListener('scroll', updateAutocompletePosition, true);
+        window.addEventListener('resize', updateAutocompletePosition);
 
-            document.getElementById('clear-list-btn').addEventListener('click', function() {
-                clearPurchasedItems();
-            });
+        function closeAutocomplete() {
+            autocompleteSuggestions.style.display = 'none';
+        }
 
-            // Input de Novo Item (Footer)
-            const newItemInput = document.getElementById('new-item-input');
-            setupItemInputListeners(newItemInput);
+        const handleAutocompleteInput = (event) => {
+            const inputText = (event.target.value || '').trim();
+            currentActiveInput = event.target; 
+            updateAutocompletePosition(); 
 
-            // Seção de Comparação
-            const collapsibleHeader = document.getElementById('collapsible-header-btn');
-            const collapsibleContent = document.getElementById('collapsible-content');
-            collapsibleHeader.addEventListener('click', () => {
-                const isActive = collapsibleHeader.classList.toggle('active');
-                collapsibleContent.classList.toggle('expanded', isActive);
-                if (isActive) {
-                    collapsibleContent.style.maxHeight = collapsibleContent.scrollHeight + "px";
+            if (inputText.length < 1 || !itensList || itensList.length === 0) {
+                autocompleteSuggestions.style.display = 'none';
+                return;
+            }
+
+            // NOVO: Normaliza o texto de entrada para comparação sem acentos
+            const normalizedInput = normalizeString(inputText);
+
+            // NOVO: Filtra usando a string normalizada
+            const filteredItens = itensList.filter(item => 
+                normalizeString(item.nome).includes(normalizedInput)
+            );
+
+            if (filteredItens.length > 0) {
+                const suggestionsHTML = filteredItens
+                    .map(item => `<div class="suggestion-item" data-name="${item.nome.replace(/"/g, '&quot;')}"><span>${item.nome}</span></div>`)
+                    .slice(0, 10) // Limitar a 10 sugestões
+                    .join('');
+                autocompleteSuggestions.innerHTML = suggestionsHTML;
+                autocompleteSuggestions.style.display = 'block';
+            } else {
+                autocompleteSuggestions.style.display = 'none';
+            }
+        };
+        
+        const debouncedHandleAutocomplete = debounce(handleAutocompleteInput, 150);
+
+        autocompleteSuggestions.addEventListener('mousedown', (event) => {
+            const suggestionItem = event.target.closest('.suggestion-item');
+            if (suggestionItem && currentActiveInput) {
+                event.preventDefault(); // Impede que o input perca o foco
+                const nome = suggestionItem.dataset.name;
+                currentActiveInput.value = nome;
+                
+                closeAutocomplete();
+                
+                // Disparar manualmente a função de redimensionar
+                autoResizeTextarea(currentActiveInput);
+                
+                // Se for o campo de NOVO item, comita para adicionar. Se for EDICÃO, apenas salva.
+                if (currentActiveInput.id === 'newItemName') {
+                    commitItem(); 
                 } else {
-                    collapsibleContent.style.maxHeight = "0";
+                    // Item existente: apenas salva a lista atualizada
+                    setSyncStatus('syncing');
+                    debouncedSave();
                 }
+            }
+        });
+        // --- Fim das Funções do Autocomplete ---
+
+
+        function createAddItemRow(shouldFocus = false) {
+            document.querySelector('.add-item-row')?.remove();
+            const newRow = tableBody.insertRow(0);
+            newRow.classList.add('add-item-row');
+            newRow.innerHTML = `
+                <td></td>
+                <td><textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1"></textarea></td>
+                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
+                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
+                <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>
+            `;
+            const newItemInput = document.getElementById('newItemName');
+            newItemInput.addEventListener('keydown', (event) => {
+                // Apenas comitar/mover se o autocomplete não estiver aberto e a tecla for Enter
+                if (event.key === 'Enter' && !event.shiftKey && autocompleteSuggestions.style.display !== 'block') {
+                    event.preventDefault();
+                    commitItem();
+                }
+            });
+            if (shouldFocus) newItemInput.focus();
+        }
+
+        function commitItem() {
+            const itemNameInput = document.getElementById('newItemName');
+            const itemName = itemNameInput.value.trim();
+            if (itemName === '') {
+                itemNameInput.focus();
+                return;
+            }
+            
+            closeAutocomplete(); // Garante que fecha ao comitar
+            
+            const row = itemNameInput.closest('tr');
+            const priceShibata = row.cells[2].querySelector('input').value || 'R$ 0,00';
+            const priceNagumo = row.cells[3].querySelector('input').value || 'R$ 0,00';
+
+            buildItemRow({ 
+                name: itemName, 
+                priceShibata: priceShibata, 
+                priceNagumo: priceNagumo, 
+                purchased: false 
+            }, true); 
+            
+            createAddItemRow(true);
+            saveList(); 
+        }
+        
+        function buildItemRow(itemData, isNew = false) {
+            const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
+            if (itemData.purchased) newRow.classList.add('purchased');
+
+            const getPriceInputHTML = (price) => {
+                const hasValue = price && price.trim() !== 'R$ 0,00';
+                return `<input type="text" ${hasValue ? `value="${price}"` : ''} placeholder="R$ 0,00">`;
+            };
+
+            newRow.innerHTML = `
+                <td><input type="checkbox" onchange="togglePurchased(this)" ${itemData.purchased ? 'checked' : ''}></td>
+                <td><textarea class="item-name-input" rows="1">${itemData.name}</textarea></td>
+                <td class="price-cell">${getPriceInputHTML(itemData.priceShibata)}</td>
+                <td class="price-cell">${getPriceInputHTML(itemData.priceNagumo)}</td>
+                <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
+            `;
+            autoResizeTextarea(newRow.cells[1].querySelector('textarea'));
+            comparePrices(newRow.cells[2].querySelector('input'));
+        }
+
+        function redrawTable(items, shouldFocusNewItem = true) {
+            tableBody.innerHTML = '';
+            if (items && items.length > 0) {
+                items.forEach(item => buildItemRow(item, false));
+                sortAndGroup();
+            }
+            createAddItemRow(shouldFocusNewItem);
+        }
+
+        function removeItem(button) {
+            if (confirm('Tem certeza de que deseja remover este item?')) {
+                button.closest('tr').remove();
+                saveList(); 
+            }
+        }
+
+        function togglePurchased(checkbox) {
+            checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
+            saveList();
+        }
+
+        function clearList() {
+            if (confirm('Tem certeza que deseja limpar toda a lista?')) {
+                tableBody.innerHTML = '';
+                saveList();
+                createAddItemRow(true); 
+            }
+        }
+        
+        // --- Eventos de Conexão ---
+        window.addEventListener('online', async () => {
+            isOnline = true;
+            await syncOfflineChanges();
+            await loadList();
+            startPolling(); // Reinicia o polling ao ficar online
+        });
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            stopPolling(); // Para o polling ao ficar offline
+            setSyncStatus('offline');
+        });
+
+        // --- Funções de Formatação e Comparação de Preços ---
+        function formatCurrency(input) {
+            const value = input.value.trim();
+            const number = parseValueToFloat(value);
+            if (isNaN(number) || number === 0) {
+                input.value = '';
+                input.placeholder = 'R$ 0,00';
+            } else {
+                input.value = number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                input.placeholder = 'R$ 0,00';
+            }
+        }
+
+        function parseValueToFloat(value) {
+            if (!value) return NaN;
+            return parseFloat(value.replace('R$', '').trim().replace('.', '').replace(',', '.'));
+        }
+
+        function comparePrices(input) {
+            const row = input.closest('tr');
+            if (!row || row.classList.contains('add-item-row')) return;
+            const shibataInput = row.cells[2].querySelector('input');
+            const nagumoInput = row.cells[3].querySelector('input');
+            shibataInput.classList.remove('cheapest-price', 'equal-price');
+            nagumoInput.classList.remove('cheapest-price', 'equal-price');
+            const shibataPrice = parseValueToFloat(shibataInput.value);
+            const nagumoPrice = parseValueToFloat(nagumoInput.value);
+            const validShibata = !isNaN(shibataPrice) && shibataPrice > 0;
+            const validNagumo = !isNaN(nagumoPrice) && nagumoPrice > 0;
+            if (validShibata && validNagumo) {
+                if (shibataPrice < nagumoPrice) shibataInput.classList.add('cheapest-price');
+                else if (nagumoPrice < shibataPrice) nagumoInput.classList.add('cheapest-price');
+                else { shibataInput.classList.add('equal-price'); nagumoInput.classList.add('equal-price'); }
+            } else if (validShibata) { shibataInput.classList.add('cheapest-price');
+            } else if (validNagumo) { nagumoInput.classList.add('cheapest-price'); }
+            sortAndGroup();
+        }
+
+        function sortAndGroup() {
+            const allRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
+            const unpriced = [], shibata = [], equal = [], nagumo = [];
+            allRows.forEach(row => {
+                const pS = parseValueToFloat(row.cells[2].querySelector('input').value);
+                const pN = parseValueToFloat(row.cells[3].querySelector('input').value);
+                const vS = !isNaN(pS) && pS > 0, vN = !isNaN(pN) && pN > 0;
+                if (!vS && !vN) unpriced.push(row);
+                else if (vS && vN && pS === pN) equal.push(row);
+                else if (vS && (!vN || pS < pN)) shibata.push(row);
+                else nagumo.push(row);
             });
             
-            // Botões de comparação
-            document.getElementById('generate-comparison-btn').addEventListener('click', generateComparison);
-            document.getElementById('reset-comparison-btn').addEventListener('click', resetComparison);
-
-            // Configurações
-            document.getElementById('save-settings-btn').addEventListener('click', function() {
-                const settings = {
-                    store1Name: document.getElementById('store1-name-input').value.trim() || 'Loja 1',
-                    store2Name: document.getElementById('store2-name-input').value.trim() || 'Loja 2',
-                    iframeUrl: document.getElementById('iframe-url-input').value.trim()
-                };
-                saveSettings(settings);
-            });
-
-            // Recarregar Iframe
-            document.getElementById('reload-iframe-btn').addEventListener('click', function() {
-                 const iframe = document.getElementById('comparison-iframe');
-                 const overlay = document.getElementById('iframe-overlay');
-                 const overlayText = document.getElementById('overlay-text');
-                 
-                 // Mostra o loader
-                 overlay.style.display = 'flex';
-                 overlayText.textContent = 'Recarregando...';
-
-                 // Recarrega
-                 iframe.src = iframe.src;
-
-                 // Oculta o overlay após um tempo (ou idealmente, em um evento de carregamento do iframe, mas isso é mais simples para um exemplo estático)
-                 setTimeout(() => {
-                     overlay.style.display = 'none';
-                 }, 3000);
-            });
-
-            // Listener de status online/offline
-            window.addEventListener('online', () => { isOnline = true; setSyncStatus('saved'); });
-            window.addEventListener('offline', () => { isOnline = false; setSyncStatus('offline'); });
+            // REMOVIDO: A ordenação interna por preço (sortByMin) para preservar a ordem de adição/inserção 
+            // DENTRO dos grupos de preço, mantendo o agrupamento principal por status de preço.
+            /*
+            const sortByMin = (a, b) => {
+                const getMin = r => Math.min(parseValueToFloat(r.cells[2].querySelector('input').value) || Infinity, parseValueToFloat(r.cells[3].querySelector('input').value) || Infinity);
+                return getMin(a) - getMin(b);
+            };
+            shibata.sort(sortByMin); 
+            equal.sort(sortByMin); 
+            nagumo.sort(sortByMin);
+            */
+            
+            // O agrupamento (unpriced -> shibata -> equal -> nagumo) é mantido, garantindo a ordenação primária por status de preço.
+            [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
         }
-        
+
+        // --- Funções Auxiliares (Streamlit, Teclado Virtual) ---
+        function wakeUpApp() {
+            const iframeWrapper = document.getElementById('iframe-wrapper');
+            const iframeOverlay = document.getElementById('iframe-overlay');
+            iframeOverlay.style.display = 'flex';
+            let streamlitIframe = document.getElementById('streamlit-app');
+            if (streamlitIframe) streamlitIframe.remove();
+            const newIframe = document.createElement('iframe');
+            newIframe.id = 'streamlit-app';
+            newIframe.src = `https://precosmercados.streamlit.app/?embed=true&minimal=true&t=${new Date().getTime()}`;
+            newIframe.onload = () => { iframeOverlay.style.display = 'none'; };
+            iframeWrapper.prepend(newIframe);
+        }
+
         function setupVirtualKeyboardListener() {
             if (!window.visualViewport) return;
-            const isLikelyKeyboardOpen = () => window.visualViewport.height < document.documentElement.clientHeight - 150;
+            const isLikelyKeyboardOpen = () => window.innerHeight - window.visualViewport.height > 150;
             let keyboardWasOpen = isLikelyKeyboardOpen();
             window.visualViewport.addEventListener('resize', () => {
                 const keyboardIsOpen = isLikelyKeyboardOpen();
@@ -1161,12 +1078,10 @@
 
         // --- INICIALIZAÇÃO DA APLICAÇÃO ---
         document.addEventListener('DOMContentLoaded', async () => {
-            setupGlobalListeners();
             await carregarItens();
             
             if (localStorage.getItem('authToken')) {
-                const lastUsername = localStorage.getItem('lastUsername');
-                showApp(lastUsername);
+                showApp();
             } else {
                 showAuth();
             }
