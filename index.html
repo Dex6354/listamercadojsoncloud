@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Mercado</title>
 
+    <link rel="manifest" href="./manifest.json"> 
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Meu Mercado">
+    <link rel="apple-touch-icon" href="01.png">
+
     <meta property="og:title" content="Meu Mercado" />
     <meta property="og:type" content="website" />
     <meta property="og:description" content="Sua lista de compras inteligente com comparador de preços e otimização." />
@@ -213,894 +220,555 @@
         .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; padding: 0 16px; }
         .collapsible-content.expanded { max-height: 100vh; padding-bottom: 20px; }
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
-
-        #sync-status-indicator { 
-            width: 12px; 
-            height: 12px; 
-            border-radius: 50%; 
-            background-color: var(--green-highlight); 
-            z-index: 11; 
-            transition: background-color 0.5s ease; 
-            flex-shrink: 0;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        #username-display {
-            color: var(--secondary-text-color);
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
+        #sync-status-indicator { width: 12px; height: 12px; border-radius: 50%; background-color: var(--green-highlight); z-index: 11; transition: background-color 0.5s ease; flex-shrink: 0; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        #username-display { color: var(--secondary-text-color); font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
-        #sync-status-indicator.status-offline { background-color: #7986cb; }
-
-        /* --- Autocomplete --- */
-        #autocomplete-suggestions {
-            position: absolute;
-            background-color: var(--input-bg-color);
-            border: 1px solid var(--primary-color);
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-            z-index: 1002; /* Mais alto que o overlay do menu */
-            max-height: 200px;
-            overflow-y: auto;
-            display: none;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        .suggestion-item {
-            padding: 8px 10px;
-            cursor: pointer;
-            color: var(--text-color);
-            font-size: 0.875rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            /* Linha cinza entre itens */
-            border-bottom: 1px solid #666; 
-        }
-        .suggestion-item:last-child {
-            /* Remove a borda do último item para não duplicar o contorno */
-            border-bottom: none; 
-        }
-        .suggestion-item:hover {
-            background-color: #555;
-        }
-
-        @media (min-width: 768px) { .shopping-list-table colgroup col:nth-child(2) { width: 450px; } }
-        @media (min-width: 1024px) { .shopping-list-table colgroup col:nth-child(2) { width: 550px; } }
+        #sync-status-indicator.status-offline { background-color: #7986cb; } 
+        /* --- Autocomplete --- */ 
+        #autocomplete-suggestions { position: absolute; background-color: var(--input-bg-color); border: 1px solid var(--primary-color); border-top: none; border-radius: 0 0 8px 8px; z-index: 1002; /* Mais alto que o overlay do menu */ max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2); } 
+        .suggestion-item { padding: 8px; cursor: pointer; color: var(--text-color); } 
+        .suggestion-item:hover { background-color: #555; }
     </style>
 </head>
 <body>
+    <div id="page-overlay"></div>
+    <div id="side-menu" class="side-menu">
+        <a href="javascript:void(0)" class="close-btn" onclick="closeMenu()">&times;</a>
+        <a href="#" onclick="showSection('list')"><i class="fas fa-list-ul"></i> Minha Lista</a>
+        <a href="#" onclick="showSection('comparator')"><i class="fas fa-balance-scale"></i> Comparador</a>
+        <a href="#" onclick="showSection('config')"><i class="fas fa-cogs"></i> Configurações</a>
+        <a href="#" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
+    </div>
 
     <div id="auth-container">
         <div class="auth-box">
-            <h2><i class="fas fa-lock"></i> Acesso Seguro</h2>
-            <input type="text" id="username" class="auth-input" placeholder="Nome de usuário" autocomplete="username">
+            <h2>Bem-vindo(a)</h2>
+            <input type="email" id="email" class="auth-input" placeholder="E-mail" required>
             <div class="password-container">
-                <input type="password" id="password" class="auth-input" placeholder="Senha" autocomplete="current-password">
+                <input type="password" id="password" class="auth-input" placeholder="Senha" required>
                 <i class="fas fa-eye" id="togglePassword"></i>
             </div>
+            <div id="auth-message"></div>
             <div class="auth-buttons">
                 <button class="custom-btn" onclick="handleLogin()">Entrar</button>
-                <button class="custom-btn secondary" onclick="handleRegister()">Cadastrar</button>
+                <button class="custom-btn secondary" onclick="handleRegister()">Registrar</button>
             </div>
-            <p id="auth-message"></p>
         </div>
     </div>
 
     <div id="app-container">
-        <div id="side-menu" class="side-menu">
-            <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
-            <a href="#"><i class="fas fa-list-check"></i> Minha Lista</a>
-            <a href="#"><i class="fas fa-history"></i> Histórico</a>
-            <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
-            
-            <!-- ITEM 1: Atalho no Navegador (Prioridade do usuário) -->
-            <a href="javascript:void(0)" onclick="showShortcutInstructions()"><i class="fas fa-link"></i> Atalho Simples (Navegador)</a>
-            
-            <!-- ITEM 2: Instalar PWA (Secundário, instrução para usar o menu nativo) -->
-            <a href="javascript:void(0)" onclick="showPWAInstructions()"><i class="fas fa-mobile-screen-button"></i> Instalar App (PWA)</a>
-            
-            <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
-        </div>
-        <div id="page-overlay" onclick="closeNav()"></div>
-
-        <div id="main-content-wrapper">
-            <div class="header">
-                <span class="menu-icon" onclick="openNav()">&#9776;</span>
-                <span class="title">
-                    <img src="01.png" alt="Ícone">
-                    Meu Mercado
-                </span>
-
-                <div class="header-right">
-                    <span id="username-display"></span>
-                    <div id="sync-status-indicator"></div>
-                </div>
-                </div>
-
-            <div class="container">
-                <div class="section shopping-list-section">
-                    <div class="section-header">
-                        <h2>Meus Itens</h2>
-                        <button class="clear-btn" onclick="clearList()" title="Limpar toda a lista">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </div>
-
-                    <div class="table-scroll-wrapper">
-                        <table class="shopping-list-table">
-                            <colgroup>
-                                <col style="width: 40px;"> <col style="width: 250px;"> <col style="width: 80px;"> <col style="width: 80px;"> <col style="width: 45px;"> </colgroup>
-                            <thead>
-                                <tr>
-                                    <th><i class="fas fa-check"></i></th>
-                                    <th>Item</th>
-                                    <th>Shibata</th>
-                                    <th>Nagumo</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="shopping-list-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="section" id="comparator-section">
-                    <div class="section-header collapsible-header" onclick="toggleComparator()">
-                        <h2>Comparador de Preços</h2>
-                        <i class="fas fa-chevron-down"></i>
-                    </div>
-                    <div id="comparator-content" class="collapsible-content">
-                        <div id="iframe-wrapper" class="iframe-container">
-                            <div id="iframe-overlay">
-                                <div class="loader"></div>
-                                <span>Acordando o comparador...</span>
-                            </div>
-                            <iframe id="streamlit-app" src="https://precosmercados.streamlit.app/?embed=true&minimal=true"></iframe>
-                        </div>
-                        <div class="button-group" style="margin-top: 16px;">
-                            <button class="custom-btn" onclick="wakeUpApp()" style="flex-grow: 1;">
-                                <i class="fas fa-sync-alt"></i> Ativar / Atualizar
-                            </button>
-                            <a href="https://precosmercados.streamlit.app/" target="_blank" rel="noopener noreferrer" class="custom-btn secondary" style="flex-grow: 1; text-align: center; text-decoration: none; line-height: 1.8;">
-                                <i class="fas fa-external-link-alt"></i> Abrir em Nova Guia
-                            </button>
-                        </div>
-                    </div>
-                </div>
+        <header class="header">
+            <i class="fas fa-bars menu-icon" onclick="openMenu()"></i>
+            <div class="title">
+                <img src="01.png" alt="Logo" />
+                Meu Mercado
             </div>
+            <div class="header-right">
+                <span id="username-display"></span>
+                <div id="sync-status-indicator" class="status-saved" title="Status de Sincronização"></div>
+            </div>
+        </header>
 
-            <footer class="footer">
-                Feito para facilitar suas compras. 🛒💡
-            </footer>
-        </div>
+        <main class="container">
+            <section id="list-section" class="section shopping-list-section">
+                <div class="section-header">
+                    <h2>Lista de Compras</h2>
+                    <button class="clear-btn" onclick="clearList()">Limpar Lista <i class="fas fa-trash"></i></button>
+                </div>
+                <div class="table-scroll-wrapper">
+                    <table class="shopping-list-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 20px;"></th> <th style="width: 40%;">Item</th>
+                                <th style="width: 80px;">Preço A</th>
+                                <th style="width: 80px;">Preço B</th>
+                                <th style="width: 80px;">Preço C</th>
+                                <th style="width: 20px;"></th> </tr>
+                        </thead>
+                        <tbody id="shopping-list-body">
+                            </tbody>
+                        <tfoot id="shopping-list-footer">
+                            <tr>
+                                <td></td>
+                                <td>
+                                    <input type="text" id="new-item-name" class="item-name-input" placeholder="Adicionar novo item..." onkeypress="handleNewItemKeypress(event)" />
+                                    <div id="autocomplete-suggestions"></div>
+                                </td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td><button class="action-btn add" onclick="addNewItem()"><i class="fas fa-plus-circle"></i></button></td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="font-weight: bold;">TOTAL ESTIMADO</td>
+                                <td id="total-price-a" style="text-align: right; font-weight: bold;">R$ 0,00</td>
+                                <td id="total-price-b" style="text-align: right; font-weight: bold;">R$ 0,00</td>
+                                <td id="total-price-c" style="text-align: right; font-weight: bold;">R$ 0,00</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+
+            <section id="comparator-section" class="section" style="display: none;">
+                <div class="collapsible-header" onclick="toggleCollapsible('comparator-content')">
+                    <h2>Comparador de Preços</h2>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div id="comparator-content" class="collapsible-content">
+                    <div class="iframe-container">
+                        <div id="iframe-overlay">
+                            <div class="loader"></div>
+                            <p>Carregando ferramenta de comparação...</p>
+                        </div>
+                        <iframe id="price-comparator-iframe" src="about:blank" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </section>
+
+            <section id="config-section" class="section" style="display: none;">
+                <div class="section-header">
+                    <h2>Configurações</h2>
+                </div>
+                <p>Configurações da aplicação virão aqui.</p>
+                <div class="button-group">
+                    <button class="custom-btn danger" onclick="confirmDeleteAccount()">Excluir Conta</button>
+                    <button class="custom-btn secondary" onclick="handleLogout()">Sair da Conta</button>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 Meu Mercado. Sua lista de compras inteligente.</p>
+        </footer>
     </div>
 
-    <div id="autocomplete-suggestions"></div>
-
     <script>
-        // --- GERENCIAMENTO DE AUTENTICAÇÃO ---
-        const authContainer = document.getElementById('auth-container');
-        const appContainer = document.getElementById('app-container');
-        const authMessage = document.getElementById('auth-message');
-        const togglePassword = document.getElementById('togglePassword');
-        const passwordInput = document.getElementById('password');
-
-        togglePassword.addEventListener('click', function () {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            this.classList.toggle('fa-eye-slash');
-        });
-        
-        passwordInput.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                handleLogin();
-            }
-        });
-
-        function showApp() {
-            authContainer.style.display = 'none';
-            appContainer.style.display = 'block';
-
-            const username = localStorage.getItem('currentUser');
-            const usernameDisplay = document.getElementById('username-display');
-            if (username && usernameDisplay) {
-                usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
-            }
-
-            loadList();
-            startPolling(); // Inicia a verificação contínua por atualizações
-        }
-
-        function showAuth(message = '', isError = false) {
-            authContainer.style.display = 'flex';
-            appContainer.style.display = 'none';
-            authMessage.textContent = message;
-            authMessage.style.color = isError ? 'var(--danger-color)' : 'var(--green-highlight)';
-        }
-
-        async function handleLogin() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            if (!username || !password) {
-                showAuth('Por favor, preencha usuário e senha.', true);
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.message || 'Erro ao fazer login.');
-                }
-
-                localStorage.setItem('authToken', data.token);
-                localStorage.setItem('currentUser', username); 
-                showApp();
-            } catch (error) {
-                showAuth(error.message, true);
-            }
-        }
-
-        async function handleRegister() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            if (!username || !password) {
-                showAuth('Por favor, preencha usuário e senha para cadastrar.', true);
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await response.json();
-                 if (!response.ok) {
-                    throw new Error(data.message || 'Erro ao cadastrar.');
-                }
-                showAuth(data.message, false);
-            } catch (error) {
-                 showAuth(error.message, true);
-            }
-        }
-
-        async function handleLogout() {
-            stopPolling(); // Para a verificação contínua ao sair
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                try {
-                    await fetch('/api/logout', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                } catch (error) {
-                    console.error("Logout failed, but proceeding.", error);
-                }
-            }
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('currentUser');
-            location.reload();
-        }
-
-        function getAuthHeaders() {
-            const token = localStorage.getItem('authToken');
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-
-        function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
-        function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
-        document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
-
-        function toggleComparator() {
-            document.querySelector('.collapsible-header').classList.toggle('active');
-            document.getElementById('comparator-content').classList.toggle('expanded');
-        }
-
-        // --- GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
-        
-        // 1. Instrução para o Atalho Simples no Navegador (Prioridade do Usuário)
-        function showShortcutInstructions() {
-            closeNav();
-            
-            const ua = navigator.userAgent;
-            let browser = 'seu navegador';
-            if (ua.indexOf("Chrome") > -1 && ua.indexOf("Edg") === -1) browser = "Google Chrome";
-            else if (ua.indexOf("Firefox") > -1) browser = "Mozilla Firefox";
-            else if (ua.indexOf("SamsungBrowser") > -1) browser = "Samsung Internet";
-            else if (ua.indexOf("Edg") > -1) browser = "Microsoft Edge";
-            else if (ua.indexOf("Opera") > -1) browser = "Opera";
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            
-            let message = '';
-            
-            if (isIOS) {
-                // No iOS, a única forma de criar um atalho é via Safari Share/Add to Home Screen
-                message = `Para criar um atalho que **abre no seu navegador Safari como um link**:\n\n1. Toque no ícone **"Compartilhar"** (um quadrado com uma seta para cima) na barra inferior.\n2. Role para baixo e toque em **"Adicionar à Tela de Início"**.\n\nEste atalho abrirá a página como um link normal, **dentro do Safari**.`;
-            } else {
-                 message = `Esta opção cria um atalho que **abre dentro do ${browser}** (com a barra de endereço visível), garantindo o atalho simples de link, sem o modo App.\n\nSiga os passos no seu Android:\n\n1. Abra o menu do seu navegador (geralmente 3 pontos no canto superior/inferior).\n2. Procure pela opção **"Adicionar à tela inicial"** ou similar.\n3. Confirme o atalho.\n\n**Observação:** Seu navegador pode preferir o modo App mesmo assim. Para ter certeza de que é um link simples, você deve abrir o app do navegador (Chrome, Edge etc.) e acessar o site.`;
-            }
-
-            alert(message);
-        }
-
-        // 2. Instrução para a Instalação PWA (Modo App)
-        function showPWAInstructions() {
-            closeNav();
-            
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-            let message = '';
-
-            if (isIOS) {
-                message = `A experiência PWA (modo App sem barra de endereço) é melhor suportada no **Chrome** no Android ou em alguns navegadores iOS de terceiros. Para tentar instalar o PWA:\n\n1. Acesse o site pelo navegador **Chrome**.\n2. Abra o menu (3 pontos) e procure a opção **"Instalar App"**.\n\nSe a opção não aparecer, o navegador pode já ter instalado o PWA automaticamente.`;
-            } else {
-                message = `Para instalar o App na sua tela inicial, garantindo a experiência de aplicativo (sem a barra de endereço):\n\n1. Abra o menu do seu navegador (geralmente 3 pontos no canto superior).\n2. Procure a opção **"Instalar aplicativo"** ou **"Adicionar à tela inicial"**.\n\nSe o seu navegador estiver impedindo o atalho simples em favor do PWA, esta é a forma de forçar a experiência de aplicativo.`;
-            }
-
-            alert(message);
-        }
-        
-        // --- FIM GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
-
-
-        // --- Variáveis de Sincronização e Estado ---
-        const tableBody = document.getElementById('shopping-list-body');
-        const statusIndicator = document.getElementById('sync-status-indicator');
-        const autocompleteSuggestions = document.getElementById('autocomplete-suggestions'); // Variável para o Autocomplete
-        let saveTimeout;
-        let syncState = 'saved';
+        // Variáveis globais
+        let shoppingList = [];
         let isOnline = navigator.onLine;
-        let pollingIntervalId = null; // ID para o intervalo do polling
-        
-        // --- Autocomplete Item List (Loaded from itens.json) ---
-        let itensList = [];
-        
-        async function carregarItens() {
-            try {
-                // Removido o cache-buster (timestamp)
-                const response = await fetch(`itens.json`); 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                itensList = await response.json();
-                console.log(`Itens de Autocomplete carregados: ${itensList.length}`);
-            } catch (error) {
-                console.error('Falha ao carregar itens.json para autocomplete (Pode ser o primeiro acesso offline):', error);
-                // Fallback to empty list
-                itensList = [];
-            }
-        }
-        
-        let currentActiveInput = null; // Input ativo para o Autocomplete
-        
-        // --- FUNÇÃO ADICIONADA: Normaliza string para comparação sem acentos ---
-        function normalizeString(str) {
-            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+        // Funções de Utilidade
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
         }
 
-        function setSyncStatus(newState) {
-            syncState = newState;
-            statusIndicator.className = `status-${newState}`;
-            if (newState === 'error') {
-                setTimeout(() => { if (syncState === 'error') setSyncStatus('offline'); }, 3000);
-            }
-        }
-        
-        // --- LÓGICA DE POLLING (SINCRONIZAÇÃO CONTÍNUA) ---
-        function stopPolling() {
-            if (pollingIntervalId) {
-                clearInterval(pollingIntervalId);
-                pollingIntervalId = null;
-            }
+        // Funções de Estado e UI
+        function showApp() {
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
         }
 
-        function startPolling() {
-            stopPolling(); // Garante que não haja múltiplos intervalos rodando
-            pollingIntervalId = setInterval(pollForChanges, 4000); // Verifica por mudanças a cada 4 segundos
-        }
-        
-        async function pollForChanges() {
-            const activeEl = document.activeElement;
-            // Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela
-            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/list', { headers: getAuthHeaders() });
-                if (response.status === 401) return handleLogout();
-                if (!response.ok) return;
-
-                const remoteItems = await response.json();
-                const localItems = getCurrentLocalItems();
-
-                // Compara a lista remota com a local. Se forem diferentes, atualiza a tela.
-                if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
-                    redrawTable(remoteItems, false); // Redesenha a tabela sem focar no campo de novo item
-                }
-            } catch (error) {
-                // Falha silenciosa para não poluir o console com erros de rede
-            }
+        function showAuth() {
+            document.getElementById('app-container').style.display = 'none';
+            document.getElementById('auth-container').style.display = 'flex';
         }
 
-        function debounce(func, delay) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), delay);
-            };
+        function openMenu() {
+            document.getElementById("side-menu").classList.add("open");
+            document.getElementById("page-overlay").classList.add("show");
         }
 
-        function getCurrentLocalItems() {
-            const items = [];
-            document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
-                const name = row.cells[1].querySelector('textarea').value.trim();
-                if (name) {
-                    items.push({
-                        name: name,
-                        priceShibata: row.cells[2].querySelector('input').value || 'R$ 0,00',
-                        priceNagumo: row.cells[3].querySelector('input').value || 'R$ 0,00',
-                        purchased: row.classList.contains('purchased')
-                    });
-                }
-            });
-            return items;
+        function closeMenu() {
+            document.getElementById("side-menu").classList.remove("open");
+            document.getElementById("page-overlay").classList.remove("show");
         }
 
-        // --- LÓGICA DE SINCRONIZAÇÃO E CACHE OFFLINE ---
-        async function saveList() {
-            const items = getCurrentLocalItems();
-            const username = localStorage.getItem('currentUser');
-            if (!username) return;
-
-            if (!isOnline) {
-                setSyncStatus('offline');
-                console.log("Offline: Salvando alterações localmente.");
-                localStorage.setItem(`offlineList_${username}`, JSON.stringify(items));
-                return;
-            }
-            await saveListOnline(items);
-        }
-
-        async function saveListOnline(items) {
-            const username = localStorage.getItem('currentUser');
-            if (!username) return;
-
-            setSyncStatus('syncing');
-            try {
-                const response = await fetch('/api/list', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify(items)
-                });
-                if (response.status === 401) return handleLogout();
-                if (!response.ok) throw new Error('Falha ao salvar no servidor.');
-                
-                setSyncStatus('saved');
-                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
-                localStorage.removeItem(`offlineList_${username}`);
-
-            } catch (error) {
-                setSyncStatus('error');
-                console.error("Erro ao salvar online:", error);
-            }
-        }
-
-        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
-        async function syncOfflineChanges() {
-            const username = localStorage.getItem('currentUser');
-            if (!username) return;
+        function showSection(section) {
+            closeMenu();
+            document.getElementById('list-section').style.display = 'block';
+            document.getElementById('comparator-section').style.display = 'none';
+            document.getElementById('config-section').style.display = 'none';
             
-            const pendingItemsJSON = localStorage.getItem(`offlineList_${username}`);
-            if (!pendingItemsJSON) {
-                console.log("Nenhuma alteração offline para sincronizar.");
-                return;
-            }
-
-            console.log("Conectado. Sincronizando alterações pendentes...");
-            
-            try {
-                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
-                const localOfflineItems = JSON.parse(pendingItemsJSON);
-
-                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
-                await saveListOnline(localOfflineItems);
-                
-                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
-                redrawTable(localOfflineItems);
-
-            } catch (error) {
-                console.error("Falha ao sincronizar as alterações offline:", error);
-                setSyncStatus('error');
-            }
-        }
-
-        async function loadList() {
-            const username = localStorage.getItem('currentUser');
-            if (!username) return;
-
-            const offlineKey = `offlineList_${username}`;
-            const cacheKey = `shoppingList_${username}`;
-            const pendingOfflineItems = JSON.parse(localStorage.getItem(offlineKey));
-
-            if (pendingOfflineItems) {
-                console.log("Carregando lista com alterações offline pendentes.");
-                redrawTable(pendingOfflineItems);
-                setSyncStatus('offline');
-                return;
-            }
-
-            if (!isOnline) {
-                console.log("Offline. Carregando lista do cache.");
-                setSyncStatus('offline');
-                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
-                redrawTable(cachedItems);
-                return;
-            }
-            
-            setSyncStatus('syncing');
-            try {
-                const response = await fetch('/api/list', { headers: getAuthHeaders() });
-                if (response.status === 401) return handleLogout();
-                if (!response.ok) throw new Error('Falha ao buscar dados.');
-
-                const remoteItems = await response.json();
-                localStorage.setItem(cacheKey, JSON.stringify(remoteItems));
-                redrawTable(remoteItems, true);
-                setSyncStatus('saved');
-            } catch (error) {
-                console.error('Erro ao buscar lista online, usando cache como fallback:', error);
-                setSyncStatus('offline'); 
-                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
-                redrawTable(cachedItems);
-            }
-        }
-
-        const debouncedSave = debounce(saveList, 1500);
-
-        // --- Funções de UI ---
-        function autoResizeTextarea(textarea) {
-            textarea.style.height = 'auto';
-            textarea.style.height = textarea.scrollHeight + 'px';
-        }
-
-        tableBody.addEventListener('input', (event) => {
-            const target = event.target;
-            if (target.tagName.toLowerCase() === 'textarea') {
-                autoResizeTextarea(target);
-                
-                if (target.classList.contains('item-name-input')) { 
-                    // Define a posição imediatamente para evitar o salto para o topo
-                    currentActiveInput = target; 
-                    updateAutocompletePosition(); 
-                    
-                    debouncedHandleAutocomplete(event); 
+            if (section === 'comparator') {
+                document.getElementById('comparator-section').style.display = 'block';
+                // Carrega o iframe apenas quando a seção é exibida
+                const iframe = document.getElementById('price-comparator-iframe');
+                if (iframe.src === 'about:blank') {
+                    document.getElementById('iframe-overlay').style.display = 'flex';
+                    iframe.onload = () => {
+                        document.getElementById('iframe-overlay').style.display = 'none';
+                    };
+                    iframe.src = 'https://meumercado.pages.dev/comparator-embed.html'; // Substitua pelo URL real do seu comparador
                 }
-            }
-            if (['textarea', 'input'].includes(target.tagName.toLowerCase())) {
-                setSyncStatus('syncing');
-                debouncedSave();
-            }
-        });
-        
-        tableBody.addEventListener('focus', (event) => {
-            const target = event.target;
-            if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
-                setTimeout(() => {
-                    if (target.value !== '') {
-                        const valueLength = target.value.length;
-                        target.setSelectionRange(valueLength, valueLength);
-                    }
-                }, 1);
-            }
-            // Define o currentActiveInput e chama o autocomplete para QUALQUER campo de nome de item.
-            if (target.tagName.toLowerCase() === 'textarea' && target.classList.contains('item-name-input')) { 
-                currentActiveInput = target; 
-                handleAutocompleteInput(event); 
-            } else if (target.tagName.toLowerCase() === 'textarea') {
-                 // Para outros textareas (apenas por segurança), limpa o autocomplete
-                 closeAutocomplete();
-            }
-        }, true);
-
-        tableBody.addEventListener('blur', (event) => {
-            if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
-                formatCurrency(event.target);
-                comparePrices(event.target);
-                setSyncStatus('syncing');
-                debouncedSave();
-            }
-            // Aplica a lógica de fechar para QUALQUER campo de nome de item.
-            if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
-                // Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
-                setTimeout(() => {
-                    // Só feche se o mouse não estiver sobre as sugestões
-                    if (!autocompleteSuggestions.matches(':hover')) {
-                        closeAutocomplete();
-                    }
-                }, 50); 
-            }
-        }, true);
-        
-        // --- Funções do Autocomplete ---
-        
-        function updateAutocompletePosition() {
-            if (currentActiveInput) { 
-                const rect = currentActiveInput.getBoundingClientRect();
-                autocompleteSuggestions.style.top = `${rect.bottom + window.scrollY}px`;
-                autocompleteSuggestions.style.left = `${rect.left + window.scrollX}px`;
-                // Garante que a largura seja igual à do campo de texto
-                autocompleteSuggestions.style.width = `${rect.width + 16}px`; // Adiciona padding horizontal
-            }
-        }
-        window.addEventListener('scroll', updateAutocompletePosition, true);
-        window.addEventListener('resize', updateAutocompletePosition);
-
-        function closeAutocomplete() {
-            autocompleteSuggestions.style.display = 'none';
-        }
-
-        const handleAutocompleteInput = (event) => {
-            const inputText = (event.target.value || '').trim();
-            currentActiveInput = event.target; 
-            updateAutocompletePosition(); 
-
-            if (inputText.length < 1 || !itensList || itensList.length === 0) {
-                autocompleteSuggestions.style.display = 'none';
-                return;
-            }
-
-            // Normaliza o texto de entrada para comparação sem acentos
-            const normalizedInput = normalizeString(inputText);
-
-            // Filtra usando a string normalizada
-            const filteredItens = itensList.filter(item => 
-                normalizeString(item.nome).includes(normalizedInput)
-            );
-
-            if (filteredItens.length > 0) {
-                const suggestionsHTML = filteredItens
-                    .map(item => `<div class="suggestion-item" data-name="${item.nome.replace(/"/g, '&quot;')}"><span>${item.nome}</span></div>`)
-                    .slice(0, 10) // Limitar a 10 sugestões
-                    .join('');
-                autocompleteSuggestions.innerHTML = suggestionsHTML;
-                autocompleteSuggestions.style.display = 'block';
+            } else if (section === 'config') {
+                document.getElementById('list-section').style.display = 'none';
+                document.getElementById('config-section').style.display = 'block';
             } else {
-                autocompleteSuggestions.style.display = 'none';
+                 // Certifica-se de que a lista esteja visível por padrão
             }
-        };
-        
-        const debouncedHandleAutocomplete = debounce(handleAutocompleteInput, 150);
+        }
 
-        autocompleteSuggestions.addEventListener('mousedown', (event) => {
-            const suggestionItem = event.target.closest('.suggestion-item');
-            if (suggestionItem && currentActiveInput) {
-                event.preventDefault(); // Impede que o input perca o foco
-                const nome = suggestionItem.dataset.name;
-                currentActiveInput.value = nome;
-                
-                closeAutocomplete();
-                
-                // Disparar manualmente a função de redimensionar
-                autoResizeTextarea(currentActiveInput);
-                
-                // Se for o campo de NOVO item, comita para adicionar. Se for EDICÃO, apenas salva.
-                if (currentActiveInput.id === 'newItemName') {
-                    commitItem(); 
-                } else {
-                    // Item existente: apenas salva a lista atualizada
-                    setSyncStatus('syncing');
-                    debouncedSave();
-                }
+        function toggleCollapsible(id) {
+            const content = document.getElementById(id);
+            const header = content.previousElementSibling;
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                content.style.maxHeight = '0';
+                header.classList.remove('active');
+            } else {
+                content.classList.add('expanded');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                header.classList.add('active');
             }
-        });
-        // --- Fim das Funções do Autocomplete ---
+        }
 
+        // Funções da Lista de Compras
+        function calculateTotals() {
+            let totalA = 0;
+            let totalB = 0;
+            let totalC = 0;
 
-        function createAddItemRow(shouldFocus = false) {
-            document.querySelector('.add-item-row')?.remove();
-            const newRow = tableBody.insertRow(0);
-            newRow.classList.add('add-item-row');
-            newRow.innerHTML = `
-                <td></td>
-                <td><textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1"></textarea></td>
-                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
-                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
-                <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>
-            `;
-            const newItemInput = document.getElementById('newItemName');
-            newItemInput.addEventListener('keydown', (event) => {
-                // Apenas comitar/mover se o autocomplete não estiver aberto e a tecla for Enter
-                if (event.key === 'Enter' && !event.shiftKey && autocompleteSuggestions.style.display !== 'block') {
-                    event.preventDefault();
-                    commitItem();
-                }
+            shoppingList.forEach(item => {
+                const priceA = parseFloat(item.priceA || 0);
+                const priceB = parseFloat(item.priceB || 0);
+                const priceC = parseFloat(item.priceC || 0);
+
+                totalA += priceA;
+                totalB += priceB;
+                totalC += priceC;
             });
-            if (shouldFocus) newItemInput.focus();
+
+            document.getElementById('total-price-a').textContent = formatCurrency(totalA);
+            document.getElementById('total-price-b').textContent = formatCurrency(totalB);
+            document.getElementById('total-price-c').textContent = formatCurrency(totalC);
         }
 
-        function commitItem() {
-            const itemNameInput = document.getElementById('newItemName');
-            const itemName = itemNameInput.value.trim();
-            if (itemName === '') {
-                itemNameInput.focus();
-                return;
-            }
+        function getCheapestPrice(item) {
+            const prices = [
+                { price: parseFloat(item.priceA || 0), market: 'A' },
+                { price: parseFloat(item.priceB || 0), market: 'B' },
+                { price: parseFloat(item.priceC || 0), market: 'C' }
+            ].filter(p => p.price > 0);
+
+            if (prices.length === 0) return null;
+
+            // Encontra o menor preço
+            const minPrice = Math.min(...prices.map(p => p.price));
             
-            closeAutocomplete(); // Garante que fecha ao comitar
+            // Filtra todos os preços que são iguais ao menor preço
+            const cheapestMarkets = prices.filter(p => p.price === minPrice).map(p => p.market);
             
-            const row = itemNameInput.closest('tr');
-            const priceShibata = row.cells[2].querySelector('input').value || 'R$ 0,00';
-            const priceNagumo = row.cells[3].querySelector('input').value || 'R$ 0,00';
+            return { minPrice, cheapestMarkets };
+        }
 
-            buildItemRow({ 
-                name: itemName, 
-                priceShibata: priceShibata, 
-                priceNagumo: priceNagumo, 
-                purchased: false 
-            }, true); 
+        function renderList() {
+            const tbody = document.getElementById('shopping-list-body');
+            tbody.innerHTML = ''; // Limpa a lista atual
+
+            shoppingList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = item.purchased ? 'purchased' : '';
+                tr.dataset.id = item.id;
+
+                const cheapest = getCheapestPrice(item);
+
+                tr.innerHTML = `
+                    <td>
+                        <input type="checkbox" ${item.purchased ? 'checked' : ''} onclick="togglePurchased('${item.id}', this.checked)">
+                    </td>
+                    <td>
+                        <textarea 
+                            class="item-name-input" 
+                            rows="1" 
+                            data-id="${item.id}"
+                            oninput="autoExpand(this); updateItemName(this.dataset.id, this.value)"
+                            onblur="saveToStorage(); hideSuggestions()"
+                            onfocus="handleItemInputFocus(this)"
+                            >${item.name}</textarea>
+                    </td>
+                    <td class="price-cell">
+                        <input 
+                            type="text" 
+                            value="${item.priceA || ''}" 
+                            placeholder="0,00"
+                            class="${(cheapest && cheapest.cheapestMarkets.includes('A')) ? 'cheapest-price' : (item.priceA === '0.00' ? 'default-price' : '')}"
+                            oninput="updateItemPrice('${item.id}', 'A', this.value)" 
+                            onblur="saveToStorage()"
+                            pattern="[0-9]*" 
+                            inputmode="decimal"
+                        >
+                    </td>
+                    <td class="price-cell">
+                        <input 
+                            type="text" 
+                            value="${item.priceB || ''}" 
+                            placeholder="0,00"
+                            class="${(cheapest && cheapest.cheapestMarkets.includes('B')) ? 'cheapest-price' : (item.priceB === '0.00' ? 'default-price' : '')}"
+                            oninput="updateItemPrice('${item.id}', 'B', this.value)" 
+                            onblur="saveToStorage()"
+                            pattern="[0-9]*" 
+                            inputmode="decimal"
+                        >
+                    </td>
+                    <td class="price-cell">
+                        <input 
+                            type="text" 
+                            value="${item.priceC || ''}" 
+                            placeholder="0,00"
+                            class="${(cheapest && cheapest.cheapestMarkets.includes('C')) ? 'cheapest-price' : (item.priceC === '0.00' ? 'default-price' : '')}"
+                            oninput="updateItemPrice('${item.id}', 'C', this.value)" 
+                            onblur="saveToStorage()"
+                            pattern="[0-9]*" 
+                            inputmode="decimal"
+                        >
+                    </td>
+                    <td>
+                        <button class="action-btn" onclick="deleteItem('${item.id}')"><i class="fas fa-times-circle"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+
+                // Auto-expandir o textarea após renderização
+                const textarea = tr.querySelector('.item-name-input');
+                if (textarea) autoExpand(textarea);
+            });
+
+            calculateTotals();
+        }
+
+        function autoExpand(field) {
+            field.style.height = 'auto';
+            field.style.height = (field.scrollHeight) + 'px';
+        }
+
+        function updateItemName(id, newName) {
+            const item = shoppingList.find(item => item.id === id);
+            if (item) {
+                item.name = newName;
+            }
+        }
+
+        function updateItemPrice(id, market, newValue) {
+            const item = shoppingList.find(item => item.id === id);
+            // Remove R$ e substitui vírgula por ponto para cálculo
+            const cleanedValue = newValue.replace('R$', '').replace(',', '.').trim();
             
-            createAddItemRow(true);
-            saveList(); 
-        }
-        
-        function buildItemRow(itemData, isNew = false) {
-            const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
-            if (itemData.purchased) newRow.classList.add('purchased');
+            // Garante que o valor seja numérico ou vazio
+            const numericValue = /^\d*\.?\d*$/.test(cleanedValue) ? cleanedValue : '';
 
-            const getPriceInputHTML = (price) => {
-                const hasValue = price && price.trim() !== 'R$ 0,00';
-                return `<input type="text" ${hasValue ? `value="${price}"` : ''} placeholder="R$ 0,00">`;
-            };
-
-            newRow.innerHTML = `
-                <td><input type="checkbox" onchange="togglePurchased(this)" ${itemData.purchased ? 'checked' : ''}></td>
-                <td><textarea class="item-name-input" rows="1">${itemData.name}</textarea></td>
-                <td class="price-cell">${getPriceInputHTML(itemData.priceShibata)}</td>
-                <td class="price-cell">${getPriceInputHTML(itemData.priceNagumo)}</td>
-                <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
-            `;
-            autoResizeTextarea(newRow.cells[1].querySelector('textarea'));
-            comparePrices(newRow.cells[2].querySelector('input'));
-        }
-
-        function redrawTable(items, shouldFocusNewItem = true) {
-            tableBody.innerHTML = '';
-            if (items && items.length > 0) {
-                items.forEach(item => buildItemRow(item, false));
-                sortAndGroup();
-            }
-            createAddItemRow(shouldFocusNewItem);
-        }
-
-        function removeItem(button) {
-            // Em ambientes de produção, use um modal personalizado em vez de 'confirm'
-            if (confirm('Tem certeza de que deseja remover este item?')) {
-                button.closest('tr').remove();
-                saveList(); 
+            if (item) {
+                item['price' + market] = numericValue;
+                renderList(); // Renderiza para atualizar os totais e destaques
             }
         }
 
-        function togglePurchased(checkbox) {
-            checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
-            saveList();
+        function togglePurchased(id, isChecked) {
+            const item = shoppingList.find(item => item.id === id);
+            if (item) {
+                item.purchased = isChecked;
+                saveToStorage();
+                renderList(); // Renderiza para aplicar o risco
+            }
+        }
+
+        function addNewItem() {
+            const newItemNameInput = document.getElementById('new-item-name');
+            const name = newItemNameInput.value.trim();
+
+            if (name) {
+                const newItem = {
+                    id: Date.now().toString(),
+                    name: name,
+                    priceA: '',
+                    priceB: '',
+                    priceC: '',
+                    purchased: false
+                };
+                shoppingList.unshift(newItem); // Adiciona no início da lista
+                saveToStorage();
+                newItemNameInput.value = '';
+                renderList();
+                hideSuggestions(); // Oculta sugestões após adicionar
+            }
+        }
+
+        function handleNewItemKeypress(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Impede quebra de linha
+                addNewItem();
+            }
+        }
+
+        function deleteItem(id) {
+            shoppingList = shoppingList.filter(item => item.id !== id);
+            saveToStorage();
+            renderList();
         }
 
         function clearList() {
-            // Em ambientes de produção, use um modal personalizado em vez de 'confirm'
-            if (confirm('Tem certeza que deseja limpar toda a lista?')) {
-                tableBody.innerHTML = '';
-                saveList();
-                createAddItemRow(true); 
+            if (confirm("Tem certeza de que deseja limpar a lista de compras?")) {
+                shoppingList = [];
+                saveToStorage();
+                renderList();
             }
         }
-        
-        // --- Eventos de Conexão ---
-        window.addEventListener('online', async () => {
-            isOnline = true;
-            await syncOfflineChanges();
-            await loadList();
-            startPolling(); // Reinicia o polling ao ficar online
-            setSyncStatus('saved'); // Status "salvo" após sincronização
-        });
-        window.addEventListener('offline', () => {
-            isOnline = false;
-            stopPolling(); // Para o polling ao ficar offline
-            setSyncStatus('offline');
-        });
 
-        // --- Funções de Formatação e Comparação de Preços ---
-        function formatCurrency(input) {
-            const value = input.value.trim();
-            const number = parseValueToFloat(value);
-            if (isNaN(number) || number === 0) {
-                input.value = '';
-                input.placeholder = 'R$ 0,00';
+        // Funções de Autenticação
+        function handleLogin() {
+            // Lógica de login simples para demonstração
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const authMessage = document.getElementById('auth-message');
+
+            if (email && password) {
+                // Simulação de autenticação bem-sucedida
+                localStorage.setItem('authToken', 'fake-token');
+                localStorage.setItem('username', email.split('@')[0]);
+                document.getElementById('username-display').textContent = localStorage.getItem('username');
+                showApp();
             } else {
-                input.value = number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                input.placeholder = 'R$ 0,00';
+                authMessage.textContent = "Preencha e-mail e senha.";
             }
         }
 
-        function parseValueToFloat(value) {
-            if (!value) return NaN;
-            return parseFloat(value.replace('R$', '').trim().replace('.', '').replace(',', '.'));
+        function handleRegister() {
+            // Simulação de registro bem-sucedido
+            document.getElementById('auth-message').textContent = "Registro simulado. Use suas credenciais para Entrar.";
         }
 
-        function comparePrices(input) {
-            const row = input.closest('tr');
-            if (!row || row.classList.contains('add-item-row')) return;
-            const shibataInput = row.cells[2].querySelector('input');
-            const nagumoInput = row.cells[3].querySelector('input');
-            shibataInput.classList.remove('cheapest-price', 'equal-price');
-            nagumoInput.classList.remove('cheapest-price', 'equal-price');
-            const shibataPrice = parseValueToFloat(shibataInput.value);
-            const nagumoPrice = parseValueToFloat(nagumoInput.value);
-            const validShibata = !isNaN(shibataPrice) && shibataPrice > 0;
-            const validNagumo = !isNaN(nagumoPrice) && nagumoPrice > 0;
-            if (validShibata && validNagumo) {
-                if (shibataPrice < nagumoPrice) shibataInput.classList.add('cheapest-price');
-                else if (nagumoPrice < shibataPrice) nagumoInput.classList.add('cheapest-price');
-                else { shibataInput.classList.add('equal-price'); nagumoInput.classList.add('equal-price'); }
-            } else if (validShibata) { shibataInput.classList.add('cheapest-price');
-            } else if (validNagumo) { nagumoInput.classList.add('cheapest-price'); }
-            sortAndGroup();
+        function handleLogout() {
+            if (confirm("Tem certeza de que deseja sair?")) {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('username');
+                showAuth();
+            }
         }
 
-        function sortAndGroup() {
-            const allRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
-            const unpriced = [], shibata = [], equal = [], nagumo = [];
-            allRows.forEach(row => {
-                const pS = parseValueToFloat(row.cells[2].querySelector('input').value);
-                const pN = parseValueToFloat(row.cells[3].querySelector('input').value);
-                const vS = !isNaN(pS) && pS > 0, vN = !isNaN(pN) && pN > 0;
-                if (!vS && !vN) unpriced.push(row);
-                else if (vS && vN && pS === pN) equal.push(row);
-                else if (vS && (!vN || pS < pN)) shibata.push(row);
-                else nagumo.push(row);
-            });
+        function confirmDeleteAccount() {
+            if (confirm("ATENÇÃO: Você tem certeza que deseja EXCLUIR sua conta e todos os seus dados? Esta ação é irreversível.")) {
+                // Lógica de exclusão de conta simulada
+                localStorage.clear();
+                alert("Conta excluída (simulação).");
+                showAuth();
+            }
+        }
+
+        document.getElementById('togglePassword').addEventListener('click', function (e) {
+            const passwordInput = document.getElementById('password');
+            // Alterna o tipo do input entre 'password' e 'text'
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            // Alterna o ícone do olho
+            this.classList.toggle('fa-eye-slash');
+        });
+
+        // Funções de Sincronização e Armazenamento
+        function saveToStorage() {
+            localStorage.setItem('shoppingList', JSON.stringify(shoppingList));
+            setSyncStatus('syncing');
+            // Simulação de sincronização com atraso de 1 segundo
+            setTimeout(() => {
+                setSyncStatus(isOnline ? 'saved' : 'offline');
+            }, 1000);
+        }
+
+        async function carregarItens() {
+            const storedList = localStorage.getItem('shoppingList');
+            if (storedList) {
+                shoppingList = JSON.parse(storedList);
+            } else {
+                // Lista de demonstração inicial, se vazia
+                shoppingList = [
+                    { id: '1', name: 'Leite Integral (1L)', priceA: '5.50', priceB: '5.99', priceC: '5.20', purchased: false },
+                    { id: '2', name: 'Pão de Forma (500g)', priceA: '7.00', priceB: '6.50', priceC: '7.50', purchased: false }
+                ];
+                saveToStorage();
+            }
+            document.getElementById('username-display').textContent = localStorage.getItem('username') || 'Usuário';
+            renderList();
+        }
+
+        function setSyncStatus(status) {
+            const indicator = document.getElementById('sync-status-indicator');
+            indicator.className = '';
+            indicator.classList.add('status-' + status);
+            let title;
+            switch(status) {
+                case 'saved': title = 'Salvo (Online)'; break;
+                case 'syncing': title = 'Sincronizando...'; break;
+                case 'error': title = 'Erro de Sincronização'; break;
+                case 'offline': title = 'Modo Offline'; break;
+                default: title = 'Status Desconhecido';
+            }
+            indicator.title = title;
+        }
+
+        window.addEventListener('online', () => { isOnline = true; setSyncStatus('saved'); saveToStorage(); });
+        window.addEventListener('offline', () => { isOnline = false; setSyncStatus('offline'); });
+
+        // --- Autocomplete Simples ---
+        const allItemNames = ["Leite", "Pão", "Arroz", "Feijão", "Açúcar", "Café", "Manteiga", "Ovos", "Frango", "Carne", "Legumes", "Frutas", "Queijo", "Macarrão", "Óleo", "Sabão", "Shampoo", "Cerveja", "Refrigerante"];
+        
+        function showSuggestions(inputElement) {
+            const query = inputElement.value.toLowerCase();
+            const suggestionsContainer = document.getElementById('autocomplete-suggestions');
             
-            // O agrupamento (unpriced -> shibata -> equal -> nagumo) é mantido, garantindo a ordenação primária por status de preço.
-            [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
+            if (query.length < 2) {
+                suggestionsContainer.style.display = 'none';
+                return;
+            }
+
+            const filteredSuggestions = allItemNames.filter(name => name.toLowerCase().includes(query) && !shoppingList.some(item => item.name.toLowerCase() === name.toLowerCase()));
+            
+            suggestionsContainer.innerHTML = '';
+            
+            if (filteredSuggestions.length > 0) {
+                filteredSuggestions.forEach(suggestion => {
+                    const div = document.createElement('div');
+                    div.className = 'suggestion-item';
+                    div.textContent = suggestion;
+                    div.onclick = () => {
+                        inputElement.value = suggestion;
+                        addNewItem(); // Adiciona o item sugerido
+                        hideSuggestions();
+                    };
+                    suggestionsContainer.appendChild(div);
+                });
+
+                // Posiciona e exibe
+                const rect = inputElement.getBoundingClientRect();
+                suggestionsContainer.style.width = rect.width + 'px';
+                suggestionsContainer.style.top = rect.bottom + window.scrollY + 'px';
+                suggestionsContainer.style.left = rect.left + window.scrollX + 'px';
+                suggestionsContainer.style.display = 'block';
+            } else {
+                hideSuggestions();
+            }
         }
 
-        // --- Funções Auxiliares (Streamlit, Teclado Virtual) ---
-        function wakeUpApp() {
-            const iframeWrapper = document.getElementById('iframe-wrapper');
-            const iframeOverlay = document.getElementById('iframe-overlay');
-            iframeOverlay.style.display = 'flex';
-            let streamlitIframe = document.getElementById('streamlit-app');
-            if (streamlitIframe) streamlitIframe.remove();
-            const newIframe = document.createElement('iframe');
-            newIframe.id = 'streamlit-app';
-            newIframe.src = `https://precosmercados.streamlit.app/?embed=true&minimal=true&t=${new Date().getTime()}`;
-            newIframe.onload = () => { iframeOverlay.style.display = 'none'; };
-            iframeWrapper.prepend(newIframe);
+        function hideSuggestions() {
+            document.getElementById('autocomplete-suggestions').style.display = 'none';
         }
 
+        function handleItemInputFocus(inputElement) {
+             // Esconde as sugestões ao focar para edição em itens existentes
+             hideSuggestions();
+        }
+
+        // Listener para o campo de nova lista
+        document.getElementById('new-item-name').addEventListener('input', function() {
+            showSuggestions(this);
+        });
+        
+        // Listener para fechar as sugestões ao clicar fora
+        document.addEventListener('click', function(e) {
+            const suggestionsContainer = document.getElementById('autocomplete-suggestions');
+            const newItemInput = document.getElementById('new-item-name');
+            if (suggestionsContainer && !suggestionsContainer.contains(e.target) && e.target !== newItemInput) {
+                hideSuggestions();
+            }
+        });
+
+        // --- CORREÇÃO DE TECLADO VIRTUAL EM PWA (para iOS e Android) ---
         function setupVirtualKeyboardListener() {
             if (!window.visualViewport) return;
-            const isLikelyKeyboardOpen = () => window.innerHeight - window.visualViewport.height > 150;
+
+            const isLikelyKeyboardOpen = () => window.visualViewport.height < document.documentElement.clientHeight - 150;
             let keyboardWasOpen = isLikelyKeyboardOpen();
             window.visualViewport.addEventListener('resize', () => {
                 const keyboardIsOpen = isLikelyKeyboardOpen();
