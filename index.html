@@ -198,10 +198,6 @@
         .equal-price { color: var(--primary-color) !important; font-weight: bold; }
         .shopping-list-table td input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
         .purchased .item-name-input, .purchased input[type="text"] { text-decoration: line-through; color: var(--secondary-text-color); }
-        /* Style para a tabela de itens salvos */
-        .items-table .item-text-input { width: 100%; background: var(--card-color); border: none; color: var(--text-color); font-size: 1rem; font-family: inherit; padding: 4px 0; border-radius: 4px; }
-        .items-table .item-text-input:focus { outline: none; background-color: var(--input-bg-color); }
-
 
         /* --- SEÇÃO DO EMBED --- */
         .iframe-container { position: relative; border-radius: var(--border-radius); overflow: hidden; padding-top: 200%; }
@@ -246,6 +242,32 @@
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
         #sync-status-indicator.status-offline { background-color: #7986cb; }
 
+        /* --- Autocomplete --- */
+        #autocomplete-suggestions {
+            position: absolute;
+            background-color: var(--input-bg-color);
+            border: 1px solid var(--primary-color);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            z-index: 1002; /* Mais alto que o overlay do menu */
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .suggestion-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            color: var(--text-color);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .suggestion-item:hover {
+            background-color: #555;
+        }
+
         @media (min-width: 768px) { .shopping-list-table colgroup col:nth-child(2) { width: 450px; } }
         @media (min-width: 1024px) { .shopping-list-table colgroup col:nth-child(2) { width: 550px; } }
     </style>
@@ -272,7 +294,6 @@
         <div id="side-menu" class="side-menu">
             <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
             <a href="#"><i class="fas fa-list-check"></i> Minha Lista</a>
-            <a href="items.html"><i class="fas fa-archive"></i> Meus Itens Salvos</a>
             <a href="#"><i class="fas fa-history"></i> Histórico</a>
             <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
             <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
@@ -317,7 +338,6 @@
                             </thead>
                             <tbody id="shopping-list-body"></tbody>
                         </table>
-                        <datalist id="saved-items-list"></datalist>
                     </div>
                 </div>
 
@@ -352,6 +372,8 @@
         </div>
     </div>
 
+    <div id="autocomplete-suggestions"></div>
+
     <script>
         // --- GERENCIAMENTO DE AUTENTICAÇÃO ---
         const authContainer = document.getElementById('auth-container');
@@ -384,7 +406,6 @@
             }
 
             loadList();
-            loadSavedItemsNames(); // ** Carrega os nomes dos itens salvos **
             startPolling(); // Inicia a verificação contínua por atualizações
         }
 
@@ -485,11 +506,13 @@
         // --- Variáveis de Sincronização e Estado ---
         const tableBody = document.getElementById('shopping-list-body');
         const statusIndicator = document.getElementById('sync-status-indicator');
+        const autocompleteSuggestions = document.getElementById('autocomplete-suggestions'); // Variável para o Autocomplete
         let saveTimeout;
         let syncState = 'saved';
         let isOnline = navigator.onLine;
         let pollingIntervalId = null; // ID para o intervalo do polling
-        let savedItemsNames = []; // ** Armazena a lista de nomes dos itens salvos **
+        let itensList = []; // Lista para o Autocomplete
+        let currentActiveInput = null; // Input ativo para o Autocomplete
 
         function setSyncStatus(newState) {
             syncState = newState;
@@ -535,60 +558,6 @@
                 // Falha silenciosa para não poluir o console com erros de rede
             }
         }
-
-        // ** Função para carregar nomes dos itens salvos (para a lista suspensa) **
-        async function loadSavedItemsNames() {
-            try {
-                const response = await fetch('/api/saved_items_names', { headers: getAuthHeaders() });
-                if (response.status === 401) return handleLogout();
-                if (!response.ok) throw new Error('Falha ao buscar itens salvos.');
-                
-                // O backend deve retornar uma lista de strings, ex: ["Banana R$5,00", "Maçã R$10,00"]
-                savedItemsNames = await response.json(); 
-                
-                const datalist = document.getElementById('saved-items-list');
-                datalist.innerHTML = '';
-                // Popula o datalist com os itens salvos
-                savedItemsNames.forEach(itemText => {
-                    const option = document.createElement('option');
-                    option.value = itemText;
-                    datalist.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Erro ao carregar lista de itens salvos:', error);
-            }
-        }
-
-        // ** Função para salvar item na lista de itens salvos (Se for novo) **
-        async function saveNewItemToSavedList(itemText) {
-            if (!itemText) return;
-            
-            // O backend deve lidar com a checagem de duplicidade usando a coluna 'name' e ignorar itens repetidos.
-            
-            try {
-                // Endpoint para adicionar um único item na lista de salvos
-                const response = await fetch('/api/saved_items/add_single', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    // Envia o texto digitado. O backend deve extrair o nome e salvar.
-                    body: JSON.stringify({ item_text: itemText }) 
-                });
-
-                if (response.status === 401) return handleLogout();
-                if (!response.ok) {
-                    // Se houver um erro, como a validação de unicidade do backend, apenas logamos.
-                    console.warn("Item não salvo (provavelmente duplicado ou erro de parsing):", itemText);
-                    return;
-                }
-
-                // Recarrega a lista de sugestões após o salvamento
-                await loadSavedItemsNames();
-
-            } catch (error) {
-                console.error("Erro ao salvar novo item na lista de salvos:", error);
-            }
-        }
-
 
         function debounce(func, delay) {
             return function(...args) {
@@ -652,7 +621,7 @@
             }
         }
 
-        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE ---
+        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
         async function syncOfflineChanges() {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
@@ -666,8 +635,15 @@
             console.log("Conectado. Sincronizando alterações pendentes...");
             
             try {
+                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
                 const localOfflineItems = JSON.parse(pendingItemsJSON);
+
+                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
+                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
+                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
                 await saveListOnline(localOfflineItems);
+                
+                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
                 redrawTable(localOfflineItems);
 
             } catch (error) {
@@ -726,7 +702,10 @@
         }
 
         tableBody.addEventListener('input', (event) => {
-            if (event.target.tagName.toLowerCase() === 'textarea') autoResizeTextarea(event.target);
+            if (event.target.tagName.toLowerCase() === 'textarea') {
+                autoResizeTextarea(event.target);
+                debouncedHandleAutocomplete(event); // ATIVA O AUTOCOMPLETE
+            }
             if (['textarea', 'input'].includes(event.target.tagName.toLowerCase())) {
                 setSyncStatus('syncing');
                 debouncedSave();
@@ -743,6 +722,9 @@
                     }
                 }, 1);
             }
+            if (target.tagName.toLowerCase() === 'textarea') { // ADICIONADO
+                currentActiveInput = target; // Rastreia o input ativo
+            }
         }, true);
 
         tableBody.addEventListener('blur', (event) => {
@@ -752,17 +734,95 @@
                 setSyncStatus('syncing');
                 debouncedSave();
             }
+            if (event.target.tagName.toLowerCase() === 'textarea') { // ADICIONADO
+                // Atraso para permitir o clique na sugestão
+                setTimeout(() => {
+                    closeAutocomplete();
+                }, 200);
+            }
         }, true);
         
+        // --- Funções do Autocomplete ---
+        async function carregarItens() {
+            try {
+                const response = await fetch('itens_completo.json');
+                if (!response.ok) throw new Error('Falha ao carregar a lista de itens.');
+                itensList = await response.json();
+                console.log("Lista de itens carregada.");
+            } catch (error) {
+                console.error(error);
+                // Falha silenciosa, o autocomplete apenas não funcionará.
+            }
+        }
+
+        function updateAutocompletePosition() {
+            if (currentActiveInput && autocompleteSuggestions.style.display === 'block') {
+                const rect = currentActiveInput.getBoundingClientRect();
+                autocompleteSuggestions.style.top = `${rect.bottom + window.scrollY}px`;
+                autocompleteSuggestions.style.left = `${rect.left + window.scrollX}px`;
+                autocompleteSuggestions.style.width = `${rect.width}px`;
+            }
+        }
+        window.addEventListener('scroll', updateAutocompletePosition, true);
+        window.addEventListener('resize', updateAutocompletePosition);
+
+        function closeAutocomplete() {
+            autocompleteSuggestions.style.display = 'none';
+        }
+
+        const handleAutocompleteInput = (event) => {
+            const inputText = event.target.value.toLowerCase();
+            currentActiveInput = event.target; // Garante que temos o input
+            updateAutocompletePosition();
+
+            if (inputText.length < 1 || !itensList || itensList.length === 0) {
+                autocompleteSuggestions.style.display = 'none';
+                return;
+            }
+
+            const filteredItens = itensList.filter(item => 
+                item.nome.toLowerCase().includes(inputText)
+            );
+
+            if (filteredItens.length > 0) {
+                const suggestionsHTML = filteredItens
+                    .map(item => `<div class="suggestion-item" data-name="${item.nome.replace(/"/g, '&quot;')}"><span>${item.nome}</span></div>`)
+                    .slice(0, 10) // Limitar a 10 sugestões
+                    .join('');
+                autocompleteSuggestions.innerHTML = suggestionsHTML;
+                autocompleteSuggestions.style.display = 'block';
+            } else {
+                autocompleteSuggestions.style.display = 'none';
+            }
+        };
+        
+        const debouncedHandleAutocomplete = debounce(handleAutocompleteInput, 150);
+
+        autocompleteSuggestions.addEventListener('mousedown', (event) => {
+            const suggestionItem = event.target.closest('.suggestion-item');
+            if (suggestionItem && currentActiveInput) {
+                event.preventDefault(); // Impede que o input perca o foco
+                const nome = suggestionItem.dataset.name;
+                currentActiveInput.value = nome;
+                
+                closeAutocomplete();
+                
+                // Disparar manualmente as funções de redimensionar e salvar
+                autoResizeTextarea(currentActiveInput);
+                setSyncStatus('syncing');
+                debouncedSave();
+            }
+        });
+        // --- Fim das Funções do Autocomplete ---
+
+
         function createAddItemRow(shouldFocus = false) {
             document.querySelector('.add-item-row')?.remove();
             const newRow = tableBody.insertRow(0);
             newRow.classList.add('add-item-row');
             newRow.innerHTML = `
                 <td></td>
-                <td>
-                    <textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1" list="saved-items-list"></textarea>
-                </td>
+                <td><textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1"></textarea></td>
                 <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
                 <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
                 <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>
@@ -779,34 +839,12 @@
 
         function commitItem() {
             const itemNameInput = document.getElementById('newItemName');
-            const row = itemNameInput.closest('tr');
-            
-            // Obter os valores dos campos de preço da linha de adição
-            const priceShibataInput = row.cells[2].querySelector('input');
-            const priceNagumoInput = row.cells[3].querySelector('input');
-
             const itemName = itemNameInput.value.trim();
-
             if (itemName === '') {
                 itemNameInput.focus();
                 return;
             }
-            
-            // 1. Salva na lista de itens salvos (no formato 'Nome' ou 'Nome R$Preço' se o usuário digitou assim)
-            saveNewItemToSavedList(itemName); 
-
-            // 2. Adiciona o item à lista de compras principal (com os preços digitados)
-            buildItemRow({ 
-                name: itemName, 
-                priceShibata: priceShibataInput.value, 
-                priceNagumo: priceNagumoInput.value, 
-                purchased: false 
-            }, true); 
-
-            // 3. Limpa os campos para um novo item
-            priceShibataInput.value = '';
-            priceNagumoInput.value = '';
-
+            buildItemRow({ name: itemName, priceShibata: 'R$ 0,00', priceNagumo: 'R$ 0,00', purchased: false }, true); 
             createAddItemRow(true);
             saveList(); 
         }
@@ -865,7 +903,6 @@
             isOnline = true;
             await syncOfflineChanges();
             await loadList();
-            loadSavedItemsNames(); // ** Recarrega a lista salva ao ficar online **
             startPolling(); // Reinicia o polling ao ficar online
         });
         window.addEventListener('offline', () => {
@@ -962,7 +999,8 @@
         }
 
         // --- INICIALIZAÇÃO DA APLICAÇÃO ---
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            await carregarItens(); // Carrega a lista de itens primeiro
             if (localStorage.getItem('authToken')) {
                 showApp();
             } else {
