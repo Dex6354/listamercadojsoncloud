@@ -311,7 +311,7 @@
                 <span class="menu-icon" onclick="openNav()">&#9776;</span>
                 <span class="title">
                     <img src="01.png" alt="Ícone">
-                    Meu Mercado
+                    Meu Mercadoo
                 </span>
 
                 <div class="header-right">
@@ -524,6 +524,7 @@
         async function carregarItens() {
             try {
                 // Adiciona um cache-buster (timestamp) para forçar o navegador a buscar a nova versão do JSON
+                // O cache-buster garante que o JSON seja sempre atualizado.
                 const cacheBuster = new Date().getTime(); 
                 const response = await fetch(`itens.json?t=${cacheBuster}`);
                 if (!response.ok) {
@@ -1018,18 +1019,6 @@
                 else nagumo.push(row);
             });
             
-            // REMOVIDO: A ordenação interna por preço (sortByMin) para preservar a ordem de adição/inserção 
-            // DENTRO dos grupos de preço, mantendo o agrupamento principal por status de preço.
-            /*
-            const sortByMin = (a, b) => {
-                const getMin = r => Math.min(parseValueToFloat(r.cells[2].querySelector('input').value) || Infinity, parseValueToFloat(r.cells[3].querySelector('input').value) || Infinity);
-                return getMin(a) - getMin(b);
-            };
-            shibata.sort(sortByMin); 
-            equal.sort(sortByMin); 
-            nagumo.sort(sortByMin);
-            */
-            
             // O agrupamento (unpriced -> shibata -> equal -> nagumo) é mantido, garantindo a ordenação primária por status de preço.
             [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
         }
@@ -1079,13 +1068,27 @@
         // Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(registration => {
-                console.log('ServiceWorker registrado com sucesso: ', registration.scope);
-                })
-                .catch(error => {
-                console.log('Falha ao registrar o ServiceWorker: ', error);
-                });
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registrado com sucesso: ', registration.scope);
+                        
+                        // Lógica para forçar a atualização da página ao detectar um novo Service Worker
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                // Se o novo Service Worker estiver 'installed' e o antigo estiver ativo,
+                                // recarrega a página para que o novo SW (e o novo cache de index.html) assumam.
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('Nova versão da aplicação detectada. Recarregando...');
+                                    // Recarrega a página, preservando o estado de login no localStorage.
+                                    window.location.reload();
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.log('Falha ao registrar o ServiceWorker: ', error);
+                    });
             });
         }
     </script>
