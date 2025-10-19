@@ -512,14 +512,23 @@
         let isOnline = navigator.onLine;
         let pollingIntervalId = null; // ID para o intervalo do polling
         
-        // --- CORREÇÃO: Lista de itens embutida ---
-        let itensList = [
-            { "nome": "Banana R$5" },
-            { "nome": "Sorvete bombom R$25" },
-            { "nome": "Leite Integral" },
-            { "nome": "Pão de Forma" },
-            { "nome": "Maçã Fuji" } // Adicionado mais alguns para teste
-        ];
+        // --- Autocomplete Item List (Loaded from itens.json) ---
+        let itensList = [];
+        
+        async function carregarItens() {
+            try {
+                const response = await fetch('itens.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                itensList = await response.json();
+                console.log(`Itens de Autocomplete carregados: ${itensList.length}`);
+            } catch (error) {
+                console.error('Falha ao carregar itens.json para autocomplete:', error);
+                // Fallback to empty list
+                itensList = [];
+            }
+        }
         
         let currentActiveInput = null; // Input ativo para o Autocomplete
 
@@ -715,7 +724,7 @@
             const target = event.target;
             if (target.tagName.toLowerCase() === 'textarea') {
                 autoResizeTextarea(target);
-                // AQUI: Chama o autocomplete para QUALQUER campo de nome de item.
+                // Chama o autocomplete para QUALQUER campo de nome de item.
                 if (target.classList.contains('item-name-input')) { 
                     debouncedHandleAutocomplete(event); 
                 }
@@ -736,7 +745,7 @@
                     }
                 }, 1);
             }
-            // AQUI: Define o currentActiveInput e chama o autocomplete para QUALQUER campo de nome de item.
+            // Define o currentActiveInput e chama o autocomplete para QUALQUER campo de nome de item.
             if (target.tagName.toLowerCase() === 'textarea' && target.classList.contains('item-name-input')) { 
                 currentActiveInput = target; 
                 handleAutocompleteInput(event); 
@@ -753,7 +762,7 @@
                 setSyncStatus('syncing');
                 debouncedSave();
             }
-            // AQUI: Aplica a lógica de fechar para QUALQUER campo de nome de item.
+            // Aplica a lógica de fechar para QUALQUER campo de nome de item.
             if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
                 // Atraso para permitir o clique na sugestão
                 setTimeout(() => {
@@ -1033,8 +1042,8 @@
         }
 
         // --- INICIALIZAÇÃO DA APLICAÇÃO ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // REMOVIDO: await carregarItens(); (itensList já está definida)
+        document.addEventListener('DOMContentLoaded', async () => {
+            await carregarItens();
             
             if (localStorage.getItem('authToken')) {
                 showApp();
