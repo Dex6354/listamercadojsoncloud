@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Mercado</title>
 
-    <link rel="manifest" href="manifest.json">
-
     <meta property="og:title" content="Meu Mercado" />
     <meta property="og:type" content="website" />
     <meta property="og:description" content="Sua lista de compras inteligente com comparador de preços e otimização." />
@@ -481,9 +479,9 @@
             const token = localStorage.getItem('authToken');
             if (token) {
                 try {
-                    await fetch('/api/logout', { 
-                        method: 'POST', 
-                        headers: { 'Authorization': `Bearer ${token}` } 
+                    await fetch('/api/logout', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
                     });
                 } catch (error) {
                     console.error("Logout failed, but proceeding.", error);
@@ -502,19 +500,9 @@
             };
         }
 
-        function openNav() {
-            document.getElementById("side-menu").classList.add('open');
-            document.getElementById("page-overlay").classList.add('show');
-        }
-
-        function closeNav() {
-            document.getElementById("side-menu").classList.remove('open');
-            document.getElementById("page-overlay").classList.remove('show');
-        }
-
-        document.addEventListener('keydown', (event) => {
-            if (event.key === "Escape") closeNav();
-        });
+        function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
+        function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
+        document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
 
         function toggleComparator() {
             document.querySelector('.collapsible-header').classList.toggle('active');
@@ -529,18 +517,19 @@
         let syncState = 'saved';
         let isOnline = navigator.onLine;
         let pollingIntervalId = null; // ID para o intervalo do polling
-
+        
         // --- Autocomplete Item List (Loaded from itens.json) ---
         let itensList = [];
+        
         async function carregarItens() {
             try {
                 // ALTERADO: Removido o cache-buster (timestamp) para permitir que o Service Worker
                 // use a estratégia Stale-While-Revalidate (SWR) ou sirva o cache offline.
-                const response = await fetch(`itens.json`);
+                const response = await fetch(`itens.json`); 
                 if (!response.ok) {
-                    // Se a rede falhar E não houver cache (primeiro acesso offline),
+                    // Se a rede falhar E não houver cache (primeiro acesso offline), 
                     // a promise pode ser rejeitada ou o status ser 503 (offline).
-                    // O SW deve retornar a versão em cache. Se chegou aqui,
+                    // O SW deve retornar a versão em cache. Se chegou aqui, 
                     // significa que falhou na rede E o SW não tinha cache.
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -552,9 +541,9 @@
                 itensList = [];
             }
         }
-
+        
         let currentActiveInput = null; // Input ativo para o Autocomplete
-
+        
         // --- FUNÇÃO ADICIONADA: Normaliza string para comparação sem acentos ---
         function normalizeString(str) {
             return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -564,12 +553,10 @@
             syncState = newState;
             statusIndicator.className = `status-${newState}`;
             if (newState === 'error') {
-                setTimeout(() => {
-                    if (syncState === 'error') setSyncStatus('offline');
-                }, 3000);
+                setTimeout(() => { if (syncState === 'error') setSyncStatus('offline'); }, 3000);
             }
         }
-
+        
         // --- LÓGICA DE POLLING (SINCRONIZAÇÃO CONTÍNUA) ---
         function stopPolling() {
             if (pollingIntervalId) {
@@ -582,77 +569,501 @@
             stopPolling(); // Garante que não haja múltiplos intervalos rodando
             pollingIntervalId = setInterval(pollForChanges, 4000); // Verifica por mudanças a cada 4 segundos
         }
-
+        
         async function pollForChanges() {
             const activeEl = document.activeElement;
-            // CORREÇÃO: Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela,
-            // incluindo o campo de novo item, para evitar perda de foco durante a atualização.
-            const isInputInTableFocused = activeEl && 
-                                         ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && 
-                                         activeEl.closest('#shopping-list-body');
+            // CORREÇÃO: Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela, 
+            // incluindo o campo de novo item, para evitar perda de foco durante a digitação.
+            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/list', { headers: getAuthHeaders() });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) return;
+
+                const remoteItems = await response.json();
+                const localItems = getCurrentLocalItems();
+
+                // Compara a lista remota com a local. Se forem diferentes, atualiza a tela.
+                if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
+                    redrawTable(remoteItems, false); // Redesenha a tabela sem focar no campo de novo item
+                }
+            } catch (error) {
+                // Falha silenciosa para não poluir o console com erros de rede
+            }
+        }
+
+        function debounce(func, delay) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+
+        function getCurrentLocalItems() {
+            const items = [];
+            document.querySelectorAll('#shopping-list-body tr:not(.add-item-row)').forEach(row => {
+                const name = row.cells[1].querySelector('textarea').value.trim();
+                if (name) {
+                    items.push({
+                        name: name,
+                        priceShibata: row.cells[2].querySelector('input').value || 'R$ 0,00',
+                        priceNagumo: row.cells[3].querySelector('input').value || 'R$ 0,00',
+                        purchased: row.classList.contains('purchased')
+                    });
+                }
+            });
+            return items;
+        }
+
+        // --- LÓGICA DE SINCRONIZAÇÃO E CACHE OFFLINE ---
+        async function saveList() {
+            const items = getCurrentLocalItems();
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            if (!isOnline) {
+                setSyncStatus('offline');
+                console.log("Offline: Salvando alterações localmente.");
+                localStorage.setItem(`offlineList_${username}`, JSON.stringify(items));
+                return;
+            }
+            await saveListOnline(items);
+        }
+
+        async function saveListOnline(items) {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            setSyncStatus('syncing');
+            try {
+                const response = await fetch('/api/list', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(items)
+                });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) throw new Error('Falha ao salvar no servidor.');
+                
+                setSyncStatus('saved');
+                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
+                localStorage.removeItem(`offlineList_${username}`);
+
+            } catch (error) {
+                setSyncStatus('error');
+                console.error("Erro ao salvar online:", error);
+            }
+        }
+
+        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
+        async function syncOfflineChanges() {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
             
-            if (syncState === 'syncing' || isInputInTableFocused) {
-                console.log('Polling adiado: Sincronização em andamento ou input em uso.');
+            const pendingItemsJSON = localStorage.getItem(`offlineList_${username}`);
+            if (!pendingItemsJSON) {
+                console.log("Nenhuma alteração offline para sincronizar.");
+                return;
+            }
+
+            console.log("Conectado. Sincronizando alterações pendentes...");
+            
+            try {
+                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
+                const localOfflineItems = JSON.parse(pendingItemsJSON);
+
+                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
+                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
+                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
+                await saveListOnline(localOfflineItems);
+                
+                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
+                redrawTable(localOfflineItems);
+
+            } catch (error) {
+                console.error("Falha ao sincronizar as alterações offline:", error);
+                setSyncStatus('error');
+            }
+        }
+
+        async function loadList() {
+            const username = localStorage.getItem('currentUser');
+            if (!username) return;
+
+            const offlineKey = `offlineList_${username}`;
+            const cacheKey = `shoppingList_${username}`;
+            const pendingOfflineItems = JSON.parse(localStorage.getItem(offlineKey));
+
+            if (pendingOfflineItems) {
+                console.log("Carregando lista com alterações offline pendentes.");
+                redrawTable(pendingOfflineItems);
+                setSyncStatus('offline');
+                return;
+            }
+
+            if (!isOnline) {
+                console.log("Offline. Carregando lista do cache.");
+                setSyncStatus('offline');
+                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+                redrawTable(cachedItems);
                 return;
             }
             
-            // ... (Restante da função pollForChanges, loadList, updateListInDOM etc, que deve vir aqui)
-            
-            // Exemplo de chamada de API:
-            // try {
-            //     setSyncStatus('syncing');
-            //     const response = await fetch('/api/list', { 
-            //         method: 'GET', 
-            //         headers: getAuthHeaders() 
-            //     });
-            //     if (response.ok) {
-            //         const remoteList = await response.json();
-            //         updateListInDOM(remoteList); // Uma função que atualiza a lista sem perder o foco
-            //         setSyncStatus('saved');
-            //     } else if (response.status === 401) {
-            //         handleLogout();
-            //     } else {
-            //         throw new Error('Erro ao buscar lista.');
-            //     }
-            // } catch (error) {
-            //     console.error("Polling error:", error);
-            //     setSyncStatus('error');
-            // }
+            setSyncStatus('syncing');
+            try {
+                const response = await fetch('/api/list', { headers: getAuthHeaders() });
+                if (response.status === 401) return handleLogout();
+                if (!response.ok) throw new Error('Falha ao buscar dados.');
 
-            // SIMULAÇÃO DA CHAMADA (manter a estrutura da função, apenas removendo o código de polling que foi cortado anteriormente)
-
-            // Coloque aqui o restante do seu código JavaScript, incluindo as funções:
-            // - loadList()
-            // - renderList(list)
-            // - updateListInDOM(remoteList)
-            // - saveList(list)
-            // - addItem()
-            // - clearList()
-            // - handleCheckboxChange(checkbox)
-            // - handleNameInput(inputElement)
-            // - updateNameInList(inputElement)
-            // - handlePriceInput(inputElement)
-            // - calculateTotal()
-            // - setupAutocomplete(inputElement)
-            // - displaySuggestions(inputElement, suggestions)
-            // - hideSuggestions()
-            // - selectSuggestion(suggestion)
-
-            // LÓGICA DE SIMULAÇÃO (POR FAVOR, INSIRA SUAS FUNÇÕES AQUI)
-            function loadList() { /* ... */ }
-            function clearList() { /* ... */ }
-            function updateListInDOM(remoteList) { /* ... */ }
+                const remoteItems = await response.json();
+                localStorage.setItem(cacheKey, JSON.stringify(remoteItems));
+                redrawTable(remoteItems, true);
+                setSyncStatus('saved');
+            } catch (error) {
+                console.error('Erro ao buscar lista online, usando cache como fallback:', error);
+                setSyncStatus('offline'); 
+                const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+                redrawTable(cachedItems);
+            }
         }
 
-        // --- LÓGICA DE TECLADO VIRTUAL ---
-        function isLikelyKeyboardOpen() {
-            return window.visualViewport.height < document.documentElement.clientHeight - 150;
+        const debouncedSave = debounce(saveList, 1500);
+
+        // --- Funções de UI ---
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+
+        tableBody.addEventListener('input', (event) => {
+            const target = event.target;
+            if (target.tagName.toLowerCase() === 'textarea') {
+                autoResizeTextarea(target);
+                
+                if (target.classList.contains('item-name-input')) { 
+                    // FIX 1: Define a posição imediatamente para evitar o salto para o topo
+                    currentActiveInput = target; 
+                    updateAutocompletePosition(); 
+                    
+                    debouncedHandleAutocomplete(event); 
+                }
+            }
+            if (['textarea', 'input'].includes(target.tagName.toLowerCase())) {
+                setSyncStatus('syncing');
+                debouncedSave();
+            }
+        });
+        
+        tableBody.addEventListener('focus', (event) => {
+            const target = event.target;
+            if (target.tagName.toLowerCase() === 'input' && target.type === 'text') {
+                setTimeout(() => {
+                    if (target.value !== '') {
+                        const valueLength = target.value.length;
+                        target.setSelectionRange(valueLength, valueLength);
+                    }
+                }, 1);
+            }
+            // Define o currentActiveInput e chama o autocomplete para QUALQUER campo de nome de item.
+            if (target.tagName.toLowerCase() === 'textarea' && target.classList.contains('item-name-input')) { 
+                currentActiveInput = target; 
+                handleAutocompleteInput(event); 
+            } else if (target.tagName.toLowerCase() === 'textarea') {
+                 // Para outros textareas (apenas por segurança), limpa o autocomplete
+                 closeAutocomplete();
+            }
+        }, true);
+
+        tableBody.addEventListener('blur', (event) => {
+            if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
+                formatCurrency(event.target);
+                comparePrices(event.target);
+                setSyncStatus('syncing');
+                debouncedSave();
+            }
+            // Aplica a lógica de fechar para QUALQUER campo de nome de item.
+            if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
+                // FIX: Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
+                setTimeout(() => {
+                    // Só feche se o mouse não estiver sobre as sugestões
+                    if (!autocompleteSuggestions.matches(':hover')) {
+                        closeAutocomplete();
+                    }
+                }, 50); 
+            }
+        }, true);
+        
+        // --- Funções do Autocomplete ---
+        
+        function updateAutocompletePosition() {
+            if (currentActiveInput) { 
+                const rect = currentActiveInput.getBoundingClientRect();
+                autocompleteSuggestions.style.top = `${rect.bottom + window.scrollY}px`;
+                autocompleteSuggestions.style.left = `${rect.left + window.scrollX}px`;
+                // Garante que a largura seja igual à do campo de texto
+                autocompleteSuggestions.style.width = `${rect.width + 16}px`; // Adiciona padding horizontal
+            }
+        }
+        window.addEventListener('scroll', updateAutocompletePosition, true);
+        window.addEventListener('resize', updateAutocompletePosition);
+
+        function closeAutocomplete() {
+            autocompleteSuggestions.style.display = 'none';
+        }
+
+        const handleAutocompleteInput = (event) => {
+            const inputText = (event.target.value || '').trim();
+            currentActiveInput = event.target; 
+            updateAutocompletePosition(); 
+
+            if (inputText.length < 1 || !itensList || itensList.length === 0) {
+                autocompleteSuggestions.style.display = 'none';
+                return;
+            }
+
+            // NOVO: Normaliza o texto de entrada para comparação sem acentos
+            const normalizedInput = normalizeString(inputText);
+
+            // NOVO: Filtra usando a string normalizada
+            const filteredItens = itensList.filter(item => 
+                normalizeString(item.nome).includes(normalizedInput)
+            );
+
+            if (filteredItens.length > 0) {
+                const suggestionsHTML = filteredItens
+                    .map(item => `<div class="suggestion-item" data-name="${item.nome.replace(/"/g, '&quot;')}"><span>${item.nome}</span></div>`)
+                    .slice(0, 10) // Limitar a 10 sugestões
+                    .join('');
+                autocompleteSuggestions.innerHTML = suggestionsHTML;
+                autocompleteSuggestions.style.display = 'block';
+            } else {
+                autocompleteSuggestions.style.display = 'none';
+            }
+        };
+        
+        const debouncedHandleAutocomplete = debounce(handleAutocompleteInput, 150);
+
+        autocompleteSuggestions.addEventListener('mousedown', (event) => {
+            const suggestionItem = event.target.closest('.suggestion-item');
+            if (suggestionItem && currentActiveInput) {
+                event.preventDefault(); // Impede que o input perca o foco
+                const nome = suggestionItem.dataset.name;
+                currentActiveInput.value = nome;
+                
+                closeAutocomplete();
+                
+                // Disparar manualmente a função de redimensionar
+                autoResizeTextarea(currentActiveInput);
+                
+                // Se for o campo de NOVO item, comita para adicionar. Se for EDICÃO, apenas salva.
+                if (currentActiveInput.id === 'newItemName') {
+                    commitItem(); 
+                } else {
+                    // Item existente: apenas salva a lista atualizada
+                    setSyncStatus('syncing');
+                    debouncedSave();
+                }
+            }
+        });
+        // --- Fim das Funções do Autocomplete ---
+
+
+        function createAddItemRow(shouldFocus = false) {
+            document.querySelector('.add-item-row')?.remove();
+            const newRow = tableBody.insertRow(0);
+            newRow.classList.add('add-item-row');
+            newRow.innerHTML = `
+                <td></td>
+                <td><textarea id="newItemName" class="item-name-input" placeholder="Adicionar novo item..." rows="1"></textarea></td>
+                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
+                <td class="price-cell"><input type="text" placeholder="R$ 0,00"></td>
+                <td><button class="action-btn add" onclick="commitItem()"><i class="fas fa-plus"></i></button></td>
+            `;
+            const newItemInput = document.getElementById('newItemName');
+            newItemInput.addEventListener('keydown', (event) => {
+                // Apenas comitar/mover se o autocomplete não estiver aberto e a tecla for Enter
+                if (event.key === 'Enter' && !event.shiftKey && autocompleteSuggestions.style.display !== 'block') {
+                    event.preventDefault();
+                    commitItem();
+                }
+            });
+            if (shouldFocus) newItemInput.focus();
+        }
+
+        function commitItem() {
+            const itemNameInput = document.getElementById('newItemName');
+            const itemName = itemNameInput.value.trim();
+            if (itemName === '') {
+                itemNameInput.focus();
+                return;
+            }
+            
+            closeAutocomplete(); // Garante que fecha ao comitar
+            
+            const row = itemNameInput.closest('tr');
+            const priceShibata = row.cells[2].querySelector('input').value || 'R$ 0,00';
+            const priceNagumo = row.cells[3].querySelector('input').value || 'R$ 0,00';
+
+            buildItemRow({ 
+                name: itemName, 
+                priceShibata: priceShibata, 
+                priceNagumo: priceNagumo, 
+                purchased: false 
+            }, true); 
+            
+            createAddItemRow(true);
+            saveList(); 
+        }
+        
+        function buildItemRow(itemData, isNew = false) {
+            const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
+            if (itemData.purchased) newRow.classList.add('purchased');
+
+            const getPriceInputHTML = (price) => {
+                const hasValue = price && price.trim() !== 'R$ 0,00';
+                return `<input type="text" ${hasValue ? `value="${price}"` : ''} placeholder="R$ 0,00">`;
+            };
+
+            newRow.innerHTML = `
+                <td><input type="checkbox" onchange="togglePurchased(this)" ${itemData.purchased ? 'checked' : ''}></td>
+                <td><textarea class="item-name-input" rows="1">${itemData.name}</textarea></td>
+                <td class="price-cell">${getPriceInputHTML(itemData.priceShibata)}</td>
+                <td class="price-cell">${getPriceInputHTML(itemData.priceNagumo)}</td>
+                <td><button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button></td>
+            `;
+            autoResizeTextarea(newRow.cells[1].querySelector('textarea'));
+            comparePrices(newRow.cells[2].querySelector('input'));
+        }
+
+        function redrawTable(items, shouldFocusNewItem = true) {
+            tableBody.innerHTML = '';
+            if (items && items.length > 0) {
+                items.forEach(item => buildItemRow(item, false));
+                sortAndGroup();
+            }
+            createAddItemRow(shouldFocusNewItem);
+        }
+
+        function removeItem(button) {
+            if (confirm('Tem certeza de que deseja remover este item?')) {
+                button.closest('tr').remove();
+                saveList(); 
+            }
+        }
+
+        function togglePurchased(checkbox) {
+            checkbox.closest('tr').classList.toggle('purchased', checkbox.checked);
+            saveList();
+        }
+
+        function clearList() {
+            if (confirm('Tem certeza que deseja limpar toda a lista?')) {
+                tableBody.innerHTML = '';
+                saveList();
+                createAddItemRow(true); 
+            }
+        }
+        
+        // --- Eventos de Conexão ---
+        window.addEventListener('online', async () => {
+            isOnline = true;
+            await syncOfflineChanges();
+            await loadList();
+            startPolling(); // Reinicia o polling ao ficar online
+        });
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            stopPolling(); // Para o polling ao ficar offline
+            setSyncStatus('offline');
+        });
+
+        // --- Funções de Formatação e Comparação de Preços ---
+        function formatCurrency(input) {
+            const value = input.value.trim();
+            const number = parseValueToFloat(value);
+            if (isNaN(number) || number === 0) {
+                input.value = '';
+                input.placeholder = 'R$ 0,00';
+            } else {
+                input.value = number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                input.placeholder = 'R$ 0,00';
+            }
+        }
+
+        function parseValueToFloat(value) {
+            if (!value) return NaN;
+            return parseFloat(value.replace('R$', '').trim().replace('.', '').replace(',', '.'));
+        }
+
+        function comparePrices(input) {
+            const row = input.closest('tr');
+            if (!row || row.classList.contains('add-item-row')) return;
+            const shibataInput = row.cells[2].querySelector('input');
+            const nagumoInput = row.cells[3].querySelector('input');
+            shibataInput.classList.remove('cheapest-price', 'equal-price');
+            nagumoInput.classList.remove('cheapest-price', 'equal-price');
+            const shibataPrice = parseValueToFloat(shibataInput.value);
+            const nagumoPrice = parseValueToFloat(nagumoInput.value);
+            const validShibata = !isNaN(shibataPrice) && shibataPrice > 0;
+            const validNagumo = !isNaN(nagumoPrice) && nagumoPrice > 0;
+            if (validShibata && validNagumo) {
+                if (shibataPrice < nagumoPrice) shibataInput.classList.add('cheapest-price');
+                else if (nagumoPrice < shibataPrice) nagumoInput.classList.add('cheapest-price');
+                else { shibataInput.classList.add('equal-price'); nagumoInput.classList.add('equal-price'); }
+            } else if (validShibata) { shibataInput.classList.add('cheapest-price');
+            } else if (validNagumo) { nagumoInput.classList.add('cheapest-price'); }
+            sortAndGroup();
+        }
+
+        function sortAndGroup() {
+            const allRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
+            const unpriced = [], shibata = [], equal = [], nagumo = [];
+            allRows.forEach(row => {
+                const pS = parseValueToFloat(row.cells[2].querySelector('input').value);
+                const pN = parseValueToFloat(row.cells[3].querySelector('input').value);
+                const vS = !isNaN(pS) && pS > 0, vN = !isNaN(pN) && pN > 0;
+                if (!vS && !vN) unpriced.push(row);
+                else if (vS && vN && pS === pN) equal.push(row);
+                else if (vS && (!vN || pS < pN)) shibata.push(row);
+                else nagumo.push(row);
+            });
+            
+            // REMOVIDO: A ordenação interna por preço (sortByMin) para preservar a ordem de adição/inserção 
+            // DENTRO dos grupos de preço, mantendo o agrupamento principal por status de preço.
+            /*
+            const sortByMin = (a, b) => {
+                const getMin = r => Math.min(parseValueToFloat(r.cells[2].querySelector('input').value) || Infinity, parseValueToFloat(r.cells[3].querySelector('input').value) || Infinity);
+                return getMin(a) - getMin(b);
+            };
+            shibata.sort(sortByMin); 
+            equal.sort(sortByMin); 
+            nagumo.sort(sortByMin);
+            */
+            
+            // O agrupamento (unpriced -> shibata -> equal -> nagumo) é mantido, garantindo a ordenação primária por status de preço.
+            [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
+        }
+
+        // --- Funções Auxiliares (Streamlit, Teclado Virtual) ---
+        function wakeUpApp() {
+            const iframeWrapper = document.getElementById('iframe-wrapper');
+            const iframeOverlay = document.getElementById('iframe-overlay');
+            iframeOverlay.style.display = 'flex';
+            let streamlitIframe = document.getElementById('streamlit-app');
+            if (streamlitIframe) streamlitIframe.remove();
+            const newIframe = document.createElement('iframe');
+            newIframe.id = 'streamlit-app';
+            newIframe.src = `https://precosmercados.streamlit.app/?embed=true&minimal=true&t=${new Date().getTime()}`;
+            newIframe.onload = () => { iframeOverlay.style.display = 'none'; };
+            iframeWrapper.prepend(newIframe);
         }
 
         function setupVirtualKeyboardListener() {
             if (!window.visualViewport) return;
-            // Define o limite de encolhimento para considerar o teclado virtual como aberto (e.g., mais que 150px)
-            // let shrinkThreshold = document.documentElement.clientHeight - 150;
+            const isLikelyKeyboardOpen = () => window.innerHeight - window.visualViewport.height > 150;
             let keyboardWasOpen = isLikelyKeyboardOpen();
             window.visualViewport.addEventListener('resize', () => {
                 const keyboardIsOpen = isLikelyKeyboardOpen();
