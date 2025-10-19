@@ -517,7 +517,9 @@
         
         async function carregarItens() {
             try {
-                const response = await fetch('itens.json');
+                // Adiciona um cache-buster (timestamp) para forçar o navegador a buscar a nova versão do JSON
+                const cacheBuster = new Date().getTime(); 
+                const response = await fetch(`itens.json?t=${cacheBuster}`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -554,9 +556,10 @@
         }
         
         async function pollForChanges() {
-            // Não faz polling se estiver offline, com a aba inativa ou se o usuário estiver digitando na lista
             const activeEl = document.activeElement;
-            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl) && activeEl.id !== 'newItemName')) {
+            // CORREÇÃO: Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela, 
+            // incluindo o campo de novo item, para evitar perda de foco durante a digitação.
+            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
                 return;
             }
 
@@ -768,7 +771,7 @@
             }
             // Aplica a lógica de fechar para QUALQUER campo de nome de item.
             if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
-                // FIX 3: Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
+                // FIX: Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
                 setTimeout(() => {
                     // Só feche se o mouse não estiver sobre as sugestões
                     if (!autocompleteSuggestions.matches(':hover')) {
@@ -781,7 +784,7 @@
         // --- Funções do Autocomplete ---
         
         function updateAutocompletePosition() {
-            if (currentActiveInput) { // Remove check for display: 'block' for immediate positioning
+            if (currentActiveInput) { 
                 const rect = currentActiveInput.getBoundingClientRect();
                 autocompleteSuggestions.style.top = `${rect.bottom + window.scrollY}px`;
                 autocompleteSuggestions.style.left = `${rect.left + window.scrollX}px`;
@@ -799,7 +802,7 @@
         const handleAutocompleteInput = (event) => {
             const inputText = (event.target.value || '').toLowerCase();
             currentActiveInput = event.target; 
-            updateAutocompletePosition(); // Repositioning again after debounce, but mostly for initial setting in debounce logic
+            updateAutocompletePosition(); 
 
             if (inputText.length < 1 || !itensList || itensList.length === 0) {
                 autocompleteSuggestions.style.display = 'none';
@@ -1008,11 +1011,20 @@
                 else if (vS && (!vN || pS < pN)) shibata.push(row);
                 else nagumo.push(row);
             });
+            
+            // REMOVIDO: A ordenação interna por preço (sortByMin) para preservar a ordem de adição/inserção 
+            // DENTRO dos grupos de preço, mantendo o agrupamento principal por status de preço.
+            /*
             const sortByMin = (a, b) => {
                 const getMin = r => Math.min(parseValueToFloat(r.cells[2].querySelector('input').value) || Infinity, parseValueToFloat(r.cells[3].querySelector('input').value) || Infinity);
                 return getMin(a) - getMin(b);
             };
-            shibata.sort(sortByMin); equal.sort(sortByMin); nagumo.sort(sortByMin);
+            shibata.sort(sortByMin); 
+            equal.sort(sortByMin); 
+            nagumo.sort(sortByMin);
+            */
+            
+            // O agrupamento (unpriced -> shibata -> equal -> nagumo) é mantido, garantindo a ordenação primária por status de preço.
             [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
         }
 
