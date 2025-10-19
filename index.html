@@ -557,8 +557,8 @@
         
         async function pollForChanges() {
             const activeEl = document.activeElement;
-            // CORREÇÃO: Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela, 
-            // incluindo o campo de novo item, para evitar perda de foco durante a digitação.
+            // Pula o polling se o foco estiver em qualquer input/textarea da tabela, 
+            // incluindo o campo de novo item, para evitar perda de foco.
             if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
                 return;
             }
@@ -643,7 +643,7 @@
             }
         }
 
-        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE (CORRIGIDO) ---
+        // --- LÓGICA DE SINCRONIZAÇÃO DE ALTERAÇÕES OFFLINE ---
         async function syncOfflineChanges() {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
@@ -657,15 +657,8 @@
             console.log("Conectado. Sincronizando alterações pendentes...");
             
             try {
-                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
                 const localOfflineItems = JSON.parse(pendingItemsJSON);
-
-                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
-                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
-                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
                 await saveListOnline(localOfflineItems);
-                
-                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
                 redrawTable(localOfflineItems);
 
             } catch (error) {
@@ -729,7 +722,7 @@
                 autoResizeTextarea(target);
                 
                 if (target.classList.contains('item-name-input')) { 
-                    // FIX 1: Define a posição imediatamente para evitar o salto para o topo
+                    // Define a posição imediatamente para evitar o salto para o topo
                     currentActiveInput = target; 
                     updateAutocompletePosition(); 
                     
@@ -765,13 +758,13 @@
         tableBody.addEventListener('blur', (event) => {
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
                 formatCurrency(event.target);
-                comparePrices(event.target);
+                comparePrices(event.target); // Chama comparePrices que chama sortAndGroup
                 setSyncStatus('syncing');
                 debouncedSave();
             }
             // Aplica a lógica de fechar para QUALQUER campo de nome de item.
             if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
-                // FIX: Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
+                // Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
                 setTimeout(() => {
                     // Só feche se o mouse não estiver sobre as sugestões
                     if (!autocompleteSuggestions.matches(':hover')) {
@@ -900,6 +893,7 @@
         }
         
         function buildItemRow(itemData, isNew = false) {
+            // Se for novo, insere no topo (index 0). Se for carregamento, insere no final.
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
             if (itemData.purchased) newRow.classList.add('purchased');
 
@@ -922,6 +916,7 @@
         function redrawTable(items, shouldFocusNewItem = true) {
             tableBody.innerHTML = '';
             if (items && items.length > 0) {
+                // Ao redesenhar, insere as linhas no final para preservar a ordem original de entrada no array 'items'
                 items.forEach(item => buildItemRow(item, false));
                 sortAndGroup();
             }
@@ -990,42 +985,72 @@
             const nagumoPrice = parseValueToFloat(nagumoInput.value);
             const validShibata = !isNaN(shibataPrice) && shibataPrice > 0;
             const validNagumo = !isNaN(nagumoPrice) && nagumoPrice > 0;
+            
             if (validShibata && validNagumo) {
                 if (shibataPrice < nagumoPrice) shibataInput.classList.add('cheapest-price');
                 else if (nagumoPrice < shibataPrice) nagumoInput.classList.add('cheapest-price');
                 else { shibataInput.classList.add('equal-price'); nagumoInput.classList.add('equal-price'); }
-            } else if (validShibata) { shibataInput.classList.add('cheapest-price');
+            } 
+            // Para itens com apenas um preço, aplica o destaque de mais barato para que ele apareça com '✔ '
+            else if (validShibata) { shibataInput.classList.add('cheapest-price');
             } else if (validNagumo) { nagumoInput.classList.add('cheapest-price'); }
+            
             sortAndGroup();
         }
 
         function sortAndGroup() {
             const allRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
-            const unpriced = [], shibata = [], equal = [], nagumo = [];
+
+            const lifoGroup = [];       // Itens com 0 ou 1 preço válido
+            const fullyPriced = [];     // Itens com 2 preços válidos (serão internamente agrupados e ordenados)
+
             allRows.forEach(row => {
                 const pS = parseValueToFloat(row.cells[2].querySelector('input').value);
                 const pN = parseValueToFloat(row.cells[3].querySelector('input').value);
-                const vS = !isNaN(pS) && pS > 0, vN = !isNaN(pN) && pN > 0;
-                if (!vS && !vN) unpriced.push(row);
-                else if (vS && vN && pS === pN) equal.push(row);
-                else if (vS && (!vN || pS < pN)) shibata.push(row);
-                else nagumo.push(row);
+                const vS = !isNaN(pS) && pS > 0;
+                const vN = !isNaN(pN) && pN > 0;
+
+                // Critério: Entra no grupo ordenado se tiver AMBOS os preços válidos
+                if (vS && vN) {
+                    fullyPriced.push(row);
+                } else {
+                    // Item tem 0 ou 1 preço válido. Entra no grupo LIFO.
+                    // Como as linhas são lidas de cima para baixo (do mais novo para o mais antigo, devido ao insertRow(0)), 
+                    // a ordem LIFO já está correta.
+                    lifoGroup.push(row);
+                }
             });
             
-            // REMOVIDO: A ordenação interna por preço (sortByMin) para preservar a ordem de adição/inserção 
-            // DENTRO dos grupos de preço, mantendo o agrupamento principal por status de preço.
-            /*
+            // --- Agrupamento e Ordenação Interna para Itens com 2 Preços (Fully Priced) ---
+            const shibataCheaper = [], equal = [], nagumoCheaper = [];
+
+            fullyPriced.forEach(row => {
+                const pS = parseValueToFloat(row.cells[2].querySelector('input').value);
+                const pN = parseValueToFloat(row.cells[3].querySelector('input').value);
+                
+                // Ambos os preços são válidos neste ponto
+                if (pS === pN) equal.push(row);
+                else if (pS < pN) shibataCheaper.push(row);
+                else nagumoCheaper.push(row);
+            });
+
+            // Função para ordenar pelo preço mais baixo (menor preço primeiro)
             const sortByMin = (a, b) => {
                 const getMin = r => Math.min(parseValueToFloat(r.cells[2].querySelector('input').value) || Infinity, parseValueToFloat(r.cells[3].querySelector('input').value) || Infinity);
                 return getMin(a) - getMin(b);
             };
-            shibata.sort(sortByMin); 
+
+            // Ordena os grupos internos por preço
+            shibataCheaper.sort(sortByMin); 
             equal.sort(sortByMin); 
-            nagumo.sort(sortByMin);
-            */
+            nagumoCheaper.sort(sortByMin);
+
+            // --- Re-inserção Final ---
+            // Ordem: Grupo LIFO (Mais novo no topo) -> Shibata Mais Barato -> Preços Iguais -> Nagumo Mais Barato
+            const finalOrder = [...lifoGroup, ...shibataCheaper, ...equal, ...nagumoCheaper];
             
-            // O agrupamento (unpriced -> shibata -> equal -> nagumo) é mantido, garantindo a ordenação primária por status de preço.
-            [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
+            // Re-insere as linhas na nova ordem no tbody
+            finalOrder.forEach(row => tableBody.appendChild(row));
         }
 
         // --- Funções Auxiliares (Streamlit, Teclado Virtual) ---
