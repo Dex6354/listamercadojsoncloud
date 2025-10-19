@@ -302,6 +302,11 @@
             <a href="#"><i class="fas fa-list-check"></i> Minha Lista</a>
             <a href="#"><i class="fas fa-history"></i> Histórico</a>
             <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
+            
+            <a href="javascript:void(0)" id="install-pwa-link" style="display:none;" onclick="promptInstallation()"><i class="fas fa-mobile-screen-button"></i> Instalar App (PWA)</a>
+            
+            <a href="javascript:void(0)" onclick="showShortcutInstructions()"><i class="fas fa-link"></i> Atalho no Navegador</a>
+            
             <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
         </div>
         <div id="page-overlay" onclick="closeNav()"></div>
@@ -508,6 +513,79 @@
             document.querySelector('.collapsible-header').classList.toggle('active');
             document.getElementById('comparator-content').classList.toggle('expanded');
         }
+
+        // --- NOVO: GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
+        let deferredPrompt;
+
+        // 1. Captura o evento PWA antes de ele ser mostrado
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Previne que o mini-infobar padrão do Chrome apareça
+            e.preventDefault();
+            // Guarda o evento para que o botão personalizado possa acioná-lo depois
+            deferredPrompt = e;
+            // Mostra o botão de instalação no menu lateral
+            const installLink = document.getElementById('install-pwa-link');
+            if (installLink) {
+                installLink.style.display = 'block';
+            }
+        });
+
+        // 2. Função para disparar o prompt de instalação PWA (Item "como se fosse instalado")
+        async function promptInstallation() {
+            closeNav(); // Fecha o menu
+
+            if (deferredPrompt) {
+                // Mostra o prompt de instalação nativo do navegador
+                deferredPrompt.prompt();
+                // Espera pela resposta do usuário
+                const { outcome } = await deferredPrompt.userChoice;
+                
+                console.log(`User response to the install prompt: ${outcome}`);
+                
+                // O deferredPrompt não pode ser usado novamente, então limpamos e escondemos o botão
+                deferredPrompt = null;
+                document.getElementById('install-pwa-link').style.display = 'none';
+
+                if (outcome === 'accepted') {
+                    alert('O aplicativo foi adicionado à sua tela inicial!');
+                } else {
+                    alert('Instalação cancelada. Você ainda pode criar um atalho manual no navegador, use a opção "Atalho no Navegador" no menu para ver as instruções.');
+                }
+            } else {
+                 // Caso o app já esteja instalado ou a opção PWA não esteja disponível
+                alert('A opção de instalação PWA não está disponível no momento (talvez o app já esteja instalado ou a opção foi recusada). Por favor, use a opção "Atalho no Navegador" para as instruções de atalho manual.');
+            }
+        }
+        
+        // 3. Função para exibir as instruções do atalho do navegador (Item "dentro do navegador")
+        function showShortcutInstructions() {
+            closeNav();
+            
+            // Tenta identificar o navegador para instruções mais precisas
+            const ua = navigator.userAgent;
+            let browser = 'seu navegador';
+            if (ua.indexOf("Chrome") > -1 && ua.indexOf("Edg") === -1) browser = "Google Chrome";
+            else if (ua.indexOf("Firefox") > -1) browser = "Mozilla Firefox";
+            else if (ua.indexOf("SamsungBrowser") > -1) browser = "Samsung Internet";
+            else if (ua.indexOf("Edg") > -1) browser = "Microsoft Edge";
+            else if (ua.indexOf("Opera") > -1) browser = "Opera";
+
+
+            let message = `Para criar um atalho que **sempre abre dentro do ${browser}** e não como um "aplicativo", siga os passos no seu Android:\n\n1. Abra o menu do seu navegador (geralmente 3 pontos ou um ícone no canto superior/inferior).\n2. Procure pela opção **"Adicionar à tela inicial"** ou similar.\n3. Confirme o nome do atalho e toque em **"Adicionar"**.\n\nNa maioria dos navegadores, isso criará um atalho na sua tela inicial que abrirá o site dentro da janela normal do navegador.`;
+            alert(message);
+        }
+
+        // 4. Garante que o botão de instalação suma após a instalação
+        window.addEventListener('appinstalled', () => {
+            const installLink = document.getElementById('install-pwa-link');
+            if (installLink) {
+                installLink.style.display = 'none';
+            }
+            deferredPrompt = null;
+        });
+        
+        // --- FIM NOVO: GERENCIAMENTO DE INSTALAÇÃO PWA E ATALHOS ---
+
 
         // --- Variáveis de Sincronização e Estado ---
         const tableBody = document.getElementById('shopping-list-body');
@@ -1030,18 +1108,6 @@
                 else if (vS && (!vN || pS < pN)) shibata.push(row);
                 else nagumo.push(row);
             });
-            
-            // REMOVIDO: A ordenação interna por preço (sortByMin) para preservar a ordem de adição/inserção 
-            // DENTRO dos grupos de preço, mantendo o agrupamento principal por status de preço.
-            /*
-            const sortByMin = (a, b) => {
-                const getMin = r => Math.min(parseValueToFloat(r.cells[2].querySelector('input').value) || Infinity, parseValueToFloat(r.cells[3].querySelector('input').value) || Infinity);
-                return getMin(a) - getMin(b);
-            };
-            shibata.sort(sortByMin); 
-            equal.sort(sortByMin); 
-            nagumo.sort(sortByMin);
-            */
             
             // O agrupamento (unpriced -> shibata -> equal -> nagumo) é mantido, garantindo a ordenação primária por status de preço.
             [...unpriced, ...shibata, ...equal, ...nagumo].forEach(row => tableBody.appendChild(row));
