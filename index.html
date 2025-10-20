@@ -489,6 +489,13 @@
             }
             localStorage.removeItem('authToken');
             localStorage.removeItem('currentUser');
+            // ATUALIZADO: Remove chaves de usuário específicas ao sair
+            const username = localStorage.getItem('currentUser');
+            if (username) {
+                 localStorage.removeItem(`shoppingList_${username}`);
+                 localStorage.removeItem(`offlineList_${username}`);
+                 localStorage.removeItem(`pendingDeletes_${username}`);
+            }
             location.reload();
         }
 
@@ -587,6 +594,7 @@
                 const localItems = getCurrentLocalItems();
 
                 // Compara a lista remota com a local. Se forem diferentes, atualiza a tela.
+                // Esta comparação agora inclui IDs, então é mais robusta.
                 if (JSON.stringify(remoteItems) !== JSON.stringify(localItems)) {
                     redrawTable(remoteItems, false); // Redesenha a tabela sem focar no campo de novo item
                 }
@@ -609,6 +617,8 @@
                 const name = row.cells[1].querySelector('textarea').value.trim();
                 if (name) {
                     items.push({
+                        // ATUALIZADO: Inclui o ID do item
+                        id: row.dataset.id ? parseInt(row.dataset.id) : null,
                         name: name,
                         priceShibata: row.cells[2].querySelector('input').value || 'R$ 0,00',
                         priceNagumo: row.cells[3].querySelector('input').value || 'R$ 0,00',
@@ -624,17 +634,23 @@
             const items = getCurrentLocalItems();
             const username = localStorage.getItem('currentUser');
             if (!username) return;
+            
+            // ATUALIZADO: Busca exclusões pendentes
+            const pendingDeletes = JSON.parse(localStorage.getItem(`pendingDeletes_${username}`) || '[]');
 
             if (!isOnline) {
                 setSyncStatus('offline');
                 console.log("Offline: Salvando alterações localmente.");
+                // Salva os itens modificados
                 localStorage.setItem(`offlineList_${username}`, JSON.stringify(items));
+                // As exclusões pendentes já estão salvas no localStorage, então não faz mais nada
                 return;
             }
-            await saveListOnline(items);
+            // ATUALIZADO: Envia itens e exclusões para salvar online
+            await saveListOnline(items, pendingDeletes);
         }
 
-        async function saveListOnline(items) {
+        async function saveListOnline(items, deletes = []) {
             const username = localStorage.getItem('currentUser');
             if (!username) return;
 
@@ -643,14 +659,27 @@
                 const response = await fetch('/api/list', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify(items)
+                    // ATUALIZADO: Envia um objeto com 'items' e 'deletes'
+                    body: JSON.stringify({ items: items, deletes: deletes })
                 });
                 if (response.status === 401) return handleLogout();
                 if (!response.ok) throw new Error('Falha ao salvar no servidor.');
                 
+                // ATUALIZADO: O servidor agora retorna a lista mesclada e autoritativa
+                const mergedItems = await response.json();
+
                 setSyncStatus('saved');
-                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(items));
+                
+                // Salva a lista autoritativa (com novos IDs) no cache principal
+                localStorage.setItem(`shoppingList_${username}`, JSON.stringify(mergedItems));
+                
+                // Limpa as pendências offline (itens e deletes) APÓS o sucesso
                 localStorage.removeItem(`offlineList_${username}`);
+                localStorage.removeItem(`pendingDeletes_${username}`);
+
+                // ATUALIZADO: Redesenha a tabela com a lista do servidor
+                // Isso é crucial para que os novos itens recebam seus IDs corretos no DOM
+                redrawTable(mergedItems);
 
             } catch (error) {
                 setSyncStatus('error');
@@ -664,7 +693,11 @@
             if (!username) return;
             
             const pendingItemsJSON = localStorage.getItem(`offlineList_${username}`);
-            if (!pendingItemsJSON) {
+            // ATUALIZADO: Carrega também as exclusões pendentes
+            const pendingDeletes = JSON.parse(localStorage.getItem(`pendingDeletes_${username}`) || '[]');
+
+            // Se não há itens pendentes E não há exclusões pendentes, não faz nada
+            if (!pendingItemsJSON && pendingDeletes.length === 0) {
                 console.log("Nenhuma alteração offline para sincronizar.");
                 return;
             }
@@ -672,16 +705,16 @@
             console.log("Conectado. Sincronizando alterações pendentes...");
             
             try {
-                // A lista salva localmente enquanto offline é considerada a versão mais recente (fonte da verdade).
-                const localOfflineItems = JSON.parse(pendingItemsJSON);
+                // Se 'pendingItemsJSON' existir, usa ele (é a fonte da verdade offline)
+                // Se não, usa a lista do cache (mas ainda pode haver 'pendingDeletes' para enviar)
+                const localOfflineItems = pendingItemsJSON
+                    ? JSON.parse(pendingItemsJSON)
+                    : JSON.parse(localStorage.getItem(`shoppingList_${username}`) || '[]');
 
-                // Ao chamar saveListOnline, enviamos a lista local completa para o servidor.
-                // A API do servidor (POST /api/list) deve substituir a lista inteira do usuário,
-                // garantindo que as exclusões feitas offline sejam refletidas no banco de dados.
-                await saveListOnline(localOfflineItems);
+                // ATUALIZADO: Envia itens e exclusões pendentes
+                await saveListOnline(localOfflineItems, pendingDeletes);
                 
-                // Atualiza a interface do usuário para refletir a lista recém-sincronizada.
-                redrawTable(localOfflineItems);
+                // O 'redrawTable' agora é chamado DENTRO de 'saveListOnline'
 
             } catch (error) {
                 console.error("Falha ao sincronizar as alterações offline:", error);
@@ -695,6 +728,8 @@
 
             const offlineKey = `offlineList_${username}`;
             const cacheKey = `shoppingList_${username}`;
+            // ATUALIZADO: Carrega também as exclusões pendentes para definir o status
+            const pendingDeletes = JSON.parse(localStorage.getItem(`pendingDeletes_${username}`) || '[]');
             const pendingOfflineItems = JSON.parse(localStorage.getItem(offlineKey));
 
             if (pendingOfflineItems) {
@@ -704,15 +739,22 @@
                 return;
             }
 
+            // Se não houver itens pendentes, mas houver exclusões pendentes, marca como offline
+            if (pendingDeletes.length > 0) {
+                setSyncStatus('offline');
+            }
+
             if (!isOnline) {
                 console.log("Offline. Carregando lista do cache.");
-                setSyncStatus('offline');
+                // Se já não estiver 'offline' por causa de 'pendingDeletes'
+                if (syncState !== 'offline') setSyncStatus('offline');
                 const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
                 redrawTable(cachedItems);
                 return;
             }
             
-            setSyncStatus('syncing');
+            // Se não houver pendências, tenta sincronizar
+            if (syncState !== 'offline') setSyncStatus('syncing');
             try {
                 const response = await fetch('/api/list', { headers: getAuthHeaders() });
                 if (response.status === 401) return handleLogout();
@@ -721,7 +763,8 @@
                 const remoteItems = await response.json();
                 localStorage.setItem(cacheKey, JSON.stringify(remoteItems));
                 redrawTable(remoteItems, true);
-                setSyncStatus('saved');
+                // Só muda para 'saved' se não houver pendências offline
+                if (syncState !== 'offline') setSyncStatus('saved');
             } catch (error) {
                 console.error('Erro ao buscar lista online, usando cache como fallback:', error);
                 setSyncStatus('offline'); 
@@ -907,7 +950,9 @@
             const priceShibata = row.cells[2].querySelector('input').value || 'R$ 0,00';
             const priceNagumo = row.cells[3].querySelector('input').value || 'R$ 0,00';
 
+            // ATUALIZADO: O novo item não tem 'id'
             buildItemRow({ 
+                id: null, // Novo item
                 name: itemName, 
                 priceShibata: priceShibata, 
                 priceNagumo: priceNagumo, 
@@ -921,6 +966,9 @@
         function buildItemRow(itemData, isNew = false) {
             const newRow = tableBody.insertRow(isNew ? 0 : tableBody.rows.length);
             if (itemData.purchased) newRow.classList.add('purchased');
+
+            // ATUALIZADO: Armazena o ID no dataset da linha
+            newRow.dataset.id = itemData.id || '';
 
             const getPriceInputHTML = (price) => {
                 const hasValue = price && price.trim() !== 'R$ 0,00';
@@ -941,6 +989,7 @@
         function redrawTable(items, shouldFocusNewItem = true) {
             tableBody.innerHTML = '';
             if (items && items.length > 0) {
+                // ATUALIZADO: Os itens são desenhados na ordem recebida (que é 'id DESC' do servidor)
                 items.forEach(item => buildItemRow(item, false));
                 sortAndGroup();
             }
@@ -949,8 +998,22 @@
 
         function removeItem(button) {
             if (confirm('Tem certeza de que deseja remover este item?')) {
-                button.closest('tr').remove();
-                saveList(); 
+                const row = button.closest('tr');
+                const id = row.dataset.id; // Pega o ID do item
+                const username = localStorage.getItem('currentUser');
+
+                // ATUALIZADO: Adiciona o ID à lista de 'pendingDeletes' se ele existir
+                if (id && username) {
+                    const key = `pendingDeletes_${username}`;
+                    const pendingDeletes = JSON.parse(localStorage.getItem(key) || '[]');
+                    if (!pendingDeletes.includes(parseInt(id))) { // Evita duplicatas
+                        pendingDeletes.push(parseInt(id));
+                        localStorage.setItem(key, JSON.stringify(pendingDeletes));
+                    }
+                }
+
+                row.remove(); // Remove do DOM
+                saveList(); // Dispara o save (que agora enviará a exclusão)
             }
         }
 
@@ -961,8 +1024,34 @@
 
         function clearList() {
             if (confirm('Tem certeza que deseja limpar toda a lista?')) {
-                tableBody.innerHTML = '';
-                saveList();
+                const username = localStorage.getItem('currentUser');
+                if (!username) return;
+
+                const allRows = Array.from(tableBody.querySelectorAll('tr:not(.add-item-row)'));
+                const idsToDelete = [];
+
+                // ATUALIZADO: Coleta todos os IDs para exclusão
+                allRows.forEach(row => {
+                    const id = row.dataset.id;
+                    if (id) {
+                        idsToDelete.push(parseInt(id));
+                    }
+                    row.remove(); // Remove do DOM
+                });
+
+                if (idsToDelete.length > 0) {
+                    const key = `pendingDeletes_${username}`;
+                    // Mescla com quaisquer exclusões já pendentes
+                    const pendingDeletes = JSON.parse(localStorage.getItem(key) || '[]');
+                    idsToDelete.forEach(id => {
+                        if (!pendingDeletes.includes(id)) {
+                            pendingDeletes.push(id);
+                        }
+                    });
+                    localStorage.setItem(key, JSON.stringify(pendingDeletes));
+                }
+
+                saveList(); // Dispara o save (lista de itens vazia, lista de deletes cheia)
                 createAddItemRow(true); 
             }
         }
@@ -970,8 +1059,10 @@
         // --- Eventos de Conexão ---
         window.addEventListener('online', async () => {
             isOnline = true;
-            await syncOfflineChanges();
-            await loadList();
+            // ATUALIZADO: Sincroniza primeiro as mudanças offline
+            await syncOfflineChanges(); 
+            // Em seguida, carrega a lista (que será a mesclada se a sincronização ocorrer)
+            await loadList(); 
             startPolling(); // Reinicia o polling ao ficar online
         });
         window.addEventListener('offline', () => {
@@ -1086,7 +1177,22 @@
                 showAuth();
             }
             setupVirtualKeyboardListener();
-            setSyncStatus(isOnline ? 'saved' : 'offline');
+            // ATUALIZADO: Verifica pendências para definir o status inicial
+            const username = localStorage.getItem('currentUser');
+            let hasPending = false;
+            if (username) {
+                const pendingItems = localStorage.getItem(`offlineList_${username}`);
+                const pendingDeletes = localStorage.getItem(`pendingDeletes_${username}`);
+                if (pendingItems || (pendingDeletes && pendingDeletes !== '[]')) {
+                    hasPending = true;
+                }
+            }
+            
+            if (!isOnline || hasPending) {
+                setSyncStatus('offline');
+            } else {
+                setSyncStatus('saved');
+            }
         });
         
         // Service Worker Registration
@@ -1102,5 +1208,8 @@
             });
         }
     </script>
+</body>
+</html>
+     
 </body>
 </html>
