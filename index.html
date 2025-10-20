@@ -488,7 +488,6 @@
                 }
             }
             localStorage.removeItem('authToken');
-            localStorage.removeItem('currentUser');
             // ATUALIZADO: Remove chaves de usuário específicas ao sair
             const username = localStorage.getItem('currentUser');
             if (username) {
@@ -496,6 +495,7 @@
                  localStorage.removeItem(`offlineList_${username}`);
                  localStorage.removeItem(`pendingDeletes_${username}`);
             }
+            localStorage.removeItem('currentUser'); // Deve ser removido por último
             location.reload();
         }
 
@@ -677,9 +677,33 @@
                 localStorage.removeItem(`offlineList_${username}`);
                 localStorage.removeItem(`pendingDeletes_${username}`);
 
+                // ##################################################################
+                // ## INÍCIO DA CORREÇÃO DE BUG (FOCO E PERDA DE DADOS)
+                // ##################################################################
+
                 // ATUALIZADO: Redesenha a tabela com a lista do servidor
                 // Isso é crucial para que os novos itens recebam seus IDs corretos no DOM
-                redrawTable(mergedItems);
+                
+                // CORREÇÃO: Não redesenha a tabela se o usuário estiver
+                // ativamente digitando em um campo, para evitar perda de dados/foco.
+                const activeEl = document.activeElement;
+                const isTypingInTable = activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl);
+
+                if (!isTypingInTable) {
+                    // Passa 'false' para não roubar o foco para o campo "novo item"
+                    redrawTable(mergedItems, false); 
+                } else {
+                    // O usuário está digitando. Não redesenhe agora.
+                    // A lista em cache foi atualizada, o próximo
+                    // 'pollForChanges' (quando o usuário parar de digitar) 
+                    // vai sincronizar a UI.
+                    console.log("Usuário digitando, adiando redesenho da UI.");
+                }
+                
+                // ##################################################################
+                // ## FIM DA CORREÇÃO DE BUG
+                // ##################################################################
+
 
             } catch (error) {
                 setSyncStatus('error');
@@ -765,7 +789,7 @@
                 redrawTable(remoteItems, true);
                 // Só muda para 'saved' se não houver pendências offline
                 if (syncState !== 'offline') setSyncStatus('saved');
-            } catch (error) {
+            } catch (error {
                 console.error('Erro ao buscar lista online, usando cache como fallback:', error);
                 setSyncStatus('offline'); 
                 const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
@@ -1208,8 +1232,5 @@
             });
         }
     </script>
-</body>
-</html>
-     
 </body>
 </html>
