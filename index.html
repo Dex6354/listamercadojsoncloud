@@ -789,7 +789,14 @@
                 redrawTable(remoteItems, true);
                 // Só muda para 'saved' se não houver pendências offline
                 if (syncState !== 'offline') setSyncStatus('saved');
-            } catch (error {
+            
+            // ##################################################################
+            // ## INÍCIO DA CORREÇÃO DE SINTAXE
+            // ##################################################################
+            } catch (error) { // <-- O ERRO ESTAVA AQUI (faltava o ')' )
+            // ##################################################################
+            // ## FIM DA CORREÇÃO DE SINTAXE
+            // ##################################################################
                 console.error('Erro ao buscar lista online, usando cache como fallback:', error);
                 setSyncStatus('offline'); 
                 const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
