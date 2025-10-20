@@ -580,10 +580,6 @@
         async function pollForChanges() {
             const activeEl = document.activeElement;
 
-            // ##################################################################
-            // ## INÍCIO DA CORREÇÃO DE BUG (RACE CONDITION)
-            // ##################################################################
-
             // Pula o polling se:
             // 1. Está offline
             // 2. A aba está oculta
@@ -591,15 +587,11 @@
             // 4. O usuário está digitando ativamente na tabela
             if (!isOnline || 
                 document.hidden || 
-                syncState === 'syncing' || // <-- ESTA É A LINHA DA CORREÇÃO
+                syncState === 'syncing' || // <-- CORREÇÃO DA RACE CONDITION (Preço sumindo)
                 (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) 
             {
                 return;
             }
-
-            // ##################################################################
-            // ## FIM DA CORREÇÃO DE BUG
-            // ##################################################################
 
 
             try {
@@ -821,21 +813,25 @@
             textarea.style.height = textarea.scrollHeight + 'px';
         }
 
+        // ##################################################################
+        // ## INÍCIO DA CORREÇÃO DE BUG (DUPLICAÇÃO DE ITEM)
+        // ##################################################################
         tableBody.addEventListener('input', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'textarea') {
                 autoResizeTextarea(target);
                 
                 if (target.classList.contains('item-name-input')) { 
-                    // FIX 1: Define a posição imediatamente para evitar o salto para o topo
                     currentActiveInput = target; 
                     updateAutocompletePosition(); 
-                    
                     debouncedHandleAutocomplete(event); 
                 }
             }
-            if (['textarea', 'input'].includes(target.tagName.toLowerCase())) {
-                setSyncStatus('syncing'); // Define 'syncing' imediatamente
+            
+            // CORREÇÃO: SÓ chama debouncedSave se NÃO for um campo da "add-item-row"
+            const row = target.closest('tr');
+            if (row && !row.classList.contains('add-item-row') && ['textarea', 'input'].includes(target.tagName.toLowerCase())) {
+                setSyncStatus('syncing');
                 debouncedSave();
             }
         });
@@ -861,23 +857,31 @@
         }, true);
 
         tableBody.addEventListener('blur', (event) => {
-            if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
+            const target = event.target;
+            // CORREÇÃO: Pega a linha do evento
+            const row = target.closest('tr'); 
+            
+            // CORREÇÃO: SÓ formata/salva se for um campo de preço e NÃO for da "add-item-row"
+            if (target.tagName.toLowerCase() === 'input' && target.type === 'text' && row && !row.classList.contains('add-item-row')) {
                 formatCurrency(event.target);
                 comparePrices(event.target);
                 setSyncStatus('syncing'); // Define 'syncing' no blur
                 debouncedSave();
             }
-            // Aplica a lógica de fechar para QUALQUER campo de nome de item.
+
+            // Lógica do autocomplete (não muda)
             if (event.target.tagName.toLowerCase() === 'textarea' && event.target.classList.contains('item-name-input')) {
-                // FIX: Atraso reduzido (50ms) para permitir o clique na sugestão antes de fechar
                 setTimeout(() => {
-                    // Só feche se o mouse não estiver sobre as sugestões
                     if (!autocompleteSuggestions.matches(':hover')) {
                         closeAutocomplete();
                     }
                 }, 50); 
             }
         }, true);
+        // ##################################################################
+        // ## FIM DA CORREÇÃO DE BUG
+        // ##################################################################
+        
         
         // --- Funções do Autocomplete ---
         
