@@ -579,11 +579,28 @@
         
         async function pollForChanges() {
             const activeEl = document.activeElement;
-            // CORREÇÃO: Pula o polling se o foco estiver em QUALQUER input/textarea dentro da tabela, 
-            // incluindo o campo de novo item, para evitar perda de foco durante a digitação.
-            if (!isOnline || document.hidden || (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) {
+
+            // ##################################################################
+            // ## INÍCIO DA CORREÇÃO DE BUG (RACE CONDITION)
+            // ##################################################################
+
+            // Pula o polling se:
+            // 1. Está offline
+            // 2. A aba está oculta
+            // 3. Uma sincronização (saveList) já está em andamento (CRUCIAL)
+            // 4. O usuário está digitando ativamente na tabela
+            if (!isOnline || 
+                document.hidden || 
+                syncState === 'syncing' || // <-- ESTA É A LINHA DA CORREÇÃO
+                (activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) && tableBody.contains(activeEl))) 
+            {
                 return;
             }
+
+            // ##################################################################
+            // ## FIM DA CORREÇÃO DE BUG
+            // ##################################################################
+
 
             try {
                 const response = await fetch('/api/list', { headers: getAuthHeaders() });
@@ -646,7 +663,10 @@
                 // As exclusões pendentes já estão salvas no localStorage, então não faz mais nada
                 return;
             }
-            // ATUALIZADO: Envia itens e exclusões para salvar online
+            
+            // CORREÇÃO: Define 'syncing' aqui, *antes* do await,
+            // para que o pollForChanges pare imediatamente.
+            setSyncStatus('syncing'); 
             await saveListOnline(items, pendingDeletes);
         }
 
@@ -654,7 +674,8 @@
             const username = localStorage.getItem('currentUser');
             if (!username) return;
 
-            setSyncStatus('syncing');
+            // 'syncing' já foi definido em saveList()
+            // setSyncStatus('syncing'); 
             try {
                 const response = await fetch('/api/list', {
                     method: 'POST',
@@ -677,10 +698,6 @@
                 localStorage.removeItem(`offlineList_${username}`);
                 localStorage.removeItem(`pendingDeletes_${username}`);
 
-                // ##################################################################
-                // ## INÍCIO DA CORREÇÃO DE BUG (FOCO E PERDA DE DADOS)
-                // ##################################################################
-
                 // ATUALIZADO: Redesenha a tabela com a lista do servidor
                 // Isso é crucial para que os novos itens recebam seus IDs corretos no DOM
                 
@@ -699,11 +716,6 @@
                     // vai sincronizar a UI.
                     console.log("Usuário digitando, adiando redesenho da UI.");
                 }
-                
-                // ##################################################################
-                // ## FIM DA CORREÇÃO DE BUG
-                // ##################################################################
-
 
             } catch (error) {
                 setSyncStatus('error');
@@ -736,6 +748,9 @@
                     : JSON.parse(localStorage.getItem(`shoppingList_${username}`) || '[]');
 
                 // ATUALIZADO: Envia itens e exclusões pendentes
+                
+                // CORREÇÃO: Define 'syncing' aqui, *antes* do await
+                setSyncStatus('syncing');
                 await saveListOnline(localOfflineItems, pendingDeletes);
                 
                 // O 'redrawTable' agora é chamado DENTRO de 'saveListOnline'
@@ -790,13 +805,7 @@
                 // Só muda para 'saved' se não houver pendências offline
                 if (syncState !== 'offline') setSyncStatus('saved');
             
-            // ##################################################################
-            // ## INÍCIO DA CORREÇÃO DE SINTAXE
-            // ##################################################################
-            } catch (error) { // <-- O ERRO ESTAVA AQUI (faltava o ')' )
-            // ##################################################################
-            // ## FIM DA CORREÇÃO DE SINTAXE
-            // ##################################################################
+            } catch (error) { // <-- Erro de sintaxe estava aqui (corrigido anteriormente)
                 console.error('Erro ao buscar lista online, usando cache como fallback:', error);
                 setSyncStatus('offline'); 
                 const cachedItems = JSON.parse(localStorage.getItem(cacheKey) || '[]');
@@ -826,7 +835,7 @@
                 }
             }
             if (['textarea', 'input'].includes(target.tagName.toLowerCase())) {
-                setSyncStatus('syncing');
+                setSyncStatus('syncing'); // Define 'syncing' imediatamente
                 debouncedSave();
             }
         });
@@ -855,7 +864,7 @@
             if (event.target.tagName.toLowerCase() === 'input' && event.target.type === 'text') {
                 formatCurrency(event.target);
                 comparePrices(event.target);
-                setSyncStatus('syncing');
+                setSyncStatus('syncing'); // Define 'syncing' no blur
                 debouncedSave();
             }
             // Aplica a lógica de fechar para QUALQUER campo de nome de item.
@@ -991,7 +1000,7 @@
             }, true); 
             
             createAddItemRow(true);
-            saveList(); 
+            saveList(); // Não é debounced, chama saveList() imediatamente
         }
         
         function buildItemRow(itemData, isNew = false) {
