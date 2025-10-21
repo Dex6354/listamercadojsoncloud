@@ -36,7 +36,6 @@
             overflow-x: hidden;
         }
         
-        /* Ocultar auth-container por padrão neste arquivo */
         #auth-container { display: none; }
         
         #app-container {
@@ -96,19 +95,11 @@
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .section-header h2 { margin: 0; font-size: 1.5rem; color: var(--primary-color); }
 
-        /* --- BOTÕES --- */
-        .custom-btn { background-color: var(--primary-color); color: var(--bg-color); border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 10px 15px; transition: background-color 0.3s; }
-        .custom-btn:hover { background-color: #ffd54f; }
-        .custom-btn.secondary { background-color: var(--input-bg-color); color: var(--text-color); }
-        .custom-btn.secondary:hover { background-color: #555; }
-
         /* --- TABELA DE ITENS SALVOS --- */
         .table-scroll-wrapper { overflow-x: auto; width: 100%; }
         .items-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .items-table th, .items-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--input-bg-color); vertical-align: middle; }
         .items-table th { font-size: 0.8rem; color: var(--secondary-text-color); text-transform: uppercase; }
-        .items-table th:first-child, .items-table td:first-child { padding-left: 0; }
-        .items-table th:last-child, .items-table td:last-child { padding-right: 0; }
         
         .items-table .item-text-input { 
             width: 100%; 
@@ -119,7 +110,6 @@
             font-family: inherit; 
             padding: 4px 0; 
             border-radius: 4px;
-            /* Garante que o input ocupa toda a célula e é editável */
         }
         .items-table .item-text-input:focus { outline: none; background-color: var(--input-bg-color); }
 
@@ -133,9 +123,7 @@
             padding: 0;
             width: 20px; 
         }
-        .items-table .action-btn:hover { color: #ff7961; }
         .items-table .action-btn.add { color: var(--green-highlight); }
-        .items-table .action-btn.add:hover { color: #81c784; }
 
         #sync-status-indicator { 
             width: 12px; 
@@ -152,18 +140,10 @@
             align-items: center;
             gap: 15px;
         }
-        #username-display {
-            color: var(--secondary-text-color);
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
+        
         #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
         #sync-status-indicator.status-error { background-color: var(--danger-color); }
         #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
-        #sync-status-indicator.status-offline { background-color: #7986cb; }
 
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
         
@@ -219,7 +199,7 @@
                                     <td>
                                         <button class="action-btn add" onclick="addItem()"><i class="fas fa-plus"></i></button>
                                     </td>
-                                </div>
+                                </tr>
                                 </tbody>
                         </table>
                     </div>
@@ -234,44 +214,21 @@
     </div>
 
 <script>
-    // --- LÓGICA DE AUTENTICAÇÃO E UTILS ---
+    // --- LÓGICA DE ITENS SALVOS ---
     const itemsTableBody = document.getElementById('items-table-body');
     const newItemInput = document.getElementById('newItemInput');
     const statusIndicator = document.getElementById('sync-status-indicator');
     let saveTimeout;
     let syncState = 'saved';
     
-    // URL do endpoint do Cloudflare Worker
-    // Como o Worker provavelmente está na mesma origem (subdomínio worker.dev ou domínio customizado), 
-    // podemos usar a rota absoluta.
-    const KV_API_ENDPOINT = '/api/saved_items'; 
+    // CORREÇÃO APLICADA: Usando o caminho de Cloudflare Pages Functions
+    const KV_API_ENDPOINT = '/functions/api/saved_items'; 
 
     function getAuthHeaders() {
-        // Removido o token para simplificar, pois Cloudflare KV bindings no Worker
-        // não usam Authorization header. Se você usa autenticação no Worker, 
-        // adicione aqui a lógica necessária.
-        return {
-            'Content-Type': 'application/json',
-            // 'Authorization': `Bearer ${localStorage.getItem('authToken')}` // Pode ser removido
-        };
+        return { 'Content-Type': 'application/json' };
     }
 
-    async function handleLogout() {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('currentUser');
-        window.location.href = 'index.html'; 
-    }
-
-    function checkAuth() {
-        // Mantido apenas para simular a UI, mas não para o KV
-        const usernameDisplay = document.getElementById('username-display');
-        const username = localStorage.getItem('currentUser');
-        if (username) {
-            usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
-        }
-        return true;
-    }
-    
+    // Funções de UI (openNav, closeNav, setSyncStatus, etc.)
     function setSyncStatus(newState) {
         syncState = newState;
         statusIndicator.className = `status-${newState}`;
@@ -279,22 +236,20 @@
             setTimeout(() => { if (syncState === 'error') setSyncStatus('saved'); }, 3000);
         }
     }
-
     function debounce(func, delay) {
         return function(...args) {
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => func.apply(this, args), delay);
         };
     }
-
     function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
     function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
     document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
+    function handleLogout() { /* ... */ }
+    function checkAuth() { /* ... */ return true; }
 
-
-    // --- LÓGICA DE ITENS SALVOS ---
     
-    // Funcao de Ordenação: Ignora maiúsculas/minúsculas e pontuações iniciais (emojis) para ordenação alfabética
+    // Funcao de Ordenação: Garante a ordem alfabética no frontend
     function sortItems(a, b) {
         const cleanA = a.nome.replace(/^[^a-zA-Z\d\s]+/, '').trim().toLowerCase();
         const cleanB = b.nome.replace(/^[^a-zA-Z\d\s]+/, '').trim().toLowerCase();
@@ -304,85 +259,54 @@
     // Pega a lista atualizada dos itens na UI
     function getCurrentLocalItems() {
         const items = [];
-        // Seleciona todas as linhas exceto a de adição
         document.querySelectorAll('#items-table-body tr:not(.add-item-row)').forEach(row => {
             const item_text = row.querySelector('.item-text-input').value.trim();
             if (item_text) {
-                // Mapeia para a estrutura do KV: { nome: "..." }
-                items.push({ nome: item_text });
+                items.push({ nome: item_text }); // Mapeia para a estrutura { nome: "..." }
             }
         });
-        // Força a ordenação antes de salvar (redundante, mas garante consistência)
         return items.sort(sortItems);
     }
 
-    // Salva a lista inteira (o backend Worker deve usar PUT para a chave 'shopping_list' no KV)
+    // Salva a lista inteira no Worker (PUT)
     async function saveItems() {
         let items = getCurrentLocalItems();
-        
-        // Evita a confirmação de exclusão se o usuário acabou de remover um item
-        // if (items.length === 0 && !confirm("Você está prestes a apagar todos os seus itens salvos. Continuar?")) {
-        //      loadItems(); 
-        //      return;
-        // }
-        
         setSyncStatus('syncing');
 
         try {
-            // PUT no Cloudflare KV: Salva o array JSON completo
             const response = await fetch(KV_API_ENDPOINT, {
                 method: 'PUT',
                 headers: getAuthHeaders(),
                 body: JSON.stringify(items)
             });
 
-            if (response.status === 401) {
-                // Se o Worker exigir autenticação
-                // handleLogout();
-                // return;
-            }
-            if (!response.ok) throw new Error('Falha ao salvar itens no KV.');
+            if (!response.ok) throw new Error(`Falha ao salvar itens. Status: ${response.status}`);
             
-            // O Worker (backend) já retornou o array ordenado após salvar.
-            // Para garantir que a UI reflita a ordem final, recarregamos ou redesenhamos com o array local ordenado.
-            // Vamos redesenhar com o array local que já está ordenado.
+            // Redesenha com a lista local ordenada (que deve ser igual à salva)
             redrawTable(items); 
             setSyncStatus('saved');
 
         } catch (error) {
             console.error("Erro ao salvar itens no KV:", error);
             setSyncStatus('error');
-            // Alerta removido para melhor UX, mas mantido no console.
-            // alert('Falha ao salvar os itens: Verifique se o Worker/KV está configurado corretamente.');
         }
     }
 
-    // Carrega os itens salvos do servidor (Cloudflare KV)
+    // Carrega os itens salvos do Worker (GET)
     async function loadItems() {
         if (!checkAuth()) return;
         setSyncStatus('syncing');
 
         try {
-            // GET no Cloudflare KV: Traz o array JSON completo da chave 'shopping_list'.
             const response = await fetch(KV_API_ENDPOINT, { headers: getAuthHeaders() });
             
-            if (response.status === 401) {
-                // handleLogout();
-                // return;
+            if (!response.ok) {
+                throw new Error(`Falha ao buscar itens salvos. Status: ${response.status}`);
             }
-
-            if (response.status === 404) {
-                // 404 pode significar que a chave não existe, tratamos como lista vazia
-                redrawTable([]);
-                setSyncStatus('saved');
-                return;
-            }
-            if (!response.ok) throw new Error(`Falha ao buscar itens salvos. Status: ${response.status}`);
             
-            // Espera-se um array de objetos: [{ nome: "..." }, ...]
             const items = await response.json();
             
-            // O backend já deve ter retornado ordenado, mas garantimos no frontend.
+            // Garante que o array carregado está ordenado
             items.sort(sortItems);
             
             redrawTable(items);
@@ -391,15 +315,13 @@
         } catch (error) {
             console.error('Erro ao carregar lista de itens salvos:', error);
             setSyncStatus('error');
-            // alert('Não foi possível carregar os itens salvos. Verifique os logs do seu Worker e a conexão com o KV.');
         }
     }
 
     const debouncedSave = debounce(saveItems, 1500);
 
-    // Constrói uma linha da tabela, SEMPRE inserindo no final antes da linha de adição.
+    // Constrói o conteúdo de uma linha da tabela
     function buildItemRow(item, targetElement) {
-        // Não usamos mais 'itemId', pois o KV salva o array completo
         targetElement.innerHTML = `
             <td>
                 <input type="text" class="item-text-input" value="${item.nome.replace(/"/g, '&quot;')}">
@@ -410,67 +332,49 @@
         `;
         
         const input = targetElement.querySelector('.item-text-input');
-        input.addEventListener('input', debouncedSave); // Salva ao editar
+        input.addEventListener('input', debouncedSave); 
     }
     
     // Redesenha a tabela inteira (usado após load ou save)
     function redrawTable(items) {
-        // Encontra a linha de adição
         const addItemRow = document.querySelector('.add-item-row');
         // Remove todos os itens, exceto a linha de adição
         document.querySelectorAll('#items-table-body tr:not(.add-item-row)').forEach(row => row.remove());
         
-        // Insere os itens carregados/salvos e JÁ ORDENADOS
+        // Insere os itens
         items.forEach(item => {
             const newRow = document.createElement('tr');
-            // Usa o buildItemRow para configurar o conteúdo e os eventos da nova linha
             buildItemRow(item, newRow);
             // Insere a nova linha *antes* da linha de adição
             itemsTableBody.insertBefore(newRow, addItemRow);
         });
     }
 
-
-    // Adiciona um novo item (será salvo e reordenado no próximo saveItems)
+    // Adiciona um novo item
     function addItem() {
         const itemText = newItemInput.value.trim();
-        if (!itemText) {
-            newItemInput.focus();
-            return;
-        }
+        if (!itemText) { newItemInput.focus(); return; }
 
-        // 1. Cria o novo item
         const newItem = { nome: itemText };
-        
-        // 2. Recria a lista localmente com o novo item
         const currentItems = getCurrentLocalItems();
         currentItems.push(newItem);
+        currentItems.sort(sortItems); // Ordena antes de redesenhar
         
-        // 3. Ordena e redesenha a tabela inteira
-        currentItems.sort(sortItems);
         redrawTable(currentItems);
-        
         newItemInput.value = '';
         newItemInput.focus();
         
-        // 4. Salva a lista inteira (sincroniza com o backend)
         saveItems();
     }
 
     // Remove um item
     function removeItem(button) {
         if (confirm('Tem certeza que deseja remover este item permanentemente?')) {
-            const rowToRemove = button.closest('tr');
-            
-            // Remove da UI otimisticamente
-            rowToRemove.remove();
-            
-            // Salva a lista inteira (o backend processará a exclusão)
+            button.closest('tr').remove();
             saveItems(); 
         }
     }
 
-    // Event listener para adicionar com "Enter" na linha de novo item
     newItemInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -478,7 +382,6 @@
         }
     });
 
-    // Carrega os itens quando a página é aberta
     document.addEventListener('DOMContentLoaded', loadItems);
 
 </script>
