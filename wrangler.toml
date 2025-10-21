@@ -1,0 +1,10 @@
+name = "lista-compras-api" # Escolha um nome para seu Worker
+main = "api/index.js"      # IMPORTANTE: Aponta para o seu arquivo index.js dentro de api
+compatibility_date = "2024-05-15" # Use a data atual ou mais recente
+
+# Configuração do KV Namespace
+[[kv_namespaces]]
+# O 'binding' é o nome da variável que o Worker usa (env.SHOPPING_LIST_KV)
+binding = "SHOPPING_LIST_KV"
+# O 'id' é o ID do Namespace que você criou no painel do Cloudflare
+id = "fb79b273e4d440d3bcec0a109b00005a"
