@@ -6,13 +6,13 @@
  * - Acessa o KV Namespace vinculado com o nome de variável "SHOPPING_LIST_KV".
  * - Busca o valor associado à chave "shopping_list".
  * - Retorna os dados como uma resposta JSON.
- * - Inclui cabeçalhos CORS para permitir que sua página do GitHub o acesse.
+ * - Inclui cabeçalhos CORS para permitir que sua página o acesse.
  */
 export default {
   async fetch(request, env, ctx) {
     // Define os cabeçalhos para a resposta.
     // O 'Access-Control-Allow-Origin' é ESSENCIAL para permitir que
-    // a página do GitHub acesse este worker.
+    // a página (ex: GitHub Pages, Cloudflare Pages) acesse este worker.
     const headers = new Headers({
       'Content-Type': 'application/json;charset=UTF-8',
       'Access-Control-Allow-Origin': '*', // Permite acesso de qualquer origem
@@ -49,7 +49,7 @@ export default {
       });
 
     } catch (err) {
-      // Em caso de qualquer outro erro, retorna uma mensagem de erro.
+      // Em caso de qualquer outro erro (ex: falha na vinculação do KV)
       console.error(err);
       return new Response(
         JSON.stringify({ error: 'Erro interno no servidor do Worker.' }),
