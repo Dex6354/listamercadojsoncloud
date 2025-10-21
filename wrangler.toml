@@ -1,9 +1,0 @@
-name = "lista-compras-worker"
-main = "src/worker.js"
-compatibility_date = "2024-01-01"
-
-[[kv_namespaces]]
-# O "binding" deve ser o nome que você usará no seu código JavaScript (worker.js)
-binding = "SHOPPING_LIST_KV"
-# Substitua "YOUR_NAMESPACE_ID" pelo ID real do seu Namespace KV
-id = "fb79b273e4d440d3bcec0a109b00005a"
