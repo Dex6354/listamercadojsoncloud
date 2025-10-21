@@ -1,4 +1,4 @@
-name = "lista-compras-api" # Escolha um nome para seu Worker
+name = "lista-compras-api" # Esolha um nome para seu Worker
 main = "api/index.js"      # IMPORTANTE: Aponta para o seu arquivo index.js dentro de api
 compatibility_date = "2024-05-15" # Use a data atual ou mais recente
 
