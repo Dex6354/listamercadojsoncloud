@@ -1,10 +1,9 @@
-name = "lista-compras-api" # Esolha um nome para seu Worker
-main = "functions/api/index.js"      # IMPORTANTE: Aponta para o seu arquivo index.js dentro de api
-compatibility_date = "2024-05-15" # Use a data atual ou mais recente
+name = "lista-compras-worker"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
 
-# Configuração do KV Namespace
 [[kv_namespaces]]
-# O 'binding' é o nome da variável que o Worker usa (env.SHOPPING_LIST_KV)
+# O "binding" deve ser o nome que você usará no seu código JavaScript (worker.js)
 binding = "SHOPPING_LIST_KV"
-# O 'id' é o ID do Namespace que você criou no painel do Cloudflare
+# Substitua "YOUR_NAMESPACE_ID" pelo ID real do seu Namespace KV
 id = "fb79b273e4d440d3bcec0a109b00005a"
