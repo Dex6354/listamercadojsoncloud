@@ -613,11 +613,12 @@
         }
 
         function debounce(func, delay) {
-            // CORREÇÃO: A variável saveTimeout precisa ser acessível globalmente
-            // (ela já estava, mas é importante notar que o clearTimeout no blur depende disso)
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => func.apply(this, args), delay);
-        };
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
 
         function getCurrentLocalItems() {
             const items = [];
@@ -812,6 +813,9 @@
             textarea.style.height = textarea.scrollHeight + 'px';
         }
 
+        // ##################################################################
+        // ## INÍCIO DA CORREÇÃO DE BUG (DUPLICAÇÃO DE ITEM)
+        // ##################################################################
         tableBody.addEventListener('input', (event) => {
             const target = event.target;
             if (target.tagName.toLowerCase() === 'textarea') {
@@ -824,7 +828,7 @@
                 }
             }
             
-            // CORREÇÃO (Duplicação de Item): SÓ chama debouncedSave se NÃO for um campo da "add-item-row"
+            // CORREÇÃO: SÓ chama debouncedSave se NÃO for um campo da "add-item-row"
             const row = target.closest('tr');
             if (row && !row.classList.contains('add-item-row') && ['textarea', 'input'].includes(target.tagName.toLowerCase())) {
                 setSyncStatus('syncing');
@@ -852,23 +856,17 @@
             }
         }, true);
 
-        // ##################################################################
-        // ## INÍCIO DA CORREÇÃO DE BUG (Preço sumindo no Android)
-        // ##################################################################
         tableBody.addEventListener('blur', (event) => {
             const target = event.target;
+            // CORREÇÃO: Pega a linha do evento
             const row = target.closest('tr'); 
             
-            // CORREÇÃO: Salva Imediatamente no Blur (Commit)
-            // Se for um campo de preço e NÃO for da linha de adicionar
+            // CORREÇÃO: SÓ formata/salva se for um campo de preço e NÃO for da "add-item-row"
             if (target.tagName.toLowerCase() === 'input' && target.type === 'text' && row && !row.classList.contains('add-item-row')) {
-                clearTimeout(saveTimeout); // Cancela qualquer save pendente do 'input'
-                
                 formatCurrency(event.target);
                 comparePrices(event.target);
-                
-                // saveList() já chama setSyncStatus('syncing')
-                saveList(); // Salva imediatamente, não debounced
+                setSyncStatus('syncing'); // Define 'syncing' no blur
+                debouncedSave();
             }
 
             // Lógica do autocomplete (não muda)
