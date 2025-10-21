@@ -65,9 +65,9 @@
   </div>
 
   <script>
-    // IMPORTANTE: Substitua esta URL pela URL do SEU Worker
-    // que você obterá no fnal da configuração do Cloudflare.
-    const WORKER_URL = 'https://meumercadoeditando.dex-teste.workers.dev'; // <-- VOCÊ PRECISA MUDAR ISSO!
+    // IMPORTANTE: Esta URL agora é RELATIVA.
+    // Ela aponta para o arquivo /functions/shopping-list.js
+    const WORKER_URL = '/shopping-list'; // <-- ESTA É A MUDANÇA
 
     // Função para buscar e enderizar a lista
     async function fetchShoppingList() {
@@ -75,7 +75,8 @@
       const statusMessage = document.getElementById('status-message');
 
       try {
-        const response = await fetch(WORKER_URL);
+        // O navegador vai chamar: https://teste-k7b.pages.dev/shopping-list
+        const response = await fetch(WORKER_URL); 
 
         if (!response.ok) {
           // Captura erros de HTTP (como 404 ou 500)
