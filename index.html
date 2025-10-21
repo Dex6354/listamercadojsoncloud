@@ -1,446 +1,116 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meus Itens Salvos - Meu Mercado</title>
-    <link rel="icon" href="01.png" type="image/png">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    
-    <style>
-        :root {
-            --bg-color: #212121;
-            --card-color: #2c2c2c;
-            --text-color: #f0f0f0;
-            --secondary-text-color: #a0a0a0;
-            --primary-color: #ffc107;
-            --green-highlight: #4CAF50;
-            --danger-color: #f44336;
-            --yellow-sync-color: #ffc107;
-            --border-radius: 12px;
-            --input-bg-color: #383838;
-            --menu-width: 250px;
-        }
-
-        *, *::before, *::after { box-sizing: border-box; }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow-x: hidden;
-        }
-        
-        /* Ocultar auth-container por padrão neste arquivo */
-        #auth-container { display: none; }
-        
-        #app-container {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            flex-grow: 1;
-        }
-
-        /* --- HEADER --- */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--input-bg-color);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            background-color: var(--bg-color);
-        }
-        .header .title img {
-            height: 30px;
-            width: auto;
-            margin-right: 10px;
-            border-radius: 5px;
-        }
-        .header .menu-icon { font-size: 1.5rem; cursor: pointer; color: var(--primary-color); padding: 5px; }
-        .header .title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; white-space: nowrap; position: absolute; left: 50%; transform: translateX(-50%); }
-        .header .title i { margin-right: 8px; color: var(--primary-color); }
-
-        /* --- SIDE MENU & OVERLAY --- */
-        .side-menu { height: 100%; width: 0; position: fixed; z-index: 1001; top: 0; left: 0; background-color: var(--card-color); overflow-x: hidden; transition: 0.3s; padding-top: 60px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
-        .side-menu.open { width: var(--menu-width); }
-        .side-menu .close-btn { position: absolute; top: 15px; right: 25px; font-size: 2rem; color: var(--primary-color); cursor: pointer; line-height: 1; }
-        .side-menu a { padding: 15px 20px; text-decoration: none; font-size: 1.1rem; color: var(--text-color); display: block; transition: 0.3s; border-bottom: 1px solid var(--input-bg-color); }
-        .side-menu a:hover { background-color: #575757; color: var(--primary-color); }
-        .side-menu a i { color: var(--primary-color); width: 20px; text-align: center; margin-right: 10px; }
-        #page-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; display: none; transition: opacity 0.3s; }
-        #page-overlay.show { display: block; }
-
-        /* --- CONTEÚDO PRINCIPAL --- */
-        .container {
-            padding: 20px 16px;
-            max-width: 100%;
-            margin: 0;
-            flex-grow: 1;
-        }
-
-        .section {
-            background-color: var(--card-color);
-            padding: 20px 16px;
-            border-radius: var(--border-radius);
-            margin: 0 0 24px 0;
-        }
-        
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .section-header h2 { margin: 0; font-size: 1.5rem; color: var(--primary-color); }
-
-        /* --- BOTÕES --- */
-        .custom-btn { background-color: var(--primary-color); color: var(--bg-color); border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold; padding: 10px 15px; transition: background-color 0.3s; }
-        .custom-btn:hover { background-color: #ffd54f; }
-        .custom-btn.secondary { background-color: var(--input-bg-color); color: var(--text-color); }
-        .custom-btn.secondary:hover { background-color: #555; }
-
-        /* --- TABELA DE ITENS SALVOS --- */
-        .table-scroll-wrapper { overflow-x: auto; width: 100%; }
-        .items-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .items-table th, .items-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--input-bg-color); vertical-align: middle; }
-        .items-table th { font-size: 0.8rem; color: var(--secondary-text-color); text-transform: uppercase; }
-        .items-table th:first-child, .items-table td:first-child { padding-left: 0; }
-        .items-table th:last-child, .items-table td:last-child { padding-right: 0; }
-        
-        .items-table .item-text-input { 
-            width: 100%; 
-            background: none; 
-            border: none; 
-            color: var(--text-color); 
-            font-size: 1rem; 
-            font-family: inherit; 
-            padding: 4px 0; 
-            border-radius: 4px;
-        }
-        .items-table .item-text-input:focus { outline: none; background-color: var(--input-bg-color); }
-
-        .items-table .action-btn { 
-            background: none; 
-            border: none; 
-            color: var(--danger-color); 
-            cursor: pointer; 
-            font-size: 1.2rem; 
-            transition: color 0.3s; 
-            padding: 0;
-            width: 20px; 
-        }
-        .items-table .action-btn:hover { color: #ff7961; }
-        .items-table .action-btn.add { color: var(--green-highlight); }
-        .items-table .action-btn.add:hover { color: #81c784; }
-
-        #sync-status-indicator { 
-            width: 12px; 
-            height: 12px; 
-            border-radius: 50%; 
-            background-color: var(--green-highlight); 
-            z-index: 11; 
-            transition: background-color 0.5s ease; 
-            flex-shrink: 0;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        #username-display {
-            color: var(--secondary-text-color);
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        #sync-status-indicator.status-syncing { background-color: var(--yellow-sync-color); }
-        #sync-status-indicator.status-error { background-color: var(--danger-color); }
-        #sync-status-indicator.status-saved { background-color: var(--green-highlight); }
-        #sync-status-indicator.status-offline { background-color: #7986cb; }
-
-        .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
-        
-    </style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lista de Compras Dinâmica</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f7f9;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background-color: white;
+      padding: 2rem 3rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      width: 90%;
+      max-width: 500px;
+      text-align: center;
+    }
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 1.5rem;
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+      text-align: left;
+    }
+    li {
+      background-color: #ecf0f1;
+      border-radius: 5px;
+      padding: 0.8rem 1rem;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+      transition: transform 0.2s;
+    }
+    li:hover {
+      transform: scale(1.02);
+    }
+    .status {
+      font-style: italic;
+      color: #7f8c8d;
+      height: 20px;
+    }
+    .error {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
-    
-    <div id="app-container">
-        <div id="side-menu" class="side-menu">
-            <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
-            <a href="index.html"><i class="fas fa-list-check"></i> Minha Lista</a>
-            <a href="#"><i class="fas fa-archive"></i> Meus Itens Salvos</a>
-            <a href="#"><i class="fas fa-history"></i> Histórico</a>
-            <a href="#"><i class="fas fa-tags"></i> Ofertas</a>
-            <a href="javascript:void(0)" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Sair</a>
-        </div>
-        <div id="page-overlay" onclick="closeNav()"></div>
 
-        <div id="main-content-wrapper">
-            <div class="header">
-                <span class="menu-icon" onclick="openNav()">&#9776;</span>
-                <span class="title">
-                    <img src="01.png" alt="Ícone">
-                    Itens Salvos
-                </span>
+  <div class="container">
+    <h1>🛒 Minha Lista de Compras</h1>
+    <p class="status" id="status-message">Carregando itens do Cloudflare...</p>
+    <ul id="shopping-list">
+      </ul>
+  </div>
 
-                <div class="header-right">
-                    <span id="username-display"></span>
-                    <div id="sync-status-indicator"></div>
-                </div>
-            </div>
+  <script>
+    // IMPORTANTE: Substitua esta URL pela URL do seu Worker
+    // que você obterá no final da configuração do Cloudflare.
+    const WORKER_URL = 'https://seu-worker.seu-subdominio.workers.dev';
 
-            <div class="container">
-                <div class="section">
-                    <div class="section-header">
-                        <h2>Lista de Itens (Nome e Preço)</h2>
-                    </div>
+    // Função para buscar e renderizar a lista
+    async function fetchShoppingList() {
+      const listElement = document.getElementById('shopping-list');
+      const statusMessage = document.getElementById('status-message');
 
-                    <div class="table-scroll-wrapper">
-                        <table class="items-table">
-                            <thead>
-                                <tr>
-                                    <th>Item (ex: Banana R$5,00)</th>
-                                    <th style="width: 40px;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="items-table-body">
-                                <tr class="add-item-row">
-                                    <td>
-                                        <input type="text" id="newItemInput" class="item-text-input" placeholder="Adicionar novo item e preço (ex: Maçã R$10,00)">
-                                    </td>
-                                    <td>
-                                        <button class="action-btn add" onclick="addItem()"><i class="fas fa-plus"></i></button>
-                                    </td>
-                                </tr>
-                                </tbody>
-                        </table>
-                    </div>
-                    
-                </div>
-            </div>
+      try {
+        const response = await fetch(WORKER_URL);
 
-            <footer class="footer">
-                Gerencie seus itens pre-salvos para a lista de compras.
-            </footer>
-        </div>
-    </div>
-
-<script>
-    // --- LÓGICA DE AUTENTICAÇÃO E UTILS ---
-    const itemsTableBody = document.getElementById('items-table-body');
-    const newItemInput = document.getElementById('newItemInput');
-    const statusIndicator = document.getElementById('sync-status-indicator');
-    let saveTimeout;
-    let syncState = 'saved';
-    
-    // ATENÇÃO: Se o Worker estiver em um domínio diferente, mude para a URL completa:
-    // Exemplo: const KV_API_ENDPOINT = 'https://seu-worker-name.workers.dev/api/saved_items'; 
-    const KV_API_ENDPOINT = '/api/saved_items'; 
-
-    function getAuthHeaders() {
-        return {
-            'Content-Type': 'application/json',
-            // Removido o token, pois Workers KV Bindings não precisam de Authorization Header
-            // aqui a menos que o Worker esteja configurado para isso.
-        };
-    }
-
-    async function handleLogout() {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('currentUser');
-        window.location.href = 'index.html'; 
-    }
-
-    function checkAuth() {
-        const usernameDisplay = document.getElementById('username-display');
-        const username = localStorage.getItem('currentUser');
-        if (username) {
-            usernameDisplay.innerHTML = `<i class="fas fa-user"></i> ${username}`;
+        if (!response.ok) {
+          // Captura erros de HTTP (como 404 ou 500)
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
         }
-        return true;
-    }
-    
-    function setSyncStatus(newState) {
-        syncState = newState;
-        statusIndicator.className = `status-${newState}`;
-        if (newState === 'error') {
-            setTimeout(() => { if (syncState === 'error') setSyncStatus('saved'); }, 3000);
+
+        const items = await response.json();
+
+        // Limpa a mensagem de status e a lista atual
+        statusMessage.textContent = '';
+        listElement.innerHTML = '';
+
+        if (items.length === 0) {
+          statusMessage.textContent = 'A lista de compras está vazia!';
+          return;
         }
-    }
 
-    function debounce(func, delay) {
-        return function(...args) {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => func.apply(this, args), delay);
-        };
-    }
-
-    function openNav() { document.getElementById("side-menu").classList.add('open'); document.getElementById("page-overlay").classList.add('show'); }
-    function closeNav() { document.getElementById("side-menu").classList.remove('open'); document.getElementById("page-overlay").classList.remove('show'); }
-    document.addEventListener('keydown', (event) => { if (event.key === "Escape") closeNav(); });
-
-
-    // --- LÓGICA DE ITENS SALVOS ---
-    
-    // Funcao de Ordenação: Garante a ordem alfabética no frontend
-    function sortItems(a, b) {
-        const cleanA = a.nome.replace(/^[^a-zA-Z\d\s]+/, '').trim().toLowerCase();
-        const cleanB = b.nome.replace(/^[^a-zA-Z\d\s]+/, '').trim().toLowerCase();
-        return cleanA.localeCompare(cleanB, 'pt-BR', { sensitivity: 'base' });
-    }
-
-    // Pega a lista atualizada dos itens na UI
-    function getCurrentLocalItems() {
-        const items = [];
-        // Seleciona todas as linhas exceto a de adição
-        document.querySelectorAll('#items-table-body tr:not(.add-item-row)').forEach(row => {
-            const item_text = row.querySelector('.item-text-input').value.trim();
-            if (item_text) {
-                // Mapeia para a estrutura do KV: { nome: "..." }
-                items.push({ nome: item_text });
-            }
-        });
-        // Força a ordenação
-        return items.sort(sortItems);
-    }
-
-    // Salva a lista inteira no Worker (PUT)
-    async function saveItems() {
-        let items = getCurrentLocalItems();
-        setSyncStatus('syncing');
-
-        try {
-            const response = await fetch(KV_API_ENDPOINT, {
-                method: 'PUT',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(items)
-            });
-
-            if (!response.ok) throw new Error(`Falha ao salvar itens. Status: ${response.status}`);
-            
-            // O Worker salvou e ordenou. Redesenha a UI com o array local ordenado.
-            redrawTable(items); 
-            setSyncStatus('saved');
-
-        } catch (error) {
-            console.error("Erro ao salvar itens no KV:", error);
-            setSyncStatus('error');
-        }
-    }
-
-    // Carrega os itens salvos do Worker (GET)
-    async function loadItems() {
-        if (!checkAuth()) return;
-        setSyncStatus('syncing');
-
-        try {
-            const response = await fetch(KV_API_ENDPOINT, { headers: getAuthHeaders() });
-            
-            if (response.status === 404) {
-                // 404 é tratado como lista vazia
-                redrawTable([]);
-                setSyncStatus('saved');
-                return;
-            }
-            if (!response.ok) throw new Error(`Falha ao buscar itens salvos. Status: ${response.status}`);
-            
-            const items = await response.json();
-            
-            // Garante que o array carregado está ordenado
-            items.sort(sortItems);
-            
-            redrawTable(items);
-            setSyncStatus('saved');
-
-        } catch (error) {
-            console.error('Erro ao carregar lista de itens salvos:', error);
-            setSyncStatus('error');
-        }
-    }
-
-    const debouncedSave = debounce(saveItems, 1500);
-
-    // Constrói o conteúdo de uma linha da tabela
-    function buildItemRow(item, targetElement) {
-        targetElement.innerHTML = `
-            <td>
-                <input type="text" class="item-text-input" value="${item.nome.replace(/"/g, '&quot;')}">
-            </td>
-            <td>
-                <button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button>
-            </td>
-        `;
-        
-        const input = targetElement.querySelector('.item-text-input');
-        input.addEventListener('input', debouncedSave); // Salva ao editar
-    }
-    
-    // Redesenha a tabela inteira (usado após load ou save)
-    function redrawTable(items) {
-        // Encontra a linha de adição
-        const addItemRow = document.querySelector('.add-item-row');
-        // Remove todos os itens, exceto a linha de adição
-        document.querySelectorAll('#items-table-body tr:not(.add-item-row)').forEach(row => row.remove());
-        
-        // Insere os itens carregados/salvos e JÁ ORDENADOS
+        // Adiciona cada item na lista na tela
         items.forEach(item => {
-            const newRow = document.createElement('tr');
-            buildItemRow(item, newRow);
-            // Insere a nova linha *antes* da linha de adição
-            itemsTableBody.insertBefore(newRow, addItemRow);
+          const listItem = document.createElement('li');
+          listItem.textContent = item.nome;
+          listElement.appendChild(listItem);
         });
+
+      } catch (error) {
+        console.error('Falha ao buscar a lista de compras:', error);
+        statusMessage.textContent = `Erro ao carregar a lista: ${error.message}`;
+        statusMessage.classList.add('error');
+      }
     }
 
-    // Adiciona um novo item
-    function addItem() {
-        const itemText = newItemInput.value.trim();
-        if (!itemText) {
-            newItemInput.focus();
-            return;
-        }
+    // Executa a função quando a página terminar de carregar
+    document.addEventListener('DOMContentLoaded', fetchShoppingList);
+  </script>
 
-        const newItem = { nome: itemText };
-        
-        // 1. Recria a lista localmente, ordena e redesenha para atualização imediata da UI
-        const currentItems = getCurrentLocalItems();
-        currentItems.push(newItem);
-        currentItems.sort(sortItems);
-        redrawTable(currentItems);
-        
-        newItemInput.value = '';
-        newItemInput.focus();
-        
-        // 2. Salva a lista inteira (sincroniza com o backend)
-        saveItems();
-    }
-
-    // Remove um item
-    function removeItem(button) {
-        if (confirm('Tem certeza que deseja remover este item permanentemente?')) {
-            button.closest('tr').remove();
-            // Salva a lista inteira
-            saveItems(); 
-        }
-    }
-
-    // Event listener para adicionar com "Enter"
-    newItemInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            addItem();
-        }
-    });
-
-    // Inicia o carregamento dos itens
-    document.addEventListener('DOMContentLoaded', loadItems);
-
-</script>
 </body>
 </html>
