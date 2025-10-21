@@ -1,35 +1,12 @@
-
-// functions/api/list.js
-
-const LIST_KEY = "shopping_list";
-
-export async function onRequestGet({ env }) {
-  const listJson = await env.SHOPPING_LIST_KV.get(LIST_KEY);
-  if (!listJson) {
-    return new Response('[]', { headers: { 'Content-Type': 'application/json' } });
-  }
-  return new Response(listJson, { headers: { 'Content-Type': 'application/json' } });
-}
-
-export async function onRequestPost({ request, env }) {
-  try {
-    const newListJson = await request.text();
-    await env.SHOPPING_LIST_KV.put(LIST_KEY, newListJson);
-    return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-  } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-      }/**
+/**
  * Cloudflare Worker (functions/api/index.js)
  * Agora o endpoint externo será /functions/api/saved_items
  */
 
-const KV_KEY = 'shopping_list';
+const KV_KEY = 'shopping_list'; // Chave KV: shopping_list
 
 function sortItems(a, b) {
+    // Lógica de ordenação robusta, removendo caracteres iniciais não alfanuméricos e ignorando acentos/caixa
     const cleanA = a.nome.replace(/^[^a-zA-Z\d\s]+/, '').trim().toLowerCase();
     const cleanB = b.nome.replace(/^[^a-zA-Z\d\s]+/, '').trim().toLowerCase();
     return cleanA.localeCompare(cleanB, 'pt-BR', { sensitivity: 'base' });
@@ -38,6 +15,14 @@ function sortItems(a, b) {
 async function handlePutRequest(request, env) {
     try {
         const items = await request.json();
+        
+        // Validação básica para garantir que é um array antes de tentar sort
+        if (!Array.isArray(items)) {
+             return new Response(JSON.stringify({ message: 'Formato de dados inválido. Esperado um array.' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
         
         // Uso do binding confirmado: env.SHOPPING_LIST_KV
         await env.SHOPPING_LIST_KV.put(KV_KEY, JSON.stringify(items.sort(sortItems)));
@@ -59,6 +44,7 @@ async function handleGetRequest(env) {
         const value = await env.SHOPPING_LIST_KV.get(KV_KEY, { type: 'text' });
 
         if (value === null) {
+            // Retorna um array vazio se a chave não existir
             return new Response('[]', { 
                 status: 200,
                 headers: { 'Content-Type': 'application/json' } 
@@ -81,8 +67,7 @@ export default {
     async fetch(request, env) {
         const url = new URL(request.url);
 
-        // O Worker precisa verificar a rota que ele espera receber do frontend
-        // O caminho da URL será: /functions/api/saved_items
+        // O Worker verifica a rota que ele espera receber do frontend: /functions/api/saved_items
         if (url.pathname === '/functions/api/saved_items') {
             switch (request.method) {
                 case 'GET':
