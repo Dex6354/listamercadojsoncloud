@@ -241,37 +241,29 @@
     let saveTimeout;
     let syncState = 'saved';
     
-    // URL Fictícia para o Worker/KV, onde 'shopping_list' é a chave no namespace
-    const KV_API_ENDPOINT = '/api/saved_items?key=shopping_list'; 
+    // URL do endpoint do Cloudflare Worker
+    // Como o Worker provavelmente está na mesma origem (subdomínio worker.dev ou domínio customizado), 
+    // podemos usar a rota absoluta.
+    const KV_API_ENDPOINT = '/api/saved_items'; 
 
     function getAuthHeaders() {
-        const token = localStorage.getItem('authToken');
-        // NOTA: Em um ambiente Cloudflare Worker, a autenticação
-        // é feita pelo próprio Worker ou pela rede Cloudflare. 
-        // O token é mantido para compatibilidade, mas pode ser desnecessário dependendo da configuração.
+        // Removido o token para simplificar, pois Cloudflare KV bindings no Worker
+        // não usam Authorization header. Se você usa autenticação no Worker, 
+        // adicione aqui a lógica necessária.
         return {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            // 'Authorization': `Bearer ${localStorage.getItem('authToken')}` // Pode ser removido
         };
     }
 
     async function handleLogout() {
-        // Redireciona para a página principal para logout
         localStorage.removeItem('authToken');
         localStorage.removeItem('currentUser');
         window.location.href = 'index.html'; 
     }
 
     function checkAuth() {
-        if (!localStorage.getItem('authToken')) {
-            // Em uma app real, você pode querer manter os itens em localStorage 
-            // se o auth falhar, ou forçar o logout. Aqui mantemos a lógica original.
-            // handleLogout();
-            // return false; 
-            // Deixamos passar para que o usuário possa usar a lista se o worker não precisar de auth
-            return true;
-        }
-        // Exibe o nome de usuário
+        // Mantido apenas para simular a UI, mas não para o KV
         const usernameDisplay = document.getElementById('username-display');
         const username = localStorage.getItem('currentUser');
         if (username) {
@@ -320,7 +312,7 @@
                 items.push({ nome: item_text });
             }
         });
-        // Força a ordenação antes de salvar
+        // Força a ordenação antes de salvar (redundante, mas garante consistência)
         return items.sort(sortItems);
     }
 
@@ -328,10 +320,11 @@
     async function saveItems() {
         let items = getCurrentLocalItems();
         
-        if (items.length === 0 && !confirm("Você está prestes a apagar todos os seus itens salvos. Continuar?")) {
-             loadItems(); // Recarrega a lista do servidor
-             return;
-        }
+        // Evita a confirmação de exclusão se o usuário acabou de remover um item
+        // if (items.length === 0 && !confirm("Você está prestes a apagar todos os seus itens salvos. Continuar?")) {
+        //      loadItems(); 
+        //      return;
+        // }
         
         setSyncStatus('syncing');
 
@@ -343,18 +336,24 @@
                 body: JSON.stringify(items)
             });
 
-            if (response.status === 401) return handleLogout();
+            if (response.status === 401) {
+                // Se o Worker exigir autenticação
+                // handleLogout();
+                // return;
+            }
             if (!response.ok) throw new Error('Falha ao salvar itens no KV.');
             
-            // O KV tipicamente retorna 200/204 no PUT. Não esperamos o corpo.
-            // Para garantir a ordenação na UI, simplesmente recarregamos ou redesenhamos com o array ordenado localmente.
-            redrawTable(items); // Redesenha com o array local já ordenado
+            // O Worker (backend) já retornou o array ordenado após salvar.
+            // Para garantir que a UI reflita a ordem final, recarregamos ou redesenhamos com o array local ordenado.
+            // Vamos redesenhar com o array local que já está ordenado.
+            redrawTable(items); 
             setSyncStatus('saved');
 
         } catch (error) {
             console.error("Erro ao salvar itens no KV:", error);
             setSyncStatus('error');
-            alert('Falha ao salvar os itens: Verifique se o Worker/KV está configurado corretamente.');
+            // Alerta removido para melhor UX, mas mantido no console.
+            // alert('Falha ao salvar os itens: Verifique se o Worker/KV está configurado corretamente.');
         }
     }
 
@@ -367,7 +366,11 @@
             // GET no Cloudflare KV: Traz o array JSON completo da chave 'shopping_list'.
             const response = await fetch(KV_API_ENDPOINT, { headers: getAuthHeaders() });
             
-            if (response.status === 401) return handleLogout();
+            if (response.status === 401) {
+                // handleLogout();
+                // return;
+            }
+
             if (response.status === 404) {
                 // 404 pode significar que a chave não existe, tratamos como lista vazia
                 redrawTable([]);
@@ -379,7 +382,7 @@
             // Espera-se um array de objetos: [{ nome: "..." }, ...]
             const items = await response.json();
             
-            // Força a ordenação ao carregar
+            // O backend já deve ter retornado ordenado, mas garantimos no frontend.
             items.sort(sortItems);
             
             redrawTable(items);
@@ -388,20 +391,16 @@
         } catch (error) {
             console.error('Erro ao carregar lista de itens salvos:', error);
             setSyncStatus('error');
-            alert('Não foi possível carregar os itens salvos. Verifique os logs do seu Worker e a conexão com o KV.');
+            // alert('Não foi possível carregar os itens salvos. Verifique os logs do seu Worker e a conexão com o KV.');
         }
     }
 
     const debouncedSave = debounce(saveItems, 1500);
 
-    // Constrói uma linha da tabela
-    function buildItemRow(item) {
-        const addItemRow = document.querySelector('.add-item-row');
-        // Insere o novo item no final da lista, logo antes da linha de adição
-        const newRow = itemsTableBody.insertBefore(document.createElement('tr'), addItemRow);
-
+    // Constrói uma linha da tabela, SEMPRE inserindo no final antes da linha de adição.
+    function buildItemRow(item, targetElement) {
         // Não usamos mais 'itemId', pois o KV salva o array completo
-        newRow.innerHTML = `
+        targetElement.innerHTML = `
             <td>
                 <input type="text" class="item-text-input" value="${item.nome.replace(/"/g, '&quot;')}">
             </td>
@@ -410,7 +409,7 @@
             </td>
         `;
         
-        const input = newRow.querySelector('.item-text-input');
+        const input = targetElement.querySelector('.item-text-input');
         input.addEventListener('input', debouncedSave); // Salva ao editar
     }
     
@@ -422,19 +421,11 @@
         document.querySelectorAll('#items-table-body tr:not(.add-item-row)').forEach(row => row.remove());
         
         // Insere os itens carregados/salvos e JÁ ORDENADOS
-        // Inserimos os novos elementos *antes* da linha de adição.
         items.forEach(item => {
             const newRow = document.createElement('tr');
-            newRow.innerHTML = `
-                <td>
-                    <input type="text" class="item-text-input" value="${item.nome.replace(/"/g, '&quot;')}">
-                </td>
-                <td>
-                    <button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button>
-                </td>
-            `;
-            const input = newRow.querySelector('.item-text-input');
-            input.addEventListener('input', debouncedSave);
+            // Usa o buildItemRow para configurar o conteúdo e os eventos da nova linha
+            buildItemRow(item, newRow);
+            // Insere a nova linha *antes* da linha de adição
             itemsTableBody.insertBefore(newRow, addItemRow);
         });
     }
@@ -448,20 +439,21 @@
             return;
         }
 
-        // Adiciona na UI otimisticamente
+        // 1. Cria o novo item
         const newItem = { nome: itemText };
         
-        // Recria lista localmente com o novo item, ordena e redesenha.
-        // Isso garante que o novo item apareça na posição correta imediatamente.
+        // 2. Recria a lista localmente com o novo item
         const currentItems = getCurrentLocalItems();
         currentItems.push(newItem);
+        
+        // 3. Ordena e redesenha a tabela inteira
         currentItems.sort(sortItems);
-
         redrawTable(currentItems);
+        
         newItemInput.value = '';
         newItemInput.focus();
         
-        // Salva a lista inteira (sincroniza com o backend)
+        // 4. Salva a lista inteira (sincroniza com o backend)
         saveItems();
     }
 
