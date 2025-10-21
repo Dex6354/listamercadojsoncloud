@@ -147,6 +147,23 @@
 
         .footer { text-align: center; padding: 16px; color: var(--secondary-text-color); font-size: 0.875rem; background-color: #282828; margin-top: auto; width: 100%; }
         
+        /* NOVO: Estilo para o console de debug */
+        #debug-console {
+            background-color: #1a1a1a;
+            color: #00ff00; /* Verde néon */
+            padding: 10px;
+            font-family: 'Consolas', 'Monospace';
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border-top: 2px solid var(--primary-color);
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            position: relative;
+            z-index: 5;
+        }
+        
     </style>
 
 </head>
@@ -211,6 +228,8 @@
                 Gerencie seus itens pre-salvos para a lista de compras.
             </footer>
         </div>
+        
+        <div id="debug-console">Iniciando debug...</div> 
     </div>
 
 <script>
@@ -218,6 +237,7 @@
     const itemsTableBody = document.getElementById('items-table-body');
     const newItemInput = document.getElementById('newItemInput');
     const statusIndicator = document.getElementById('sync-status-indicator');
+    const debugConsole = document.getElementById('debug-console'); // NOVO: Objeto de debug
     let saveTimeout;
     let syncState = 'saved';
     
@@ -227,6 +247,19 @@
     function getAuthHeaders() {
         return { 'Content-Type': 'application/json' };
     }
+    
+    // NOVO: Função para logar mensagens no console de debug na tela
+    function logDebug(message) {
+        const timestamp = new Date().toLocaleTimeString('pt-BR');
+        debugConsole.innerHTML = `[${timestamp}] ${message}\n` + debugConsole.innerHTML;
+        // Limita o log para não sobrecarregar
+        const lines = debugConsole.innerHTML.split('\n');
+        if (lines.length > 15) {
+            debugConsole.innerHTML = lines.slice(0, 15).join('\n');
+        }
+    }
+    logDebug("Frontend iniciado."); // Início do log
+
 
     // Funções de UI (openNav, closeNav, setSyncStatus, etc.)
     function setSyncStatus(newState) {
@@ -272,15 +305,24 @@
     async function saveItems() {
         let items = getCurrentLocalItems();
         setSyncStatus('syncing');
+        logDebug(`PUT: Tentando salvar ${items.length} itens...`); // DEBUG
 
         try {
+            const bodyData = JSON.stringify(items);
+            logDebug(`PUT: Enviando Body: ${bodyData.substring(0, 100)}...`); // DEBUG
+            
             const response = await fetch(KV_API_ENDPOINT, {
                 method: 'PUT',
                 headers: getAuthHeaders(),
-                body: JSON.stringify(items)
+                body: bodyData
             });
 
-            if (!response.ok) throw new Error(`Falha ao salvar itens. Status: ${response.status}`);
+            const responseText = await response.text();
+            logDebug(`PUT: Resposta Status ${response.status}. Body: ${responseText.substring(0, 100)}...`); // DEBUG
+
+            if (!response.ok) {
+                 throw new Error(`Falha ao salvar itens. Status: ${response.status}. Detalhes: ${responseText}`);
+            }
             
             // Redesenha com a lista local ordenada (que deve ser igual à salva)
             redrawTable(items); 
@@ -288,6 +330,7 @@
 
         } catch (error) {
             console.error("Erro ao salvar itens no KV:", error);
+            logDebug(`PUT ERRO: ${error.message}`); // DEBUG
             setSyncStatus('error');
         }
     }
@@ -296,15 +339,21 @@
     async function loadItems() {
         if (!checkAuth()) return;
         setSyncStatus('syncing');
+        logDebug('GET: Tentando carregar itens...'); // DEBUG
 
         try {
             const response = await fetch(KV_API_ENDPOINT, { headers: getAuthHeaders() });
             
             if (!response.ok) {
-                throw new Error(`Falha ao buscar itens salvos. Status: ${response.status}`);
+                const errorText = await response.text();
+                logDebug(`GET ERRO: Status ${response.status}. Body: ${errorText.substring(0, 100)}...`); // DEBUG
+                throw new Error(`Falha ao buscar itens salvos. Status: ${response.status}. Detalhes: ${errorText}`);
             }
             
-            const items = await response.json();
+            const responseText = await response.text();
+            logDebug(`GET: Resposta Recebida: ${responseText.substring(0, 100)}...`); // DEBUG
+
+            const items = JSON.parse(responseText);
             
             // Garante que o array carregado está ordenado
             items.sort(sortItems);
@@ -314,6 +363,7 @@
 
         } catch (error) {
             console.error('Erro ao carregar lista de itens salvos:', error);
+            logDebug(`GET ERRO: ${error.message}`); // DEBUG
             setSyncStatus('error');
         }
     }
@@ -324,15 +374,14 @@
     function buildItemRow(item, targetElement) {
         targetElement.innerHTML = `
             <td>
-                <input type="text" class="item-text-input" value="${item.nome.replace(/"/g, '&quot;')}">
+                <input type="text" class="item-text-input" value="${item.nome.replace(/"/g, '&quot;')}" oninput="debouncedSave()">
             </td>
             <td>
                 <button class="action-btn" onclick="removeItem(this)"><i class="fas fa-trash-alt"></i></button>
             </td>
         `;
         
-        const input = targetElement.querySelector('.item-text-input');
-        input.addEventListener('input', debouncedSave); 
+        // Removida a linha: input.addEventListener('input', debouncedSave); e adicionado no HTML do innerHTML acima.
     }
     
     // Redesenha a tabela inteira (usado após load ou save)
